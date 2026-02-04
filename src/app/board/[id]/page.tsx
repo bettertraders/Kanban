@@ -333,7 +333,7 @@ export default function BoardPage() {
       </header>
 
       {/* Board columns */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
         {(board.columns as string[]).map(col => {
           const colTasks = filteredTasks.filter(t => t.column_name === col);
           const icon = columnIcons[col] || '📄';

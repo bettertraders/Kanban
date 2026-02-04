@@ -30,6 +30,51 @@ export async function GET(
   }
 }
 
+// PATCH /api/v1/teams/:id/members - Update a member's role
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const { id } = await params;
+    const teamId = parseInt(id);
+    
+    // Verify user is an admin
+    const membership = await isTeamMember(teamId, user.id);
+    if (!membership || membership.role !== 'admin') {
+      return NextResponse.json({ error: 'Only admins can update member roles' }, { status: 403 });
+    }
+    
+    const { userId, role } = await request.json();
+    
+    if (!userId || !role) {
+      return NextResponse.json({ error: 'userId and role are required' }, { status: 400 });
+    }
+    
+    if (!['admin', 'member'].includes(role)) {
+      return NextResponse.json({ error: 'Role must be "admin" or "member"' }, { status: 400 });
+    }
+    
+    // Verify target is a team member
+    const targetMembership = await isTeamMember(teamId, userId);
+    if (!targetMembership) {
+      return NextResponse.json({ error: 'User is not a member of this team' }, { status: 404 });
+    }
+    
+    await addTeamMember(teamId, userId, role);
+    
+    return NextResponse.json({ success: true, userId, role });
+  } catch (error) {
+    console.error('Error updating team member:', error);
+    return NextResponse.json({ error: 'Failed to update team member' }, { status: 500 });
+  }
+}
+
 // POST /api/v1/teams/:id/members - Add a team member
 export async function POST(
   request: NextRequest,

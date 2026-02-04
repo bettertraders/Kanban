@@ -22,13 +22,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Board not found or access denied' }, { status: 404 });
     }
     
+    // Normalize labels: accept string (comma-separated) or array
+    let normalizedLabels: string[] | undefined;
+    if (labels) {
+      normalizedLabels = typeof labels === 'string' 
+        ? labels.split(',').map((l: string) => l.trim()).filter(Boolean)
+        : Array.isArray(labels) ? labels : undefined;
+    }
+    
     const task = await createTask(boardId, title, user.id, {
       description,
       column,
       priority,
       assignedTo,
       dueDate: dueDate ? new Date(dueDate) : undefined,
-      labels
+      labels: normalizedLabels
     });
     
     return NextResponse.json({ task }, { status: 201 });

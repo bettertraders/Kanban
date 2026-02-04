@@ -71,15 +71,22 @@ export function TaskCard({ task, boardId, columns }: TaskCardProps) {
               <span className="text-xs text-slate-400">{task.assigned_to_name}</span>
             </div>
           )}
-          {task.labels && (task.labels as string[]).length > 0 && (
-            <div className="flex gap-1 flex-wrap">
-              {(task.labels as string[]).slice(0, 3).map((label, i) => (
-                <span key={i} className="text-xs bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded">
-                  {label}
-                </span>
-              ))}
-            </div>
-          )}
+          {task.labels && (() => {
+            const labelArr = Array.isArray(task.labels) 
+              ? task.labels 
+              : typeof task.labels === 'string' 
+                ? (task.labels as string).split(',').map(l => l.trim()).filter(Boolean)
+                : [];
+            return labelArr.length > 0 ? (
+              <div className="flex gap-1 flex-wrap">
+                {labelArr.slice(0, 3).map((label, i) => (
+                  <span key={i} className="text-xs bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded">
+                    {label}
+                  </span>
+                ))}
+              </div>
+            ) : null;
+          })()}
         </div>
       </div>
       

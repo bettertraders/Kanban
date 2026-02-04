@@ -38,7 +38,11 @@ export function TaskModal({ task, boardId, columns, onClose }: TaskModalProps) {
   const [column, setColumn] = useState(task.column_name);
   const [priority, setPriority] = useState(task.priority);
   const [labelInput, setLabelInput] = useState('');
-  const [labels, setLabels] = useState<string[]>(task.labels || []);
+  const [labels, setLabels] = useState<string[]>(() => {
+    if (Array.isArray(task.labels)) return task.labels;
+    if (typeof task.labels === 'string') return (task.labels as string).split(',').map(l => l.trim()).filter(Boolean);
+    return [];
+  });
   const [isLoading, setIsLoading] = useState(false);
 
   // Close on escape key

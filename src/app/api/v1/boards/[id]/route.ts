@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/api-auth';
-import { getBoard, getTasksForBoard } from '@/lib/database';
+import { getBoard, getTasksForBoard, pool } from '@/lib/database';
 
-// GET /api/v1/boards/:id - Get board with tasks
+// GET /api/v1/boards/:id - Get board with tasks grouped by column
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -29,9 +29,103 @@ export async function GET(
       tasks: tasks.filter(t => t.column_name === columnName)
     }));
     
-    return NextResponse.json({ board, columns });
+    return NextResponse.json({ board, columns, totalTasks: tasks.length });
   } catch (error) {
     console.error('Error fetching board:', error);
     return NextResponse.json({ error: 'Failed to fetch board' }, { status: 500 });
+  }
+}
+
+// PATCH /api/v1/boards/:id - Update board (name, description, columns)
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const boardId = parseInt(id);
+
+    const board = await getBoard(boardId, user.id);
+    if (!board) {
+      return NextResponse.json({ error: 'Board not found' }, { status: 404 });
+    }
+
+    const { name, description, columns } = await request.json();
+
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    let paramIdx = 1;
+
+    if (name !== undefined) {
+      updates.push(`name = $${paramIdx++}`);
+      values.push(name);
+    }
+    if (description !== undefined) {
+      updates.push(`description = $${paramIdx++}`);
+      values.push(description);
+    }
+    if (columns !== undefined) {
+      if (!Array.isArray(columns) || columns.length === 0) {
+        return NextResponse.json({ error: 'columns must be a non-empty array' }, { status: 400 });
+      }
+      updates.push(`columns = $${paramIdx++}`);
+      values.push(JSON.stringify(columns));
+    }
+
+    if (updates.length === 0) {
+      return NextResponse.json({ error: 'No updates provided' }, { status: 400 });
+    }
+
+    updates.push(`updated_at = NOW()`);
+    values.push(boardId);
+
+    await pool.query(
+      `UPDATE boards SET ${updates.join(', ')} WHERE id = $${paramIdx}`,
+      values
+    );
+
+    const updated = await getBoard(boardId, user.id);
+    return NextResponse.json({ board: updated });
+  } catch (error) {
+    console.error('Error updating board:', error);
+    return NextResponse.json({ error: 'Failed to update board' }, { status: 500 });
+  }
+}
+
+// DELETE /api/v1/boards/:id - Delete a board (and all its tasks)
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const boardId = parseInt(id);
+
+    const board = await getBoard(boardId, user.id);
+    if (!board) {
+      return NextResponse.json({ error: 'Board not found' }, { status: 404 });
+    }
+
+    // Don't allow deleting personal boards
+    if (board.is_personal) {
+      return NextResponse.json({ error: 'Cannot delete personal boards' }, { status: 400 });
+    }
+
+    await pool.query('DELETE FROM boards WHERE id = $1', [boardId]);
+
+    return NextResponse.json({ success: true, deleted: boardId });
+  } catch (error) {
+    console.error('Error deleting board:', error);
+    return NextResponse.json({ error: 'Failed to delete board' }, { status: 500 });
   }
 }

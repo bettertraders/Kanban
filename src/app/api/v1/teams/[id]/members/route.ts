@@ -50,17 +50,17 @@ export async function POST(
       return NextResponse.json({ error: 'Only admins can add members' }, { status: 403 });
     }
     
-    const { email, role = 'member' } = await request.json();
+    const { email, name, role = 'member' } = await request.json();
     
     if (!email) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
     
-    // Find or create the user by email
-    const newMember = await findOrCreateUser(email);
+    // Find or create the user by email, with optional name
+    const newMember = await findOrCreateUser(email, name);
     await addTeamMember(teamId, newMember.id, role);
     
-    return NextResponse.json({ success: true, member: { id: newMember.id, email: newMember.email, role } });
+    return NextResponse.json({ success: true, member: { id: newMember.id, email: newMember.email, name: newMember.name, role } });
   } catch (error) {
     console.error('Error adding team member:', error);
     return NextResponse.json({ error: 'Failed to add team member' }, { status: 500 });

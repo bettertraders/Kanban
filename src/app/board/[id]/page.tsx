@@ -70,6 +70,7 @@ export default function BoardPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addColumn, setAddColumn] = useState('Backlog');
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [teamMembers, setTeamMembers] = useState<{id: number; name: string; email: string}[]>([]);
 
   const fetchBoard = useCallback(async () => {
     try {
@@ -79,6 +80,24 @@ export default function BoardPage() {
       const b = data.boards?.find((b: Board) => b.id === parseInt(boardId));
       if (!b) { router.push('/'); return; }
       setBoard(b);
+      
+      // If team board, fetch team members for the assignee filter
+      if (b.team_slug) {
+        try {
+          const teamsRes = await fetch('/api/v1/teams');
+          if (teamsRes.ok) {
+            const teamsData = await teamsRes.json();
+            const team = teamsData.teams?.find((t: any) => t.slug === b.team_slug);
+            if (team) {
+              const membersRes = await fetch(`/api/v1/teams/${team.id}/members`);
+              if (membersRes.ok) {
+                const membersData = await membersRes.json();
+                setTeamMembers(membersData.members || []);
+              }
+            }
+          }
+        } catch {}
+      }
     } catch { router.push('/'); }
   }, [boardId, router]);
 
@@ -104,8 +123,10 @@ export default function BoardPage() {
     fetchTasks();
   }, [fetchBoard, fetchTasks]);
 
-  // Get unique assignees
-  const assignees = Array.from(new Set(tasks.map(t => t.assigned_to_name).filter(Boolean))) as string[];
+  // Get assignees from team members, falling back to task assignees
+  const assignees = teamMembers.length > 0
+    ? teamMembers.map(m => m.name).filter(Boolean)
+    : Array.from(new Set(tasks.map(t => t.assigned_to_name).filter(Boolean))) as string[];
 
   // Filter tasks
   const filteredTasks = tasks.filter(t => {

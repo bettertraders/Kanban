@@ -1,6 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/api-auth';
-import { createTask, getBoard } from '@/lib/database';
+import { createTask, getBoard, getTasksForBoard } from '@/lib/database';
+
+// GET /api/v1/tasks?boardId=N - List tasks for a board
+export async function GET(request: NextRequest) {
+  try {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const { searchParams } = new URL(request.url);
+    const boardId = searchParams.get('boardId');
+    
+    if (!boardId) {
+      return NextResponse.json({ error: 'boardId query parameter is required' }, { status: 400 });
+    }
+    
+    const board = await getBoard(parseInt(boardId), user.id);
+    if (!board) {
+      return NextResponse.json({ error: 'Board not found or access denied' }, { status: 404 });
+    }
+    
+    const tasks = await getTasksForBoard(parseInt(boardId));
+    
+    return NextResponse.json({ 
+      board: { id: board.id, name: board.name },
+      tasks,
+      count: tasks.length,
+    });
+  } catch (error) {
+    console.error('Error fetching tasks:', error);
+    return NextResponse.json({ error: 'Failed to fetch tasks' }, { status: 500 });
+  }
+}
 
 // POST /api/v1/tasks - Create a new task
 export async function POST(request: NextRequest) {

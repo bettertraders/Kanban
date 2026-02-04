@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowLeft, Key, Copy, Check } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ApiKeysPage() {
@@ -48,90 +47,121 @@ export default function ApiKeysPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900">
-      <header className="bg-slate-800 border-b border-slate-700">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link href="/" className="text-slate-400 hover:text-white">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <h1 className="text-xl font-bold">API Keys</h1>
-        </div>
-      </header>
+    <div style={{ padding: '32px clamp(20px, 4vw, 48px) 40px', maxWidth: '700px', margin: '0 auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '28px' }}>
+        <Link href="/" style={{ color: 'var(--muted)', textDecoration: 'none', fontSize: '20px' }}>←</Link>
+        <h1 style={{ fontSize: 'clamp(26px, 4vw, 36px)', fontWeight: 600, letterSpacing: '0.02em' }}>
+          🔑 API Keys
+        </h1>
+      </div>
 
-      <main className="max-w-2xl mx-auto px-4 py-8">
-        <div className="bg-slate-800 rounded-lg p-6 border border-slate-700 mb-6">
-          <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
-            <Key className="w-5 h-5" />
-            Generate New API Key
-          </h2>
-          
-          <p className="text-slate-400 text-sm mb-4">
-            API keys allow bots and scripts to access your boards. Keys are shown only once when created.
-          </p>
+      <div style={{
+        background: 'var(--panel)',
+        border: '1px solid var(--border)',
+        borderRadius: '16px',
+        padding: '24px',
+        marginBottom: '16px',
+      }}>
+        <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '12px' }}>Generate New API Key</h2>
+        <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '16px' }}>
+          API keys allow bots and scripts to access your boards. Keys are shown only once when created.
+        </p>
 
-          {error && (
-            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
-              {error}
+        {error && (
+          <div style={{
+            marginBottom: '16px', padding: '12px',
+            background: 'rgba(240, 91, 111, 0.1)', border: '1px solid rgba(240, 91, 111, 0.2)',
+            borderRadius: '10px', color: 'var(--danger)', fontSize: '13px',
+          }}>
+            {error}
+          </div>
+        )}
+
+        {newKey && (
+          <div style={{
+            marginBottom: '16px', padding: '16px',
+            background: 'rgba(58, 193, 124, 0.1)', border: '1px solid rgba(58, 193, 124, 0.2)',
+            borderRadius: '10px',
+          }}>
+            <p style={{ color: 'var(--success)', fontSize: '13px', marginBottom: '8px' }}>
+              ⚠️ Save this key now! It won&apos;t be shown again.
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <code style={{
+                flex: 1, background: 'var(--panel-2)', padding: '10px 12px',
+                borderRadius: '10px', fontSize: '13px', fontFamily: 'monospace',
+                wordBreak: 'break-all', border: '1px solid var(--border)',
+              }}>
+                {newKey}
+              </code>
+              <button
+                onClick={handleCopy}
+                style={{
+                  padding: '10px 14px', borderRadius: '10px',
+                  background: 'var(--panel-2)', border: '1px solid var(--border)',
+                  color: copied ? 'var(--success)' : 'var(--text)',
+                  cursor: 'pointer', fontSize: '14px',
+                }}
+              >
+                {copied ? '✓' : '📋'}
+              </button>
             </div>
-          )}
+          </div>
+        )}
 
-          {newKey && (
-            <div className="mb-4 p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
-              <p className="text-green-400 text-sm mb-2">
-                ⚠️ Save this key now! It won&apos;t be shown again.
-              </p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 bg-slate-900 p-2 rounded text-sm font-mono break-all">
-                  {newKey}
-                </code>
-                <button
-                  onClick={handleCopy}
-                  className="p-2 bg-slate-700 rounded hover:bg-slate-600"
-                >
-                  {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-          )}
+        <form onSubmit={handleGenerate} style={{ display: 'flex', gap: '8px' }}>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Key name (e.g., Penny Bot)"
+            required
+            style={{
+              flex: 1, padding: '10px 12px', borderRadius: '10px',
+              border: '1px solid var(--border)', background: 'var(--panel-2)',
+              color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit', outline: 'none',
+            }}
+          />
+          <button
+            type="submit"
+            disabled={isLoading || !name.trim()}
+            style={{
+              background: 'linear-gradient(135deg, var(--accent), #9a9cff)',
+              color: '#0d0d1f', border: 'none', padding: '10px 18px',
+              borderRadius: '999px', fontWeight: 600, cursor: 'pointer',
+              fontSize: '14px', opacity: isLoading || !name.trim() ? 0.5 : 1,
+            }}
+          >
+            {isLoading ? 'Generating...' : 'Generate'}
+          </button>
+        </form>
+      </div>
 
-          <form onSubmit={handleGenerate} className="flex gap-2">
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Key name (e.g., Penny Bot)"
-              className="flex-1 bg-slate-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-            <button
-              type="submit"
-              disabled={isLoading || !name.trim()}
-              className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium disabled:opacity-50"
-            >
-              {isLoading ? 'Generating...' : 'Generate'}
-            </button>
-          </form>
-        </div>
-
-        <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-          <h2 className="text-lg font-medium mb-4">Using API Keys</h2>
-          
-          <p className="text-slate-400 text-sm mb-4">
-            Include your API key in requests using the <code className="bg-slate-700 px-1 rounded">x-api-key</code> header:
-          </p>
-          
-          <pre className="bg-slate-900 p-4 rounded-lg text-sm overflow-x-auto">
-{`curl -X GET https://your-kanban-url/api/v1/boards \\
-  -H "x-api-key: kb_your_key_here"
+      <div style={{
+        background: 'var(--panel)',
+        border: '1px solid var(--border)',
+        borderRadius: '16px',
+        padding: '24px',
+      }}>
+        <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '12px' }}>Using API Keys</h2>
+        <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '16px' }}>
+          Include your API key in the <code style={{ background: 'var(--panel-2)', padding: '2px 6px', borderRadius: '4px' }}>Authorization</code> header:
+        </p>
+        <pre style={{
+          background: 'var(--panel-2)', padding: '16px', borderRadius: '10px',
+          fontSize: '12px', overflow: 'auto', border: '1px solid var(--border)',
+          lineHeight: 1.5,
+        }}>
+{`curl -X GET https://your-url/api/v1/boards \\
+  -H "Authorization: Bearer kb_your_key_here"
 
 # Create a task
-curl -X POST https://your-kanban-url/api/v1/tasks \\
-  -H "x-api-key: kb_your_key_here" \\
+curl -X POST https://your-url/api/v1/tasks \\
+  -H "Authorization: Bearer kb_your_key_here" \\
   -H "Content-Type: application/json" \\
-  -d '{"boardId": 1, "title": "New task", "column": "In Progress"}'`}
-          </pre>
-        </div>
-      </main>
+  -d '{"boardId": 1, "title": "New task"}'`}
+        </pre>
+      </div>
     </div>
   );
 }

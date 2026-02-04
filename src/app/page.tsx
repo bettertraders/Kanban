@@ -1,129 +1,98 @@
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { findOrCreateUser, getBoardsForUser, getTeamsForUser } from '@/lib/database';
-import { Plus, Users, Layout, Key, LogOut } from 'lucide-react';
+import { findOrCreateUser, getBoards } from '@/lib/database';
 import Link from 'next/link';
 
-export default async function DashboardPage() {
+export default async function HomePage() {
   const session = await getServerSession(authOptions);
   
   if (!session?.user?.email) {
     redirect('/login');
   }
 
-  const user = await findOrCreateUser(session.user.email, session.user.name || undefined, session.user.image || undefined);
-  const boards = await getBoardsForUser(user.id);
-  const teams = await getTeamsForUser(user.id);
-
-  const personalBoards = boards.filter(b => b.is_personal);
-  const teamBoards = boards.filter(b => !b.is_personal);
+  const user = await findOrCreateUser(session.user.email);
+  const boards = await getBoards(user.id);
 
   return (
-    <div className="min-h-screen bg-slate-900">
-      {/* Header */}
-      <header className="bg-slate-800 border-b border-slate-700">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-xl font-bold">Team Kanban</h1>
+    <div style={{ padding: '32px clamp(20px, 4vw, 48px) 40px', maxWidth: '1200px', margin: '0 auto' }}>
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', marginBottom: '28px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <h1 style={{ fontSize: 'clamp(26px, 4vw, 36px)', fontWeight: 600, letterSpacing: '0.02em' }}>
+            Team Kanban 🚀
+          </h1>
+          <div style={{ color: 'var(--muted)', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.2em' }}>
+            Welcome, {session.user.name?.split(' ')[0] || 'there'}
           </div>
-          <div className="flex items-center gap-4">
-            <Link href="/settings/api-keys" className="flex items-center gap-2 text-slate-400 hover:text-white">
-              <Key className="w-4 h-4" />
-              API Keys
-            </Link>
-            <div className="flex items-center gap-2">
-              {session.user.image && (
-                <img src={session.user.image} alt="" className="w-8 h-8 rounded-full" />
-              )}
-              <span className="text-sm">{session.user.name}</span>
-            </div>
-            <Link href="/api/auth/signout" className="text-slate-400 hover:text-white">
-              <LogOut className="w-5 h-5" />
-            </Link>
-          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <Link href="/teams/new" style={{
+            background: 'linear-gradient(135deg, var(--accent), #9a9cff)',
+            color: '#0d0d1f', textDecoration: 'none', padding: '10px 18px',
+            borderRadius: '999px', fontWeight: 600, fontSize: '14px',
+          }}>
+            New Team
+          </Link>
+          <Link href="/settings/api-keys" style={{
+            background: 'transparent', color: 'var(--text)',
+            border: '1px solid var(--border)', textDecoration: 'none',
+            padding: '10px 18px', borderRadius: '999px', fontWeight: 600,
+            fontSize: '14px',
+          }}>
+            API Keys
+          </Link>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Personal Boards */}
-        <section className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Layout className="w-5 h-5" />
-              Personal Boards
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {personalBoards.map(board => (
-              <Link
-                key={board.id}
-                href={`/board/${board.id}`}
-                className="bg-slate-800 p-4 rounded-lg border border-slate-700 hover:border-blue-500 transition-colors"
-              >
-                <h3 className="font-medium">{board.name}</h3>
-                {board.description && (
-                  <p className="text-sm text-slate-400 mt-1">{board.description}</p>
-                )}
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        {/* Teams Section */}
-        <section className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              Teams
-            </h2>
-            <Link
-              href="/teams/new"
-              className="flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300"
-            >
-              <Plus className="w-4 h-4" />
-              New Team
-            </Link>
-          </div>
-          
-          {teams.length === 0 ? (
-            <div className="bg-slate-800 p-6 rounded-lg border border-slate-700 text-center text-slate-400">
-              <p>No teams yet. Create one to collaborate with others!</p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+        {boards.map((board: any) => (
+          <Link
+            key={board.id}
+            href={`/board/${board.id}`}
+            style={{
+              background: 'var(--panel)',
+              border: '1px solid var(--border)',
+              borderRadius: '16px',
+              padding: '24px',
+              textDecoration: 'none',
+              color: 'var(--text)',
+              transition: 'border-color 0.2s ease, transform 0.2s ease',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 600 }}>{board.name}</h2>
+              {board.is_personal ? (
+                <span style={{
+                  fontSize: '11px', padding: '4px 8px', borderRadius: '999px',
+                  background: 'rgba(123, 125, 255, 0.12)', border: '1px solid rgba(123, 125, 255, 0.2)',
+                  color: 'var(--accent)',
+                }}>
+                  Personal
+                </span>
+              ) : (
+                <span style={{
+                  fontSize: '11px', padding: '4px 8px', borderRadius: '999px',
+                  background: 'rgba(58, 193, 124, 0.12)', border: '1px solid rgba(58, 193, 124, 0.2)',
+                  color: 'var(--success)',
+                }}>
+                  {board.team_name}
+                </span>
+              )}
             </div>
-          ) : (
-            <div className="space-y-4">
-              {teams.map(team => (
-                <div key={team.id} className="bg-slate-800 rounded-lg border border-slate-700">
-                  <Link href={`/teams/${team.id}`} className="block p-4 border-b border-slate-700 hover:bg-slate-750 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium">{team.name}</h3>
-                        {team.description && (
-                          <p className="text-sm text-slate-400">{team.description}</p>
-                        )}
-                      </div>
-                      <span className="text-xs bg-slate-700 px-2 py-1 rounded-full">{team.user_role}</span>
-                    </div>
-                  </Link>
-                  <div className="p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {teamBoards.filter(b => b.team_id === team.id).map(board => (
-                        <Link
-                          key={board.id}
-                          href={`/board/${board.id}`}
-                          className="bg-slate-700 p-3 rounded-lg hover:bg-slate-600 transition-colors"
-                        >
-                          <h4 className="font-medium text-sm">{board.name}</h4>
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ))}
+            {board.description && (
+              <p style={{ fontSize: '13px', color: 'var(--muted)', lineHeight: 1.4 }}>
+                {board.description}
+              </p>
+            )}
+            <div style={{ fontSize: '12px', color: 'var(--muted)' }}>
+              {(board.columns as string[])?.length || 4} columns
             </div>
-          )}
-        </section>
-      </main>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

@@ -94,13 +94,17 @@ export default async function DashboardPage() {
             <div className="space-y-4">
               {teams.map(team => (
                 <div key={team.id} className="bg-slate-800 rounded-lg border border-slate-700">
-                  <div className="p-4 border-b border-slate-700">
-                    <h3 className="font-medium">{team.name}</h3>
-                    {team.description && (
-                      <p className="text-sm text-slate-400">{team.description}</p>
-                    )}
-                    <span className="text-xs text-slate-500">Role: {team.user_role}</span>
-                  </div>
+                  <Link href={`/teams/${team.id}`} className="block p-4 border-b border-slate-700 hover:bg-slate-750 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-medium">{team.name}</h3>
+                        {team.description && (
+                          <p className="text-sm text-slate-400">{team.description}</p>
+                        )}
+                      </div>
+                      <span className="text-xs bg-slate-700 px-2 py-1 rounded-full">{team.user_role}</span>
+                    </div>
+                  </Link>
                   <div className="p-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       {teamBoards.filter(b => b.team_id === team.id).map(board => (

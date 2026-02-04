@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { findOrCreateUser, getBoards } from '@/lib/database';
+import { findOrCreateUser, getBoardsForUser } from '@/lib/database';
 import Link from 'next/link';
 
 export default async function HomePage() {
@@ -12,7 +12,7 @@ export default async function HomePage() {
   }
 
   const user = await findOrCreateUser(session.user.email);
-  const boards = await getBoards(user.id);
+  const boards = await getBoardsForUser(user.id);
 
   return (
     <div style={{ padding: '32px clamp(20px, 4vw, 48px) 40px', maxWidth: '1200px', margin: '0 auto' }}>

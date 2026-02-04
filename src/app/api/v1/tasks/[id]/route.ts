@@ -58,7 +58,25 @@ export async function PATCH(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
     
-    const updates = await request.json();
+    const rawUpdates = await request.json();
+    
+    // Normalize field names from API-friendly to DB column names
+    const updates: Record<string, unknown> = {};
+    if (rawUpdates.title !== undefined) updates.title = rawUpdates.title;
+    if (rawUpdates.description !== undefined) updates.description = rawUpdates.description;
+    if (rawUpdates.column !== undefined) updates.column_name = rawUpdates.column;
+    if (rawUpdates.column_name !== undefined) updates.column_name = rawUpdates.column_name;
+    if (rawUpdates.priority !== undefined) updates.priority = rawUpdates.priority;
+    if (rawUpdates.assignedTo !== undefined) updates.assigned_to = rawUpdates.assignedTo;
+    if (rawUpdates.assigned_to !== undefined) updates.assigned_to = rawUpdates.assigned_to;
+    if (rawUpdates.dueDate !== undefined) updates.due_date = rawUpdates.dueDate;
+    if (rawUpdates.due_date !== undefined) updates.due_date = rawUpdates.due_date;
+    if (rawUpdates.labels !== undefined) {
+      updates.labels = typeof rawUpdates.labels === 'string'
+        ? rawUpdates.labels.split(',').map((l: string) => l.trim()).filter(Boolean)
+        : rawUpdates.labels;
+    }
+    
     const updatedTask = await updateTask(taskId, updates);
     
     return NextResponse.json({ task: updatedTask });

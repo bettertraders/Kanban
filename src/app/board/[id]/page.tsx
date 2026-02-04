@@ -186,8 +186,9 @@ export default function BoardPage() {
     e.preventDefault();
     const form = e.currentTarget;
     const formData = new FormData(form);
+    const assignedToVal = formData.get('assignedTo') as string;
     
-    const body = {
+    const body: Record<string, unknown> = {
       boardId: parseInt(boardId),
       title: formData.get('title'),
       description: formData.get('description'),
@@ -195,6 +196,9 @@ export default function BoardPage() {
       priority: (formData.get('priority') as string).toLowerCase(),
       labels: (formData.get('labels') as string || '').split(',').map(l => l.trim()).filter(Boolean),
     };
+    if (assignedToVal && assignedToVal !== 'unassigned') {
+      body.assignedTo = parseInt(assignedToVal);
+    }
 
     try {
       const res = await fetch('/api/v1/tasks', {
@@ -216,12 +220,14 @@ export default function BoardPage() {
     const form = e.currentTarget;
     const formData = new FormData(form);
 
-    const body = {
+    const assignedToVal = formData.get('assignedTo') as string;
+    const body: Record<string, unknown> = {
       title: formData.get('title'),
       description: formData.get('description'),
       column: formData.get('column'),
       priority: (formData.get('priority') as string).toLowerCase(),
       labels: (formData.get('labels') as string || '').split(',').map(l => l.trim()).filter(Boolean),
+      assignedTo: assignedToVal === 'unassigned' ? null : assignedToVal ? parseInt(assignedToVal) : undefined,
     };
 
     try {
@@ -527,6 +533,13 @@ export default function BoardPage() {
                   </select>
                 </div>
                 <div>
+                  <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Assignee</label>
+                  <select name="assignedTo" defaultValue="unassigned" style={inputStyle}>
+                    <option value="unassigned">Unassigned</option>
+                    {teamMembers.map(m => <option key={m.id} value={String(m.id)}>{m.name}</option>)}
+                  </select>
+                </div>
+                <div>
                   <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Labels (comma separated)</label>
                   <input name="labels" placeholder="api, ux" style={inputStyle} />
                 </div>
@@ -579,6 +592,13 @@ export default function BoardPage() {
                   <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Column</label>
                   <select name="column" defaultValue={editingTask.column_name} style={inputStyle}>
                     {board.columns.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Assignee</label>
+                  <select name="assignedTo" defaultValue={editingTask.assigned_to ? String(editingTask.assigned_to) : 'unassigned'} style={inputStyle}>
+                    <option value="unassigned">Unassigned</option>
+                    {teamMembers.map(m => <option key={m.id} value={String(m.id)}>{m.name}</option>)}
                   </select>
                 </div>
                 <div>

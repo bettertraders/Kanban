@@ -1,64 +1,124 @@
-import Image from "next/image";
+import { redirect } from 'next/navigation';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { findOrCreateUser, getBoardsForUser, getTeamsForUser } from '@/lib/database';
+import { Plus, Users, Layout, Key, LogOut } from 'lucide-react';
+import Link from 'next/link';
 
-export default function Home() {
+export default async function DashboardPage() {
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.email) {
+    redirect('/login');
+  }
+
+  const user = await findOrCreateUser(session.user.email, session.user.name || undefined, session.user.image || undefined);
+  const boards = await getBoardsForUser(user.id);
+  const teams = await getTeamsForUser(user.id);
+
+  const personalBoards = boards.filter(b => b.is_personal);
+  const teamBoards = boards.filter(b => !b.is_personal);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-slate-900">
+      {/* Header */}
+      <header className="bg-slate-800 border-b border-slate-700">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h1 className="text-xl font-bold">Team Kanban</h1>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link href="/settings/api-keys" className="flex items-center gap-2 text-slate-400 hover:text-white">
+              <Key className="w-4 h-4" />
+              API Keys
+            </Link>
+            <div className="flex items-center gap-2">
+              {session.user.image && (
+                <img src={session.user.image} alt="" className="w-8 h-8 rounded-full" />
+              )}
+              <span className="text-sm">{session.user.name}</span>
+            </div>
+            <Link href="/api/auth/signout" className="text-slate-400 hover:text-white">
+              <LogOut className="w-5 h-5" />
+            </Link>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        {/* Personal Boards */}
+        <section className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Layout className="w-5 h-5" />
+              Personal Boards
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {personalBoards.map(board => (
+              <Link
+                key={board.id}
+                href={`/board/${board.id}`}
+                className="bg-slate-800 p-4 rounded-lg border border-slate-700 hover:border-blue-500 transition-colors"
+              >
+                <h3 className="font-medium">{board.name}</h3>
+                {board.description && (
+                  <p className="text-sm text-slate-400 mt-1">{board.description}</p>
+                )}
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* Teams Section */}
+        <section className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Teams
+            </h2>
+            <Link
+              href="/teams/new"
+              className="flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300"
+            >
+              <Plus className="w-4 h-4" />
+              New Team
+            </Link>
+          </div>
+          
+          {teams.length === 0 ? (
+            <div className="bg-slate-800 p-6 rounded-lg border border-slate-700 text-center text-slate-400">
+              <p>No teams yet. Create one to collaborate with others!</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {teams.map(team => (
+                <div key={team.id} className="bg-slate-800 rounded-lg border border-slate-700">
+                  <div className="p-4 border-b border-slate-700">
+                    <h3 className="font-medium">{team.name}</h3>
+                    {team.description && (
+                      <p className="text-sm text-slate-400">{team.description}</p>
+                    )}
+                    <span className="text-xs text-slate-500">Role: {team.user_role}</span>
+                  </div>
+                  <div className="p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {teamBoards.filter(b => b.team_id === team.id).map(board => (
+                        <Link
+                          key={board.id}
+                          href={`/board/${board.id}`}
+                          className="bg-slate-700 p-3 rounded-lg hover:bg-slate-600 transition-colors"
+                        >
+                          <h4 className="font-medium text-sm">{board.name}</h4>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </main>
     </div>
   );

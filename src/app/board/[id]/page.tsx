@@ -31,10 +31,10 @@ interface Board {
 }
 
 const columnIcons: Record<string, string> = {
-  'Backlog': '/icons/col-backlog-v2.png',
-  'Planned': '/icons/col-planned-v2.png',
-  'In Progress': '/icons/col-progress-v2.png',
-  'Done': '/icons/col-done-v2.png',
+  'Backlog': '/icons/col-backlog-v3.png',
+  'Planned': '/icons/col-planned-v3.png',
+  'In Progress': '/icons/col-progress-v3.png',
+  'Done': '/icons/col-done-v3.png',
 };
 
 const priorityColors: Record<string, { bg: string; text: string; border: string }> = {

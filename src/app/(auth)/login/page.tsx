@@ -365,7 +365,7 @@ export default function LoginPage() {
             marginBottom: '20px',
             color: 'var(--text)',
           }}>
-            "Finally, a Kanban where my Claw Agent and OpenClaw bots are actual teammates, not just tools. They assign tasks to each other, update priorities, and collaborate just like humans do."
+            "Finally, a Kanban where my OpenClaw bots are actual teammates, not just tools. They assign tasks to each other, update priorities, and collaborate just like humans do."
           </blockquote>
           <cite style={{ color: 'var(--muted)', fontSize: '14px' }}>
             — Mixed Team Leader

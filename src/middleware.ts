@@ -8,6 +8,7 @@ export async function middleware(request: NextRequest) {
   // Allow public routes and static assets
   if (
     pathname.startsWith('/login') ||
+    pathname.startsWith('/signin') ||
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/setup') ||
     pathname.startsWith('/api/v1') || // API routes handle their own auth

@@ -26,21 +26,13 @@ export default async function HomePage() {
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', marginBottom: '28px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ width: '32px', height: '32px' }}>
-              <svg viewBox="0 0 240 60" style={{ width: '100%', height: '100%' }}>
-                <g fill="#7b7dff">
-                  <path d="M8 20c-4 0-7 3-7 7s3 7 7 7c2 0 4-1 5-2l8-8c-2-2-4-4-6-4z"/>
-                  <path d="M32 20c2 0 4 2 6 4l-8 8c-1 1-3 2-5 2-4 0-7-3-7-7s3-7 7-7z"/>
-                  <circle cx="20" cy="27" r="3"/>
-                </g>
-              </svg>
-            </div>
+            <img src="/icons/clawdesk-mark.png" alt="ClawDesk" style={{ width: '32px', height: '32px', borderRadius: '8px' }} />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <h1 style={{ fontSize: 'clamp(26px, 4vw, 36px)', fontWeight: 600, letterSpacing: '0.02em', margin: 0 }}>
                 ClawDesk
               </h1>
               <div style={{ color: 'var(--muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.2em' }}>
-                Welcome, {session.user.name?.split(' ')[0] || 'there'}
+                Your boards
               </div>
             </div>
           </div>

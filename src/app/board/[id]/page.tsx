@@ -261,6 +261,7 @@ export default function BoardPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <Link href="/" style={{ color: 'var(--muted)', textDecoration: 'none', fontSize: '20px' }}>←</Link>
+            <img src="/icons/clawdesk-mark.png" alt="ClawDesk" style={{ width: '24px', height: '24px', borderRadius: '6px' }} />
             <h1 style={{ fontSize: 'clamp(26px, 4vw, 36px)', fontWeight: 600, letterSpacing: '0.02em' }}>
               {board.name}
             </h1>

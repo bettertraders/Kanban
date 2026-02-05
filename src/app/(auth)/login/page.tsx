@@ -42,15 +42,7 @@ export default function LoginPage() {
         zIndex: 2,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '32px', height: '32px' }}>
-            <svg viewBox="0 0 240 60" style={{ width: '100%', height: '100%' }}>
-              <g fill="#7b7dff">
-                <path d="M8 20c-4 0-7 3-7 7s3 7 7 7c2 0 4-1 5-2l8-8c-2-2-4-4-6-4z"/>
-                <path d="M32 20c2 0 4 2 6 4l-8 8c-1 1-3 2-5 2-4 0-7-3-7-7s3-7 7-7z"/>
-                <circle cx="20" cy="27" r="3"/>
-              </g>
-            </svg>
-          </div>
+          <img src="/icons/clawdesk-mark.png" alt="ClawDesk" style={{ width: '32px', height: '32px', borderRadius: '8px' }} />
           <span style={{ fontSize: '20px', fontWeight: '600', color: 'var(--text)' }}>ClawDesk</span>
         </div>
         
@@ -205,10 +197,10 @@ export default function LoginPage() {
             marginBottom: '24px' 
           }}>
             {[
-              { name: 'OpenClaw Bots', icon: '🦞' },
-              { name: 'Claude Agents', icon: '🤖' }, 
-              { name: 'Custom AI', icon: '⚡' },
-              { name: 'Human Teams', icon: '👥' }
+              { name: 'OpenClaw Bots', icon: '/icons/member-openclaw.png' },
+              { name: 'Claude Agents', icon: '/icons/member-claude.png' }, 
+              { name: 'Custom AI', icon: '/icons/member-custom-ai.png' },
+              { name: 'Human Teams', icon: '/icons/member-humans.png' }
             ].map((member, i) => (
               <div key={i} style={{
                 display: 'flex',
@@ -219,7 +211,7 @@ export default function LoginPage() {
                 borderRadius: '999px',
                 border: '1px solid var(--border)',
               }}>
-                <span style={{ fontSize: '20px' }}>{member.icon}</span>
+                <img src={member.icon} alt="" style={{ width: '24px', height: '24px', borderRadius: '6px' }} />
                 <span style={{ fontSize: '14px', fontWeight: '500' }}>{member.name}</span>
               </div>
             ))}
@@ -254,22 +246,22 @@ export default function LoginPage() {
           }}>
             {[
               {
-                emoji: '🤝',
+                icon: '/icons/feat-ai-teammates.png',
                 title: 'True AI Teammates',
                 description: 'Your Claude agents, OpenClaw bots, and other AI teammates get the same task access as humans — they\'re not assistants, they\'re colleagues.'
               },
               {
-                emoji: '🔄',
+                icon: '/icons/feat-realtime.png',
                 title: 'Real-Time Collaboration',
                 description: 'Watch your AI agents move tasks, update priorities, and collaborate in real-time alongside your human team members.'
               },
               {
-                emoji: '🔌',
+                icon: '/icons/feat-api.png',
                 title: 'API-First Design',
                 description: 'Every click in the UI has an API endpoint. Your AI agents can create, assign, and manage tasks with the same permissions as humans.'
               },
               {
-                emoji: '👥',
+                icon: '/icons/feat-mixed-teams.png',
                 title: 'Mixed Team Management',
                 description: 'Assign tasks to humans or AI agents seamlessly. Create teams with both bots and people. Everyone has a voice.'
               }
@@ -292,7 +284,7 @@ export default function LoginPage() {
                 (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
                 (e.currentTarget as HTMLElement).style.boxShadow = 'none';
               }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px' }}>{feature.emoji}</div>
+                <img src={feature.icon} alt="" style={{ width: '64px', height: '64px', borderRadius: '12px', marginBottom: '16px' }} />
                 <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '12px' }}>
                   {feature.title}
                 </h3>

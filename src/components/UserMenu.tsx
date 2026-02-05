@@ -90,7 +90,20 @@ export function UserMenu() {
               <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{user.email}</div>
             </div>
             <button
-              onClick={() => signOut({ callbackUrl: '/login' })}
+              onClick={async () => {
+                // Clear any cached data
+                if (typeof window !== 'undefined') {
+                  // Clear session storage
+                  sessionStorage.clear();
+                  // Clear any service worker caches
+                  if ('caches' in window) {
+                    const cacheKeys = await caches.keys();
+                    await Promise.all(cacheKeys.map(key => caches.delete(key)));
+                  }
+                }
+                // Sign out and redirect
+                await signOut({ callbackUrl: '/login', redirect: true });
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',

@@ -173,9 +173,11 @@ export default function LoginPage() {
           <div style={{ 
             display: 'flex', 
             justifyContent: 'center', 
-            gap: '48px', 
-            flexWrap: 'wrap',
-            marginBottom: '32px' 
+            gap: '20px', 
+            flexWrap: 'nowrap',
+            marginBottom: '32px',
+            maxWidth: '900px',
+            margin: '0 auto 32px auto',
           }}>
             {[
               { name: 'OpenClaw Bots', icon: '/icons/member-openclaw.png' },
@@ -187,15 +189,16 @@ export default function LoginPage() {
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                gap: '16px',
-                padding: '24px 32px',
+                gap: '12px',
+                padding: '16px 20px',
                 background: 'rgba(26, 26, 46, 0.6)',
-                borderRadius: '24px',
+                borderRadius: '20px',
                 border: '1px solid var(--border)',
-                minWidth: '160px',
+                flex: '1 1 0',
+                maxWidth: '200px',
               }}>
                 <img src={member.icon} alt="" style={{ width: '108px', height: '108px', borderRadius: '20px' }} />
-                <span style={{ fontSize: '15px', fontWeight: '500', textAlign: 'center' }}>{member.name}</span>
+                <span style={{ fontSize: '14px', fontWeight: '500', textAlign: 'center' }}>{member.name}</span>
               </div>
             ))}
           </div>
@@ -222,9 +225,9 @@ export default function LoginPage() {
           
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: '24px',
-            maxWidth: '1200px',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: '16px',
+            maxWidth: '1000px',
             margin: '0 auto',
           }}>
             {[
@@ -254,7 +257,7 @@ export default function LoginPage() {
                 backdropFilter: 'blur(10px)',
                 border: '1px solid var(--border)',
                 borderRadius: '16px',
-                padding: '32px 24px',
+                padding: '24px 16px',
                 textAlign: 'center',
                 transition: 'transform 0.3s ease, box-shadow 0.3s ease',
                 animation: `fadeInUp 0.6s ease-out ${i * 0.1}s both`,

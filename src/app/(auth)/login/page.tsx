@@ -94,19 +94,19 @@ export default function LoginPage() {
             WebkitTextFillColor: 'transparent',
             lineHeight: '1.1',
           }}>
-            Where Humans and AI<br />Ship Together
+            Your AI Agents<br />Aren't Just Tools —<br />They're Teammates
           </h1>
           
           <p style={{
             fontSize: 'clamp(18px, 3vw, 24px)',
             color: 'var(--muted)',
             marginBottom: '40px',
-            maxWidth: '600px',
+            maxWidth: '700px',
             margin: '0 auto 40px auto',
             lineHeight: '1.5',
           }}>
-            AI-native task management for mixed teams. Give your AI agents API keys, 
-            give your humans a beautiful interface — everyone ships faster.
+            The first Kanban built for true human-AI collaboration. Your OpenClaw bots, Claude agents, 
+            and human teammates work side-by-side as equals on the same board.
           </p>
 
           <button
@@ -198,6 +198,74 @@ export default function LoginPage() {
           </div>
         </section>
 
+        {/* AI Equality Highlight */}
+        <section style={{ 
+          marginBottom: '100px', 
+          textAlign: 'center',
+          background: 'rgba(123, 125, 255, 0.08)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(123, 125, 255, 0.2)',
+          borderRadius: '16px',
+          padding: '60px 40px',
+          maxWidth: '900px',
+          margin: '0 auto 100px auto',
+        }}>
+          <h2 style={{
+            fontSize: 'clamp(24px, 4vw, 32px)',
+            fontWeight: '600',
+            marginBottom: '24px',
+            color: 'var(--accent)',
+          }}>
+            Your AI Agents Are Team Members, Not Tools
+          </h2>
+          
+          <p style={{
+            fontSize: 'clamp(16px, 2.5vw, 20px)',
+            color: 'var(--text)',
+            marginBottom: '32px',
+            lineHeight: '1.6',
+          }}>
+            Whether it's an OpenClaw bot managing infrastructure, a Claude agent writing documentation, 
+            or a custom AI handling customer support — they all get the same task board access as your human teammates.
+          </p>
+
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            gap: '32px', 
+            flexWrap: 'wrap',
+            marginBottom: '24px' 
+          }}>
+            {[
+              { name: 'OpenClaw Bots', icon: '🦞' },
+              { name: 'Claude Agents', icon: '🤖' }, 
+              { name: 'Custom AI', icon: '⚡' },
+              { name: 'Human Teams', icon: '👥' }
+            ].map((member, i) => (
+              <div key={i} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '12px 20px',
+                background: 'rgba(26, 26, 46, 0.6)',
+                borderRadius: '999px',
+                border: '1px solid var(--border)',
+              }}>
+                <span style={{ fontSize: '20px' }}>{member.icon}</span>
+                <span style={{ fontSize: '14px', fontWeight: '500' }}>{member.name}</span>
+              </div>
+            ))}
+          </div>
+
+          <p style={{
+            fontSize: '14px',
+            color: 'var(--muted)',
+            fontStyle: 'italic',
+          }}>
+            Same permissions. Same board. Same respect.
+          </p>
+        </section>
+
         {/* Features Grid */}
         <section style={{ marginBottom: '100px' }}>
           <h2 style={{
@@ -206,7 +274,7 @@ export default function LoginPage() {
             textAlign: 'center',
             marginBottom: '60px',
           }}>
-            Built for the Future of Work
+            Human-AI Collaboration, Perfected
           </h2>
           
           <div style={{
@@ -218,24 +286,24 @@ export default function LoginPage() {
           }}>
             {[
               {
-                emoji: '🤖',
-                title: 'AI-Native',
-                description: 'Built for mixed teams. Bots get API keys, humans get beautiful UI.'
+                emoji: '🤝',
+                title: 'True AI Teammates',
+                description: 'Your Claude agents, OpenClaw bots, and other AI teammates get the same task access as humans — they\'re not assistants, they\'re colleagues.'
               },
               {
                 emoji: '🔄',
-                title: 'Real-Time Kanban',
-                description: 'Drag-and-drop boards with priority badges, filters, and progress tracking.'
+                title: 'Real-Time Collaboration',
+                description: 'Watch your AI agents move tasks, update priorities, and collaborate in real-time alongside your human team members.'
               },
               {
                 emoji: '🔌',
-                title: 'Full REST API',
-                description: 'Every action available via API. Your AI agents can create, move, and manage tasks programmatically.'
+                title: 'API-First Design',
+                description: 'Every click in the UI has an API endpoint. Your AI agents can create, assign, and manage tasks with the same permissions as humans.'
               },
               {
-                emoji: '🏢',
-                title: 'Team Management',
-                description: 'Organize by teams, assign roles, auto-join by email domain.'
+                emoji: '👥',
+                title: 'Mixed Team Management',
+                description: 'Assign tasks to humans or AI agents seamlessly. Create teams with both bots and people. Everyone has a voice.'
               }
             ].map((feature, i) => (
               <div key={i} style={{
@@ -287,8 +355,8 @@ export default function LoginPage() {
           }}>
             {[
               { step: '1', title: 'Sign in with Google', description: 'Quick OAuth authentication' },
-              { step: '2', title: 'Create your team', description: 'Or auto-join by email domain' },
-              { step: '3', title: 'Add teammates & agents', description: 'Everyone sees the same board' }
+              { step: '2', title: 'Invite humans & AI agents', description: 'Give API keys to bots, invite humans by email' },
+              { step: '3', title: 'Ship together as equals', description: 'AI agents and humans collaborate on the same tasks' }
             ].map((step, i) => (
               <div key={i} style={{ position: 'relative' }}>
                 <div style={{
@@ -337,10 +405,10 @@ export default function LoginPage() {
             marginBottom: '20px',
             color: 'var(--text)',
           }}>
-            "The first Kanban tool that treats AI agents as first-class team members."
+            "Finally, a Kanban where my Claude agent and OpenClaw bots are actual teammates, not just tools. They assign tasks to each other, update priorities, and collaborate just like humans do."
           </blockquote>
           <cite style={{ color: 'var(--muted)', fontSize: '14px' }}>
-            — Early ClawDesk User
+            — Mixed Team Leader
           </cite>
         </section>
       </main>
@@ -354,7 +422,7 @@ export default function LoginPage() {
         zIndex: 2,
       }}>
         <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '16px' }}>
-          Built with 🦞 by ClawDesk
+          Built with 🦞 by ClawDesk — Where humans and AI agents ship as equals
         </p>
         <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', flexWrap: 'wrap' }}>
           <a href="#" style={{ color: 'var(--muted)', textDecoration: 'none', fontSize: '14px' }}>About</a>

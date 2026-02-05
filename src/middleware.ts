@@ -29,8 +29,8 @@ export async function middleware(request: NextRequest) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
 
   if (!token) {
-    const loginUrl = new URL('/signin', request.url);
-    loginUrl.searchParams.set('callbackUrl', pathname);
+    // Redirect to landing page, not signin form
+    const loginUrl = new URL('/login', request.url);
     return NextResponse.redirect(loginUrl);
   }
 

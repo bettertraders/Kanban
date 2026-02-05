@@ -30,13 +30,6 @@ interface Board {
   is_personal: boolean;
 }
 
-const columnIcons: Record<string, string> = {
-  'Backlog': '/icons/col-backlog-v3.png',
-  'Planned': '/icons/col-planned-v3.png',
-  'In Progress': '/icons/col-progress-v3.png',
-  'Done': '/icons/col-done-v3.png',
-};
-
 const priorityColors: Record<string, { bg: string; text: string; border: string }> = {
   urgent: { bg: 'rgba(240, 91, 111, 0.18)', text: 'var(--danger)', border: 'rgba(240, 91, 111, 0.4)' },
   high: { bg: 'rgba(245, 181, 68, 0.18)', text: 'var(--warn)', border: 'rgba(245, 181, 68, 0.4)' },
@@ -438,7 +431,6 @@ export default function BoardPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
         {(board.columns as string[]).map(col => {
           const colTasks = filteredTasks.filter(t => t.column_name === col);
-          const icon = columnIcons[col] || '/icons/col-backlog.png';
           const isDragOver = dragOverCol === col;
 
           return (
@@ -466,10 +458,7 @@ export default function BoardPage() {
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.16em', color: 'var(--muted)',
               }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <img src={icon} alt="" style={{ height: '84px', width: 'auto', borderRadius: '12px' }} />
-                  {col}
-                </span>
+                <span>{col}</span>
                 <span style={{
                   background: 'var(--panel-3)', border: '1px solid var(--border)',
                   borderRadius: '999px', padding: '4px 10px', fontSize: '12px', color: 'var(--text)',

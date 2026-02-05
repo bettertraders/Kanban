@@ -178,7 +178,7 @@ export default function LoginPage() {
             marginBottom: '32px' 
           }}>
             {[
-              { name: 'OpenClaw Bots', icon: '/icons/member-openclaw.png' },
+              { name: 'OpenClaw Bots', icon: '/icons/member-openclaw-new.png' },
               { name: 'Claw Agents', icon: '/icons/member-claw.png' }, 
               { name: 'Custom AI', icon: '/icons/member-custom-ai.png' },
               { name: 'Human Teams', icon: '/icons/member-humans.png' }
@@ -187,15 +187,15 @@ export default function LoginPage() {
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                gap: '12px',
-                padding: '20px 24px',
+                gap: '16px',
+                padding: '24px 32px',
                 background: 'rgba(26, 26, 46, 0.6)',
-                borderRadius: '20px',
+                borderRadius: '24px',
                 border: '1px solid var(--border)',
-                minWidth: '140px',
+                minWidth: '160px',
               }}>
-                <img src={member.icon} alt="" style={{ width: '72px', height: '72px', borderRadius: '16px' }} />
-                <span style={{ fontSize: '14px', fontWeight: '500', textAlign: 'center' }}>{member.name}</span>
+                <img src={member.icon} alt="" style={{ width: '108px', height: '108px', borderRadius: '20px' }} />
+                <span style={{ fontSize: '15px', fontWeight: '500', textAlign: 'center' }}>{member.name}</span>
               </div>
             ))}
           </div>
@@ -267,7 +267,7 @@ export default function LoginPage() {
                 (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
                 (e.currentTarget as HTMLElement).style.boxShadow = 'none';
               }}>
-                <img src={feature.icon} alt="" style={{ width: '64px', height: '64px', borderRadius: '12px', marginBottom: '16px' }} />
+                <img src={feature.icon} alt="" style={{ width: '80px', height: '80px', borderRadius: '16px', marginBottom: '20px', display: 'block', margin: '0 auto 20px auto' }} />
                 <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '12px' }}>
                   {feature.title}
                 </h3>

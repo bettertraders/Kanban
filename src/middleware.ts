@@ -5,14 +5,21 @@ import { getToken } from 'next-auth/jwt';
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public routes
+  // Allow public routes and static assets
   if (
     pathname.startsWith('/login') ||
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/setup') ||
     pathname.startsWith('/api/v1') || // API routes handle their own auth
     pathname.startsWith('/_next') ||
-    pathname === '/favicon.ico'
+    pathname === '/favicon.ico' ||
+    pathname === '/manifest.json' ||
+    pathname === '/sw.js' ||
+    pathname.endsWith('.png') ||
+    pathname.endsWith('.svg') ||
+    pathname.endsWith('.jpg') ||
+    pathname.endsWith('.ico') ||
+    pathname.endsWith('.webp')
   ) {
     return NextResponse.next();
   }

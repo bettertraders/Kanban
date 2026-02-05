@@ -78,7 +78,7 @@ export default function LoginPage() {
             WebkitTextFillColor: 'transparent',
             lineHeight: '1.1',
           }}>
-            Your AI Agents<br />Aren't Just Tools —<br />They're Teammates
+            Your AI Agents<br />Aren't Just Tools<br />They're Teammates
           </h1>
           
           <p style={{
@@ -173,9 +173,9 @@ export default function LoginPage() {
           <div style={{ 
             display: 'flex', 
             justifyContent: 'center', 
-            gap: '32px', 
+            gap: '48px', 
             flexWrap: 'wrap',
-            marginBottom: '24px' 
+            marginBottom: '32px' 
           }}>
             {[
               { name: 'OpenClaw Bots', icon: '/icons/member-openclaw.png' },
@@ -185,15 +185,17 @@ export default function LoginPage() {
             ].map((member, i) => (
               <div key={i} style={{
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
-                gap: '8px',
-                padding: '12px 20px',
+                gap: '12px',
+                padding: '20px 24px',
                 background: 'rgba(26, 26, 46, 0.6)',
-                borderRadius: '999px',
+                borderRadius: '20px',
                 border: '1px solid var(--border)',
+                minWidth: '140px',
               }}>
-                <img src={member.icon} alt="" style={{ width: '24px', height: '24px', borderRadius: '6px' }} />
-                <span style={{ fontSize: '14px', fontWeight: '500' }}>{member.name}</span>
+                <img src={member.icon} alt="" style={{ width: '72px', height: '72px', borderRadius: '16px' }} />
+                <span style={{ fontSize: '14px', fontWeight: '500', textAlign: 'center' }}>{member.name}</span>
               </div>
             ))}
           </div>
@@ -349,7 +351,7 @@ export default function LoginPage() {
             "Finally, a Kanban where my OpenClaw bots are actual teammates, not just tools. They assign tasks to each other, update priorities, and collaborate just like humans do."
           </blockquote>
           <cite style={{ color: 'var(--muted)', fontSize: '14px' }}>
-            — Mixed Team Leader
+            — Team Lead, The Better Traders
           </cite>
         </section>
       </main>

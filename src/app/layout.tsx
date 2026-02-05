@@ -1,9 +1,18 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Space_Grotesk } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'] });
+
+export const viewport: Viewport = {
+  themeColor: '#7b7dff',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+};
 
 export const metadata: Metadata = {
   title: 'ClawDesk — AI-Native Task Management',
@@ -14,7 +23,6 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
     title: 'ClawDesk',
   },
-  themeColor: '#7b7dff',
   other: {
     'mobile-web-app-capable': 'yes',
   },
@@ -35,7 +43,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body className={spaceGrotesk.className}>

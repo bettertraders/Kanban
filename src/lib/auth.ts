@@ -98,7 +98,6 @@ export const authOptions: NextAuthOptions = {
       },
     },
   },
-  trustHost: true,
 };
 
 export async function getSession() {

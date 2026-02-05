@@ -15,11 +15,20 @@ export async function initializeDatabase() {
         id SERIAL PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
         name VARCHAR(255),
+        password_hash VARCHAR(255),
         avatar_url TEXT,
         api_key VARCHAR(64) UNIQUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      
+      -- Add password_hash column if it doesn't exist (migration)
+      DO $$ 
+      BEGIN 
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='password_hash') THEN
+          ALTER TABLE users ADD COLUMN password_hash VARCHAR(255);
+        END IF;
+      END $$;
 
       -- Teams table
       CREATE TABLE IF NOT EXISTS teams (
@@ -139,6 +148,56 @@ export async function findOrCreateUser(email: string, name?: string, avatarUrl?:
 export async function getUserById(id: number) {
   const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
   return result.rows[0];
+}
+
+export async function getUserByEmail(email: string) {
+  const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+  return result.rows[0];
+}
+
+export async function createUserWithPassword(email: string, password: string, name?: string) {
+  const bcrypt = await import('bcryptjs');
+  const passwordHash = await bcrypt.hash(password, 12);
+  
+  const client = await pool.connect();
+  try {
+    // Check if user already exists
+    const existing = await client.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existing.rows.length > 0) {
+      throw new Error('User already exists');
+    }
+    
+    // Create new user with password
+    const result = await client.query(
+      'INSERT INTO users (email, name, password_hash) VALUES ($1, $2, $3) RETURNING *',
+      [email, name, passwordHash]
+    );
+    
+    const user = result.rows[0];
+    
+    // Create personal board for new user
+    await client.query(
+      `INSERT INTO boards (name, description, owner_id, is_personal, columns) 
+       VALUES ($1, $2, $3, true, $4)`,
+      [`${name || email}'s Board`, 'Personal task board', user.id, JSON.stringify(['Backlog', 'Planned', 'In Progress', 'Done'])]
+    );
+    
+    return user;
+  } finally {
+    client.release();
+  }
+}
+
+export async function verifyPassword(email: string, password: string) {
+  const bcrypt = await import('bcryptjs');
+  const user = await getUserByEmail(email);
+  
+  if (!user || !user.password_hash) {
+    return null;
+  }
+  
+  const isValid = await bcrypt.compare(password, user.password_hash);
+  return isValid ? user : null;
 }
 
 export async function getUserByApiKey(apiKey: string) {

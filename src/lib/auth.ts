@@ -1,13 +1,35 @@
 import { NextAuthOptions, getServerSession } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { findOrCreateUser, getUserByApiKey } from './database';
+import { findOrCreateUser, getUserByApiKey, verifyPassword } from './database';
 
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+    }),
+    // Email/Password provider
+    CredentialsProvider({
+      id: 'credentials',
+      name: 'Email',
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' }
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) return null;
+        
+        const user = await verifyPassword(credentials.email, credentials.password);
+        if (!user) return null;
+        
+        return {
+          id: String(user.id),
+          email: user.email,
+          name: user.name,
+          image: user.avatar_url,
+        };
+      }
     }),
     // API Key provider for bots
     CredentialsProvider({

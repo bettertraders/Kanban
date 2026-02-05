@@ -1,41 +1,65 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState } from 'react';
 import { signIn } from 'next-auth/react';
-import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
-function SignInContent() {
-  const searchParams = useSearchParams();
+export default function SignUpPage() {
   const router = useRouter();
-  const callbackUrl = searchParams.get('callbackUrl') || '/';
-  
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+
     setLoading(true);
 
     try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'Failed to create account');
+        setLoading(false);
+        return;
+      }
+
+      // Auto sign in after registration
       const result = await signIn('credentials', {
         email,
         password,
         redirect: false,
       });
 
-      if (result?.error) {
-        setError('Invalid email or password');
-        setLoading(false);
-        return;
+      if (result?.ok) {
+        router.push('/');
+      } else {
+        setError('Account created but failed to sign in. Please sign in manually.');
       }
-
-      router.push(callbackUrl);
     } catch (err) {
       setError('Something went wrong. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
@@ -83,10 +107,10 @@ function SignInContent() {
             marginBottom: '8px',
             color: 'var(--text)',
           }}>
-            Welcome back
+            Create your account
           </h1>
           <p style={{ color: 'var(--muted)', fontSize: '14px' }}>
-            Sign in to your ClawDesk account
+            Join ClawDesk and start collaborating
           </p>
         </div>
 
@@ -105,6 +129,28 @@ function SignInContent() {
         )}
 
         <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: 'var(--muted)' }}>
+              Name
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Your name"
+              required
+              style={inputStyle}
+              onFocus={e => {
+                e.currentTarget.style.borderColor = 'var(--accent)';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(123, 125, 255, 0.1)';
+              }}
+              onBlur={e => {
+                e.currentTarget.style.borderColor = 'var(--border)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            />
+          </div>
+
           <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: 'var(--muted)' }}>
               Email
@@ -127,7 +173,7 @@ function SignInContent() {
             />
           </div>
 
-          <div style={{ marginBottom: '24px' }}>
+          <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: 'var(--muted)' }}>
               Password
             </label>
@@ -135,7 +181,30 @@ function SignInContent() {
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder="Your password"
+              placeholder="At least 8 characters"
+              required
+              minLength={8}
+              style={inputStyle}
+              onFocus={e => {
+                e.currentTarget.style.borderColor = 'var(--accent)';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(123, 125, 255, 0.1)';
+              }}
+              onBlur={e => {
+                e.currentTarget.style.borderColor = 'var(--border)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '24px' }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: 'var(--muted)' }}>
+              Confirm Password
+            </label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              placeholder="Confirm your password"
               required
               style={inputStyle}
               onFocus={e => {
@@ -166,7 +235,7 @@ function SignInContent() {
               transition: 'transform 0.2s ease, box-shadow 0.2s ease',
             }}
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Creating account...' : 'Create Account'}
           </button>
         </form>
 
@@ -182,7 +251,7 @@ function SignInContent() {
         </div>
 
         <button
-          onClick={() => signIn('google', { callbackUrl })}
+          onClick={() => signIn('google', { callbackUrl: '/' })}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -215,44 +284,12 @@ function SignInContent() {
           fontSize: '14px', 
           color: 'var(--muted)',
         }}>
-          Don't have an account?{' '}
-          <Link href="/signup" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: '500' }}>
-            Sign up
+          Already have an account?{' '}
+          <Link href="/signin" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: '500' }}>
+            Sign in
           </Link>
         </p>
-
-        <a 
-          href="/login"
-          style={{
-            display: 'block',
-            textAlign: 'center',
-            marginTop: '16px',
-            color: 'var(--muted)',
-            fontSize: '13px',
-            textDecoration: 'none',
-          }}
-        >
-          ← Back to home
-        </a>
       </div>
     </div>
-  );
-}
-
-export default function SignInPage() {
-  return (
-    <Suspense fallback={
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#141428',
-      }}>
-        <div style={{ color: 'var(--muted)' }}>Loading...</div>
-      </div>
-    }>
-      <SignInContent />
-    </Suspense>
   );
 }

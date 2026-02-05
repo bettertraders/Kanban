@@ -21,28 +21,52 @@ export function UserMenu() {
         style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          width: '40px',
-          height: '40px',
+          gap: '8px',
+          padding: '6px 12px 6px 6px',
+          borderRadius: '999px',
+          background: 'var(--panel-2)',
+          border: '1px solid var(--border)',
+          cursor: 'pointer',
+          transition: 'background 0.2s ease, border-color 0.2s ease',
+        }}
+        onMouseEnter={e => {
+          (e.currentTarget as HTMLElement).style.background = 'var(--panel-3)';
+          (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)';
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLElement).style.background = 'var(--panel-2)';
+          (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';
+        }}
+      >
+        <div style={{
+          width: '28px',
+          height: '28px',
           borderRadius: '999px',
           background: user.image ? `url(${user.image})` : 'var(--accent)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          border: '2px solid var(--border)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           color: user.image ? 'transparent' : '#0d0d1f',
           fontWeight: '600',
-          fontSize: '14px',
-          cursor: 'pointer',
-          transition: 'transform 0.2s ease',
-        }}
-        onMouseEnter={e => {
-          (e.currentTarget as HTMLElement).style.transform = 'scale(1.05)';
-        }}
-        onMouseLeave={e => {
-          (e.currentTarget as HTMLElement).style.transform = 'scale(1)';
-        }}
-      >
-        {!user.image && initials}
+          fontSize: '12px',
+        }}>
+          {!user.image && initials}
+        </div>
+        <svg 
+          width="12" 
+          height="12" 
+          viewBox="0 0 12 12" 
+          fill="none" 
+          style={{ 
+            color: 'var(--muted)',
+            transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s ease',
+          }}
+        >
+          <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
       </button>
 
       {isOpen && (
@@ -99,7 +123,11 @@ export function UserMenu() {
                 (e.currentTarget as HTMLElement).style.background = 'transparent';
               }}
             >
-              <span>🚪</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
               Sign Out
             </button>
           </div>

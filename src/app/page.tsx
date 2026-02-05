@@ -26,7 +26,7 @@ export default async function HomePage() {
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', marginBottom: '28px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <img src="/icons/clawdesk-mark.png" alt="ClawDesk" style={{ width: '32px', height: '32px', borderRadius: '8px' }} />
+            <img src="/icons/clawdesk-mark.png" alt="ClawDesk" style={{ width: '64px', height: '64px', borderRadius: '12px' }} />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <h1 style={{ fontSize: 'clamp(26px, 4vw, 36px)', fontWeight: 600, letterSpacing: '0.02em', margin: 0 }}>
                 ClawDesk
@@ -75,13 +75,13 @@ export default async function HomePage() {
               gap: '12px',
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 600 }}>{board.name}</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', overflow: 'hidden' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{board.name}</h2>
               {board.is_personal ? (
                 <span style={{
                   fontSize: '11px', padding: '4px 8px', borderRadius: '999px',
                   background: 'rgba(123, 125, 255, 0.12)', border: '1px solid rgba(123, 125, 255, 0.2)',
-                  color: 'var(--accent)',
+                  color: 'var(--accent)', whiteSpace: 'nowrap', flexShrink: 0,
                 }}>
                   Personal
                 </span>
@@ -89,7 +89,7 @@ export default async function HomePage() {
                 <span style={{
                   fontSize: '11px', padding: '4px 8px', borderRadius: '999px',
                   background: 'rgba(58, 193, 124, 0.12)', border: '1px solid rgba(58, 193, 124, 0.2)',
-                  color: 'var(--success)',
+                  color: 'var(--success)', whiteSpace: 'nowrap', flexShrink: 0, maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis',
                 }}>
                   {board.team_name}
                 </span>

@@ -31,10 +31,10 @@ interface Board {
 }
 
 const columnIcons: Record<string, string> = {
-  'Backlog': '/icons/col-backlog-new.png',
-  'Planned': '/icons/col-planned-new.png',
-  'In Progress': '/icons/col-progress-new.png',
-  'Done': '/icons/col-done-new.png',
+  'Backlog': '/icons/col-backlog.png',
+  'Planned': '/icons/col-planned.png',
+  'In Progress': '/icons/col-progress.png',
+  'Done': '/icons/col-done.png',
 };
 
 const priorityColors: Record<string, { bg: string; text: string; border: string }> = {
@@ -261,7 +261,7 @@ export default function BoardPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <Link href="/" style={{ color: 'var(--muted)', textDecoration: 'none', fontSize: '20px' }}>←</Link>
-            <img src="/icons/clawdesk-mark.png" alt="ClawDesk" style={{ width: '24px', height: '24px', borderRadius: '6px' }} />
+            <img src="/icons/clawdesk-mark.png" alt="ClawDesk" style={{ width: '48px', height: '48px', borderRadius: '10px' }} />
             <h1 style={{ fontSize: 'clamp(26px, 4vw, 36px)', fontWeight: 600, letterSpacing: '0.02em' }}>
               {board.name}
             </h1>

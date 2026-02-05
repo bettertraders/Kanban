@@ -245,15 +245,58 @@ export async function isTeamMember(teamId: number, userId: number) {
   return result.rows[0];
 }
 
+// Auto-join teams based on email domain
+export async function autoJoinTeams(userId: number, email: string) {
+  const domain = email.split('@')[1]?.toLowerCase();
+  if (!domain) return;
+  
+  // Map email domains to team slugs
+  const domainTeamMap: Record<string, string> = {
+    'thebettertraders.com': 'the-better-traders',
+  };
+  
+  const teamSlug = domainTeamMap[domain];
+  if (!teamSlug) return;
+  
+  const client = await pool.connect();
+  try {
+    // Find the team
+    const teamResult = await client.query('SELECT id FROM teams WHERE slug = $1', [teamSlug]);
+    if (teamResult.rows.length === 0) return;
+    
+    const teamId = teamResult.rows[0].id;
+    
+    // Check if already a member
+    const memberResult = await client.query(
+      'SELECT id FROM team_members WHERE team_id = $1 AND user_id = $2',
+      [teamId, userId]
+    );
+    
+    if (memberResult.rows.length === 0) {
+      // Auto-join as member
+      await client.query(
+        'INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, $3)',
+        [teamId, userId, 'member']
+      );
+      console.log(`Auto-joined user ${userId} (${email}) to team ${teamSlug}`);
+    }
+  } finally {
+    client.release();
+  }
+}
+
 // Board functions
 export async function getBoardsForUser(userId: number) {
   const result = await pool.query(`
-    SELECT b.*, t.name as team_name, t.slug as team_slug
-    FROM boards b
-    LEFT JOIN teams t ON b.team_id = t.id
-    LEFT JOIN team_members tm ON t.id = tm.team_id
-    WHERE b.owner_id = $1 OR tm.user_id = $1
-    ORDER BY b.is_personal DESC, b.name
+    SELECT * FROM (
+      SELECT DISTINCT ON (b.id) b.*, t.name as team_name, t.slug as team_slug
+      FROM boards b
+      LEFT JOIN teams t ON b.team_id = t.id
+      LEFT JOIN team_members tm ON t.id = tm.team_id
+      WHERE b.owner_id = $1 OR tm.user_id = $1
+      ORDER BY b.id
+    ) sub
+    ORDER BY is_personal DESC, name
   `, [userId]);
   return result.rows;
 }

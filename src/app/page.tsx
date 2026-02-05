@@ -1,8 +1,10 @@
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { findOrCreateUser, getBoardsForUser } from '@/lib/database';
+import { findOrCreateUser, getBoardsForUser, autoJoinTeams } from '@/lib/database';
 import Link from 'next/link';
+
+export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   const session = await getServerSession(authOptions);
@@ -11,7 +13,11 @@ export default async function HomePage() {
     redirect('/login');
   }
 
-  const user = await findOrCreateUser(session.user.email);
+  const user = await findOrCreateUser(session.user.email, session.user.name || undefined, session.user.image || undefined);
+  
+  // Auto-join teams based on email domain
+  await autoJoinTeams(user.id, user.email);
+  
   const boards = await getBoardsForUser(user.id);
 
   return (

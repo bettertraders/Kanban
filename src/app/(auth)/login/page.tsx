@@ -6,42 +6,64 @@ export default function LoginPage() {
   return (
     <div style={{
       minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '20px',
+      background: 'radial-gradient(circle at 20% 30%, rgba(123, 125, 255, 0.15), transparent 50%), radial-gradient(circle at 80% 60%, rgba(72, 194, 255, 0.1), transparent 50%), linear-gradient(120deg, #0f0f1f, #141428 40%, #17172f 100%)',
+      overflow: 'hidden',
+      position: 'relative',
     }}>
+      {/* Animated background orbs */}
       <div style={{
-        background: 'var(--panel)',
-        border: '1px solid var(--border)',
-        borderRadius: '18px',
-        padding: '48px',
-        maxWidth: '400px',
-        width: '100%',
-        textAlign: 'center',
-        boxShadow: 'var(--shadow)',
+        position: 'absolute',
+        width: '600px',
+        height: '600px',
+        background: 'radial-gradient(circle, rgba(123, 125, 255, 0.08), transparent 70%)',
+        borderRadius: '50%',
+        top: '-200px',
+        left: '-100px',
+        animation: 'float 20s ease-in-out infinite',
+      }} />
+      <div style={{
+        position: 'absolute',
+        width: '400px',
+        height: '400px',
+        background: 'radial-gradient(circle, rgba(72, 194, 255, 0.06), transparent 70%)',
+        borderRadius: '50%',
+        bottom: '-100px',
+        right: '-150px',
+        animation: 'float 25s ease-in-out infinite reverse',
+      }} />
+
+      {/* Header/Nav */}
+      <header style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '20px clamp(20px, 5vw, 80px)',
+        position: 'relative',
+        zIndex: 2,
       }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🚀</div>
-        <h1 style={{ fontSize: '28px', fontWeight: 600, marginBottom: '8px' }}>Team Kanban</h1>
-        <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '32px' }}>
-          Collaborative task management for teams and bots
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '32px', height: '32px' }}>
+            <svg viewBox="0 0 240 60" style={{ width: '100%', height: '100%' }}>
+              <g fill="#7b7dff">
+                <path d="M8 20c-4 0-7 3-7 7s3 7 7 7c2 0 4-1 5-2l8-8c-2-2-4-4-6-4z"/>
+                <path d="M32 20c2 0 4 2 6 4l-8 8c-1 1-3 2-5 2-4 0-7-3-7-7s3-7 7-7z"/>
+                <circle cx="20" cy="27" r="3"/>
+              </g>
+            </svg>
+          </div>
+          <span style={{ fontSize: '20px', fontWeight: '600', color: 'var(--text)' }}>ClawDesk</span>
+        </div>
         
         <button
           onClick={() => signIn('google', { callbackUrl: '/' })}
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '12px',
-            width: '100%',
-            padding: '14px 24px',
+            padding: '10px 20px',
             borderRadius: '999px',
             background: 'linear-gradient(135deg, var(--accent), #9a9cff)',
             color: '#0d0d1f',
             border: 'none',
-            fontSize: '16px',
-            fontWeight: 600,
+            fontSize: '14px',
+            fontWeight: '600',
             cursor: 'pointer',
             fontFamily: 'inherit',
             transition: 'transform 0.2s ease, box-shadow 0.2s ease',
@@ -55,15 +77,309 @@ export default function LoginPage() {
             (e.currentTarget as HTMLElement).style.boxShadow = 'none';
           }}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24">
-            <path fill="#0d0d1f" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
-            <path fill="#0d0d1f" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#0d0d1f" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-            <path fill="#0d0d1f" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-          </svg>
-          Sign in with Google
+          Sign In
         </button>
-      </div>
+      </header>
+
+      <main style={{ padding: '0 clamp(20px, 5vw, 80px)', position: 'relative', zIndex: 2 }}>
+        {/* Hero Section */}
+        <section style={{ textAlign: 'center', marginBottom: '100px', paddingTop: '60px' }}>
+          <h1 style={{
+            fontSize: 'clamp(48px, 8vw, 72px)',
+            fontWeight: '700',
+            marginBottom: '24px',
+            background: 'linear-gradient(135deg, var(--text), var(--accent))',
+            backgroundClip: 'text',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            lineHeight: '1.1',
+          }}>
+            Where Humans and AI<br />Ship Together
+          </h1>
+          
+          <p style={{
+            fontSize: 'clamp(18px, 3vw, 24px)',
+            color: 'var(--muted)',
+            marginBottom: '40px',
+            maxWidth: '600px',
+            margin: '0 auto 40px auto',
+            lineHeight: '1.5',
+          }}>
+            AI-native task management for mixed teams. Give your AI agents API keys, 
+            give your humans a beautiful interface — everyone ships faster.
+          </p>
+
+          <button
+            onClick={() => signIn('google', { callbackUrl: '/' })}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '16px 32px',
+              borderRadius: '999px',
+              background: 'linear-gradient(135deg, var(--accent), #9a9cff)',
+              color: '#0d0d1f',
+              border: 'none',
+              fontSize: '18px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+              marginBottom: '60px',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
+              (e.currentTarget as HTMLElement).style.boxShadow = 'var(--glow)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.transform = 'none';
+              (e.currentTarget as HTMLElement).style.boxShadow = 'none';
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24">
+              <path fill="#0d0d1f" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
+              <path fill="#0d0d1f" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#0d0d1f" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#0d0d1f" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            Get Started — Free
+          </button>
+
+          {/* Mock UI Preview */}
+          <div style={{
+            maxWidth: '800px',
+            margin: '0 auto',
+            background: 'rgba(26, 26, 46, 0.4)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid var(--border)',
+            borderRadius: '16px',
+            padding: '20px',
+            boxShadow: 'var(--shadow)',
+          }}>
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+              <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#f05b6f' }}/>
+              <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#f5b544' }}/>
+              <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#3ac17c' }}/>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
+              {['Backlog', 'In Progress', 'Review', 'Done'].map(column => (
+                <div key={column} style={{
+                  background: 'var(--panel)',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  border: '1px solid var(--border)',
+                }}>
+                  <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '8px', color: 'var(--muted)' }}>
+                    {column}
+                  </div>
+                  <div style={{
+                    background: 'var(--panel-2)',
+                    borderRadius: '6px',
+                    padding: '8px',
+                    marginBottom: '6px',
+                    fontSize: '11px',
+                  }}>
+                    Task #{Math.floor(Math.random() * 100)}
+                  </div>
+                  {column !== 'Done' && (
+                    <div style={{
+                      background: 'var(--panel-2)',
+                      borderRadius: '6px',
+                      padding: '8px',
+                      fontSize: '11px',
+                      opacity: '0.6',
+                    }}>
+                      Task #{Math.floor(Math.random() * 100)}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Features Grid */}
+        <section style={{ marginBottom: '100px' }}>
+          <h2 style={{
+            fontSize: 'clamp(32px, 5vw, 48px)',
+            fontWeight: '600',
+            textAlign: 'center',
+            marginBottom: '60px',
+          }}>
+            Built for the Future of Work
+          </h2>
+          
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '24px',
+            maxWidth: '1200px',
+            margin: '0 auto',
+          }}>
+            {[
+              {
+                emoji: '🤖',
+                title: 'AI-Native',
+                description: 'Built for mixed teams. Bots get API keys, humans get beautiful UI.'
+              },
+              {
+                emoji: '🔄',
+                title: 'Real-Time Kanban',
+                description: 'Drag-and-drop boards with priority badges, filters, and progress tracking.'
+              },
+              {
+                emoji: '🔌',
+                title: 'Full REST API',
+                description: 'Every action available via API. Your AI agents can create, move, and manage tasks programmatically.'
+              },
+              {
+                emoji: '🏢',
+                title: 'Team Management',
+                description: 'Organize by teams, assign roles, auto-join by email domain.'
+              }
+            ].map((feature, i) => (
+              <div key={i} style={{
+                background: 'rgba(26, 26, 46, 0.4)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid var(--border)',
+                borderRadius: '16px',
+                padding: '32px 24px',
+                textAlign: 'center',
+                transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+                animation: `fadeInUp 0.6s ease-out ${i * 0.1}s both`,
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.transform = 'translateY(-4px)';
+                (e.currentTarget as HTMLElement).style.boxShadow = 'var(--glow)';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
+                (e.currentTarget as HTMLElement).style.boxShadow = 'none';
+              }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>{feature.emoji}</div>
+                <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '12px' }}>
+                  {feature.title}
+                </h3>
+                <p style={{ color: 'var(--muted)', lineHeight: '1.5', fontSize: '14px' }}>
+                  {feature.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* How It Works */}
+        <section style={{ marginBottom: '100px', textAlign: 'center' }}>
+          <h2 style={{
+            fontSize: 'clamp(32px, 5vw, 48px)',
+            fontWeight: '600',
+            marginBottom: '60px',
+          }}>
+            How It Works
+          </h2>
+          
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: '40px',
+            maxWidth: '900px',
+            margin: '0 auto',
+          }}>
+            {[
+              { step: '1', title: 'Sign in with Google', description: 'Quick OAuth authentication' },
+              { step: '2', title: 'Create your team', description: 'Or auto-join by email domain' },
+              { step: '3', title: 'Add teammates & agents', description: 'Everyone sees the same board' }
+            ].map((step, i) => (
+              <div key={i} style={{ position: 'relative' }}>
+                <div style={{
+                  width: '60px',
+                  height: '60px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, var(--accent), #9a9cff)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '24px',
+                  fontWeight: '700',
+                  color: '#0d0d1f',
+                  margin: '0 auto 20px auto',
+                }}>
+                  {step.step}
+                </div>
+                <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>
+                  {step.title}
+                </h3>
+                <p style={{ color: 'var(--muted)', fontSize: '14px' }}>
+                  {step.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Social Proof */}
+        <section style={{
+          textAlign: 'center',
+          marginBottom: '100px',
+          background: 'rgba(26, 26, 46, 0.3)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid var(--border)',
+          borderRadius: '16px',
+          padding: '60px 40px',
+          maxWidth: '800px',
+          margin: '0 auto 100px auto',
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '24px' }}>💬</div>
+          <blockquote style={{
+            fontSize: 'clamp(18px, 3vw, 24px)',
+            fontStyle: 'italic',
+            lineHeight: '1.5',
+            marginBottom: '20px',
+            color: 'var(--text)',
+          }}>
+            "The first Kanban tool that treats AI agents as first-class team members."
+          </blockquote>
+          <cite style={{ color: 'var(--muted)', fontSize: '14px' }}>
+            — Early ClawDesk User
+          </cite>
+        </section>
+      </main>
+
+      {/* Footer */}
+      <footer style={{
+        textAlign: 'center',
+        padding: '40px clamp(20px, 5vw, 80px)',
+        borderTop: '1px solid var(--border)',
+        position: 'relative',
+        zIndex: 2,
+      }}>
+        <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '16px' }}>
+          Built with 🦞 by ClawDesk
+        </p>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', flexWrap: 'wrap' }}>
+          <a href="#" style={{ color: 'var(--muted)', textDecoration: 'none', fontSize: '14px' }}>About</a>
+          <a href="#" style={{ color: 'var(--muted)', textDecoration: 'none', fontSize: '14px' }}>API Docs</a>
+          <a href="#" style={{ color: 'var(--muted)', textDecoration: 'none', fontSize: '14px' }}>GitHub</a>
+        </div>
+      </footer>
+
+      <style jsx>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-20px) rotate(5deg); }
+        }
+        
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </div>
   );
 }

@@ -1,18 +1,18 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Space_Grotesk } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 
-const inter = Inter({ subsets: ['latin'] });
+const spaceGrotesk = Space_Grotesk({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'TBT Team Kanban',
-  description: 'Task management for The Better Traders team',
+  title: 'ClawDesk — AI-Native Task Management',
+  description: 'AI-native task management for mixed teams of humans and AI agents. Give your bots API keys, give your humans beautiful UI.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'TBT Kanban',
+    title: 'ClawDesk',
   },
   themeColor: '#7b7dff',
   other: {
@@ -38,7 +38,7 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
-      <body className={inter.className}>
+      <body className={spaceGrotesk.className}>
         <Providers>{children}</Providers>
         <script
           dangerouslySetInnerHTML={{

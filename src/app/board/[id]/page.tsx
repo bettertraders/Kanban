@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { UserMenu } from '@/components/UserMenu';
 
 interface Task {
   id: number;
@@ -329,6 +330,9 @@ export default function BoardPage() {
           >
             Add Task
           </button>
+          
+          {/* User menu */}
+          <UserMenu />
         </div>
       </header>
 

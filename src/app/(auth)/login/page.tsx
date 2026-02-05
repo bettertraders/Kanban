@@ -145,56 +145,24 @@ export default function LoginPage() {
             Get Started — Free
           </button>
 
-          {/* Mock UI Preview */}
+          {/* Hero Illustration */}
           <div style={{
-            maxWidth: '800px',
+            maxWidth: '700px',
             margin: '0 auto',
-            background: 'rgba(26, 26, 46, 0.4)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid var(--border)',
-            borderRadius: '16px',
-            padding: '20px',
-            boxShadow: 'var(--shadow)',
+            borderRadius: '24px',
+            overflow: 'hidden',
+            boxShadow: '0 20px 60px rgba(123, 125, 255, 0.15), 0 0 0 1px rgba(123, 125, 255, 0.1)',
+            animation: 'fadeInUp 0.8s ease-out 0.3s both',
           }}>
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-              <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#f05b6f' }}/>
-              <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#f5b544' }}/>
-              <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#3ac17c' }}/>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
-              {['Backlog', 'In Progress', 'Review', 'Done'].map(column => (
-                <div key={column} style={{
-                  background: 'var(--panel)',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  border: '1px solid var(--border)',
-                }}>
-                  <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '8px', color: 'var(--muted)' }}>
-                    {column}
-                  </div>
-                  <div style={{
-                    background: 'var(--panel-2)',
-                    borderRadius: '6px',
-                    padding: '8px',
-                    marginBottom: '6px',
-                    fontSize: '11px',
-                  }}>
-                    Task #{Math.floor(Math.random() * 100)}
-                  </div>
-                  {column !== 'Done' && (
-                    <div style={{
-                      background: 'var(--panel-2)',
-                      borderRadius: '6px',
-                      padding: '8px',
-                      fontSize: '11px',
-                      opacity: '0.6',
-                    }}>
-                      Task #{Math.floor(Math.random() * 100)}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+            <img 
+              src="/hero-illustration.png" 
+              alt="ClawDesk — A friendly lobster collaborating with a human on a Kanban board" 
+              style={{
+                width: '100%',
+                height: 'auto',
+                display: 'block',
+              }}
+            />
           </div>
         </section>
 

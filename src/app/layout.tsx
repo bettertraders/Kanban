@@ -7,7 +7,7 @@ const spaceGrotesk = Space_Grotesk({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'ClawDesk — AI-Native Task Management',
-  description: 'The first Kanban where AI agents are teammates, not tools. Your OpenClaw bots, Claude agents, and humans collaborate as equals on the same board.',
+  description: 'The first Kanban where AI agents are teammates, not tools. Your OpenClaw bots, Claw Agents, and humans collaborate as equals on the same board.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,

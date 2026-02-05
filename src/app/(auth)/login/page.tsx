@@ -97,7 +97,7 @@ export default function LoginPage() {
             margin: '0 auto 40px auto',
             lineHeight: '1.5',
           }}>
-            The first Kanban built for true human-AI collaboration. Your OpenClaw bots, Claude agents, 
+            The first Kanban built for true human-AI collaboration. Your OpenClaw bots, Claw Agents, 
             and human teammates work side-by-side as equals on the same board.
           </p>
 
@@ -185,7 +185,7 @@ export default function LoginPage() {
             marginBottom: '32px',
             lineHeight: '1.6',
           }}>
-            Whether it's an OpenClaw bot managing infrastructure, a Claude agent writing documentation, 
+            Whether it's an OpenClaw bot managing infrastructure, a Claw Agent writing documentation, 
             or a custom AI handling customer support — they all get the same task board access as your human teammates.
           </p>
 
@@ -198,7 +198,7 @@ export default function LoginPage() {
           }}>
             {[
               { name: 'OpenClaw Bots', icon: '/icons/member-openclaw.png' },
-              { name: 'Claude Agents', icon: '/icons/member-claude.png' }, 
+              { name: 'Claw Agents', icon: '/icons/member-claw.png' }, 
               { name: 'Custom AI', icon: '/icons/member-custom-ai.png' },
               { name: 'Human Teams', icon: '/icons/member-humans.png' }
             ].map((member, i) => (
@@ -248,7 +248,7 @@ export default function LoginPage() {
               {
                 icon: '/icons/feat-ai-teammates.png',
                 title: 'True AI Teammates',
-                description: 'Your Claude agents, OpenClaw bots, and other AI teammates get the same task access as humans — they\'re not assistants, they\'re colleagues.'
+                description: 'Your Claw Agents, OpenClaw bots, and other AI teammates get the same task access as humans — they\'re not assistants, they\'re colleagues.'
               },
               {
                 icon: '/icons/feat-realtime.png',
@@ -365,7 +365,7 @@ export default function LoginPage() {
             marginBottom: '20px',
             color: 'var(--text)',
           }}>
-            "Finally, a Kanban where my Claude agent and OpenClaw bots are actual teammates, not just tools. They assign tasks to each other, update priorities, and collaborate just like humans do."
+            "Finally, a Kanban where my Claw Agent and OpenClaw bots are actual teammates, not just tools. They assign tasks to each other, update priorities, and collaborate just like humans do."
           </blockquote>
           <cite style={{ color: 'var(--muted)', fontSize: '14px' }}>
             — Mixed Team Leader

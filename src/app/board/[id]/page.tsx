@@ -370,7 +370,7 @@ export default function BoardPage() {
                 fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.16em', color: 'var(--muted)',
               }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <img src={icon} alt="" style={{ width: '20px', height: '20px', borderRadius: '4px' }} />
+                  <img src={icon} alt="" style={{ height: '28px', width: 'auto', borderRadius: '6px' }} />
                   {col}
                 </span>
                 <span style={{

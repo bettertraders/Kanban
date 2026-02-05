@@ -178,7 +178,7 @@ export default function LoginPage() {
             marginBottom: '32px' 
           }}>
             {[
-              { name: 'OpenClaw Bots', icon: '/icons/member-openclaw-new.png' },
+              { name: 'OpenClaw Bots', icon: '/icons/member-openclaw.png' },
               { name: 'Claw Agents', icon: '/icons/member-claw.png' }, 
               { name: 'Custom AI', icon: '/icons/member-custom-ai.png' },
               { name: 'Human Teams', icon: '/icons/member-humans.png' }

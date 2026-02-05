@@ -31,10 +31,10 @@ interface Board {
 }
 
 const columnIcons: Record<string, string> = {
-  'Backlog': '/icons/col-backlog.png',
-  'Planned': '/icons/col-planned.png',
-  'In Progress': '/icons/col-progress.png',
-  'Done': '/icons/col-done.png',
+  'Backlog': '/icons/col-backlog-v2.png',
+  'Planned': '/icons/col-planned-v2.png',
+  'In Progress': '/icons/col-progress-v2.png',
+  'Done': '/icons/col-done-v2.png',
 };
 
 const priorityColors: Record<string, { bg: string; text: string; border: string }> = {
@@ -43,6 +43,25 @@ const priorityColors: Record<string, { bg: string; text: string; border: string 
   medium: { bg: 'rgba(138, 165, 255, 0.18)', text: 'var(--info)', border: 'rgba(138, 165, 255, 0.4)' },
   low: { bg: 'rgba(111, 125, 184, 0.18)', text: 'var(--low)', border: 'rgba(111, 125, 184, 0.4)' },
 };
+
+const botQuotes = [
+  "🦞 \"Keep calm and claw on!\"",
+  "🤖 \"01001000 01001001 — that's 'HI' in robot!\"",
+  "🦞 \"Life's a beach, then you shell-ebrate!\"",
+  "🤖 \"I'm not lazy, I'm on energy-saving mode.\"",
+  "🦞 \"Feeling crabby? Move a task to Done!\"",
+  "🤖 \"Error 404: Motivation not found... just kidding, let's ship!\"",
+  "🦞 \"You're doing fin-tastic today!\"",
+  "🤖 \"Beep boop, tasks go brrrr!\"",
+  "🦞 \"Don't be shellfish — share your wins!\"",
+  "🤖 \"I computed the probability of success: 100% if we try.\"",
+  "🦞 \"Snap snap, let's make it happen!\"",
+  "🤖 \"Running at maximum efficiency: coffee.exe loaded.\"",
+  "🦞 \"You're one in a krillion!\"",
+  "🤖 \"My neural networks are tingling — great work incoming!\"",
+  "🦞 \"Seas the day and crush those tasks!\"",
+  "🤖 \"*happy robot noises*\"",
+];
 
 function normalizeLabels(labels: string[] | string | null | undefined): string[] {
   if (!labels) return [];
@@ -337,6 +356,84 @@ export default function BoardPage() {
         </div>
       </header>
 
+      {/* Team members with access */}
+      {teamMembers.length > 0 && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          marginBottom: '12px',
+          padding: '12px 16px',
+          background: 'var(--panel)',
+          border: '1px solid var(--border)',
+          borderRadius: '12px',
+        }}>
+          <span style={{ fontSize: '12px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            Team:
+          </span>
+          <div style={{ display: 'flex', gap: '-8px' }}>
+            {teamMembers.slice(0, 8).map((member: any, i: number) => (
+              <div
+                key={member.id || i}
+                title={`${member.name}${member.role === 'admin' ? ' (Admin)' : ''}`}
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  background: member.avatar_url ? `url(${member.avatar_url}) center/cover` : 'linear-gradient(135deg, var(--accent), #9a9cff)',
+                  border: '2px solid var(--panel)',
+                  marginLeft: i > 0 ? '-8px' : '0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  color: '#fff',
+                  cursor: 'pointer',
+                }}
+              >
+                {!member.avatar_url && member.name?.charAt(0).toUpperCase()}
+              </div>
+            ))}
+            {teamMembers.length > 8 && (
+              <div style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                background: 'var(--panel-3)',
+                border: '2px solid var(--panel)',
+                marginLeft: '-8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '12px',
+                color: 'var(--muted)',
+              }}>
+                +{teamMembers.length - 8}
+              </div>
+            )}
+          </div>
+          <span style={{ fontSize: '13px', color: 'var(--text)' }}>
+            {teamMembers.length} member{teamMembers.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+      )}
+
+      {/* Motivational bot quote */}
+      <div style={{
+        background: 'rgba(123, 125, 255, 0.08)',
+        border: '1px solid rgba(123, 125, 255, 0.15)',
+        borderRadius: '12px',
+        padding: '12px 20px',
+        marginBottom: '16px',
+        textAlign: 'center',
+        fontSize: '14px',
+        color: 'var(--muted)',
+        fontStyle: 'italic',
+      }}>
+        {botQuotes[Math.floor(Date.now() / 60000) % botQuotes.length]}
+      </div>
+
       {/* Board columns */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
         {(board.columns as string[]).map(col => {
@@ -370,7 +467,7 @@ export default function BoardPage() {
                 fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.16em', color: 'var(--muted)',
               }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <img src={icon} alt="" style={{ height: '28px', width: 'auto', borderRadius: '6px' }} />
+                  <img src={icon} alt="" style={{ height: '84px', width: 'auto', borderRadius: '12px' }} />
                   {col}
                 </span>
                 <span style={{

@@ -462,4 +462,58 @@ export async function getTask(taskId: number) {
   return result.rows[0];
 }
 
+export async function getStatsForUser(userId: number) {
+  // Get all board IDs the user has access to
+  const boardsResult = await pool.query(
+    `SELECT DISTINCT b.id 
+     FROM boards b
+     LEFT JOIN team_members tm ON b.team_id = tm.team_id
+     WHERE b.owner_id = $1 OR tm.user_id = $1`,
+    [userId]
+  );
+  const boardIds = boardsResult.rows.map(r => r.id);
+  
+  if (boardIds.length === 0) {
+    return { total: 0, byStatus: {}, byPriority: {}, recentlyCompleted: 0 };
+  }
+
+  // Get task counts by status
+  const statusResult = await pool.query(
+    `SELECT column_name, COUNT(*) as count 
+     FROM tasks 
+     WHERE board_id = ANY($1)
+     GROUP BY column_name`,
+    [boardIds]
+  );
+  const byStatus: Record<string, number> = {};
+  statusResult.rows.forEach(r => { byStatus[r.column_name] = parseInt(r.count); });
+
+  // Get task counts by priority
+  const priorityResult = await pool.query(
+    `SELECT priority, COUNT(*) as count 
+     FROM tasks 
+     WHERE board_id = ANY($1)
+     GROUP BY priority`,
+    [boardIds]
+  );
+  const byPriority: Record<string, number> = {};
+  priorityResult.rows.forEach(r => { byPriority[r.priority] = parseInt(r.count); });
+
+  // Get recently completed (last 7 days)
+  const recentResult = await pool.query(
+    `SELECT COUNT(*) as count 
+     FROM tasks 
+     WHERE board_id = ANY($1) 
+     AND column_name = 'Done'
+     AND updated_at > NOW() - INTERVAL '7 days'`,
+    [boardIds]
+  );
+  const recentlyCompleted = parseInt(recentResult.rows[0]?.count || '0');
+
+  // Total tasks
+  const total = Object.values(byStatus).reduce((a, b) => a + b, 0);
+
+  return { total, byStatus, byPriority, recentlyCompleted };
+}
+
 export { pool };

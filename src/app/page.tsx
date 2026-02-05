@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { findOrCreateUser, getBoardsForUser, autoJoinTeams } from '@/lib/database';
+import { findOrCreateUser, getBoardsForUser, autoJoinTeams, getStatsForUser } from '@/lib/database';
 import Link from 'next/link';
 import { UserMenu } from '@/components/UserMenu';
 
@@ -20,6 +20,7 @@ export default async function HomePage() {
   await autoJoinTeams(user.id, user.email);
   
   const boards = await getBoardsForUser(user.id);
+  const stats = await getStatsForUser(user.id);
 
   return (
     <div style={{ padding: '32px clamp(20px, 4vw, 48px) 40px', maxWidth: '1200px', margin: '0 auto' }}>
@@ -56,6 +57,76 @@ export default async function HomePage() {
           <UserMenu />
         </div>
       </header>
+
+      {/* Stats Dashboard */}
+      {stats.total > 0 && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+          gap: '12px',
+          marginBottom: '24px',
+        }}>
+          {/* Total Tasks */}
+          <div style={{
+            background: 'var(--panel)',
+            border: '1px solid var(--border)',
+            borderRadius: '12px',
+            padding: '16px',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--accent)' }}>{stats.total}</div>
+            <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--muted)' }}>Total Tasks</div>
+          </div>
+
+          {/* Backlog */}
+          <div style={{
+            background: 'var(--panel)',
+            border: '1px solid var(--border)',
+            borderRadius: '12px',
+            padding: '16px',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--muted)' }}>{stats.byStatus['Backlog'] || 0}</div>
+            <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--muted)' }}>Backlog</div>
+          </div>
+
+          {/* In Progress */}
+          <div style={{
+            background: 'var(--panel)',
+            border: '1px solid var(--border)',
+            borderRadius: '12px',
+            padding: '16px',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--info)' }}>{stats.byStatus['In Progress'] || 0}</div>
+            <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--muted)' }}>In Progress</div>
+          </div>
+
+          {/* Done */}
+          <div style={{
+            background: 'var(--panel)',
+            border: '1px solid var(--border)',
+            borderRadius: '12px',
+            padding: '16px',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--success)' }}>{stats.byStatus['Done'] || 0}</div>
+            <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--muted)' }}>Done</div>
+          </div>
+
+          {/* Recently Completed */}
+          <div style={{
+            background: 'rgba(58, 193, 124, 0.1)',
+            border: '1px solid rgba(58, 193, 124, 0.2)',
+            borderRadius: '12px',
+            padding: '16px',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--success)' }}>{stats.recentlyCompleted}</div>
+            <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--muted)' }}>Done This Week</div>
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
         {boards.map((board: any) => (

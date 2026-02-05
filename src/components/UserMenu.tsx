@@ -10,9 +10,6 @@ export function UserMenu() {
   if (!session?.user) return null;
 
   const user = session.user;
-  const initials = user.name
-    ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    : user.email?.[0].toUpperCase() || 'U';
 
   return (
     <div style={{ position: 'relative' }}>
@@ -22,12 +19,15 @@ export function UserMenu() {
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          padding: '6px 12px 6px 6px',
+          padding: '8px 14px',
           borderRadius: '999px',
           background: 'var(--panel-2)',
           border: '1px solid var(--border)',
           cursor: 'pointer',
           transition: 'background 0.2s ease, border-color 0.2s ease',
+          color: 'var(--text)',
+          fontSize: '13px',
+          fontWeight: '500',
         }}
         onMouseEnter={e => {
           (e.currentTarget as HTMLElement).style.background = 'var(--panel-3)';
@@ -38,22 +38,11 @@ export function UserMenu() {
           (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';
         }}
       >
-        <div style={{
-          width: '28px',
-          height: '28px',
-          borderRadius: '999px',
-          background: user.image ? `url(${user.image})` : 'var(--accent)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: user.image ? 'transparent' : '#0d0d1f',
-          fontWeight: '600',
-          fontSize: '12px',
-        }}>
-          {!user.image && initials}
-        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+          <circle cx="12" cy="7" r="4" />
+        </svg>
+        Account
         <svg 
           width="12" 
           height="12" 

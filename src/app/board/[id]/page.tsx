@@ -445,6 +445,17 @@ export default function BoardPage() {
                   fontWeight: 600,
                   color: '#fff',
                   cursor: 'pointer',
+                  position: 'relative',
+                  zIndex: teamMembers.length - i,
+                  transition: 'transform 0.15s ease, z-index 0s',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLElement).style.transform = 'scale(1.15)';
+                  (e.currentTarget as HTMLElement).style.zIndex = '100';
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.transform = 'scale(1)';
+                  (e.currentTarget as HTMLElement).style.zIndex = String(teamMembers.length - i);
                 }}
               >
                 {!member.avatar_url && (member.name || member.email)?.charAt(0).toUpperCase()}

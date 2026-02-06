@@ -430,7 +430,7 @@ export default function BoardPage() {
             {teamMembers.slice(0, 8).map((member: any, i: number) => (
               <div
                 key={member.id || i}
-                title={`${member.name}${member.role === 'admin' ? ' (Admin)' : ''}`}
+                title={`${member.name || member.email}${member.role === 'admin' ? ' (Admin)' : ' (Member)'}`}
                 style={{
                   width: '36px',
                   height: '36px',
@@ -447,7 +447,7 @@ export default function BoardPage() {
                   cursor: 'pointer',
                 }}
               >
-                {!member.avatar_url && member.name?.charAt(0).toUpperCase()}
+                {!member.avatar_url && (member.name || member.email)?.charAt(0).toUpperCase()}
               </div>
             ))}
             {teamMembers.length > 8 && (

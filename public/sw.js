@@ -1,9 +1,9 @@
-const CACHE_NAME = 'tbt-kanban-v1';
+const CACHE_NAME = 'clawdesk-v2';
 const STATIC_ASSETS = [
-  '/',
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',
+  '/icons/clawdesk-mark.png',
 ];
 
 self.addEventListener('install', (event) => {
@@ -23,12 +23,30 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Network-first for API calls, cache-first for static assets
-  if (event.request.url.includes('/api/')) {
+  const url = new URL(event.request.url);
+  
+  // Never cache auth-related requests
+  if (url.pathname.includes('/api/auth') || 
+      url.pathname.includes('/signin') || 
+      url.pathname.includes('/signup') ||
+      url.pathname.includes('/login')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+  
+  // Network-first for API calls and HTML pages
+  if (event.request.url.includes('/api/') || 
+      event.request.headers.get('accept')?.includes('text/html')) {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
+      fetch(event.request)
+        .then(response => {
+          // Don't cache HTML responses
+          return response;
+        })
+        .catch(() => caches.match(event.request))
     );
   } else {
+    // Cache-first for static assets only
     event.respondWith(
       caches.match(event.request).then(cached => cached || fetch(event.request))
     );

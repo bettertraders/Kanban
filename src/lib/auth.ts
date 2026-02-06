@@ -57,7 +57,13 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user, account }) {
       if (account?.provider === 'google' && user.email) {
         try {
-          await findOrCreateUser(user.email, user.name || undefined, user.image || undefined);
+          // Create user and wait for it to complete fully
+          const dbUser = await findOrCreateUser(user.email, user.name || undefined, user.image || undefined);
+          // Ensure the user was created successfully
+          if (!dbUser || !dbUser.id) {
+            console.error('Failed to create user in database');
+            return false;
+          }
           return true;
         } catch (error) {
           console.error('Error in signIn callback:', error);

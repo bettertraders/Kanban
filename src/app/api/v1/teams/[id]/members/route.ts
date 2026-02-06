@@ -75,6 +75,53 @@ export async function PATCH(
   }
 }
 
+// DELETE /api/v1/teams/:id/members - Remove a team member
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const { id } = await params;
+    const teamId = parseInt(id);
+    
+    // Verify user is an admin
+    const membership = await isTeamMember(teamId, user.id);
+    if (!membership || membership.role !== 'admin') {
+      return NextResponse.json({ error: 'Only admins can remove members' }, { status: 403 });
+    }
+    
+    const { userId } = await request.json();
+    
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+    }
+    
+    // Don't allow removing yourself
+    if (userId === user.id) {
+      return NextResponse.json({ error: 'Cannot remove yourself from the team' }, { status: 400 });
+    }
+    
+    // Verify target is a team member
+    const targetMembership = await isTeamMember(teamId, userId);
+    if (!targetMembership) {
+      return NextResponse.json({ error: 'User is not a member of this team' }, { status: 404 });
+    }
+    
+    const { removeTeamMember } = await import('@/lib/database');
+    await removeTeamMember(teamId, userId);
+    
+    return NextResponse.json({ success: true, removed: userId });
+  } catch (error) {
+    console.error('Error removing team member:', error);
+    return NextResponse.json({ error: 'Failed to remove team member' }, { status: 500 });
+  }
+}
+
 // POST /api/v1/teams/:id/members - Add a team member
 export async function POST(
   request: NextRequest,

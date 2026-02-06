@@ -296,6 +296,13 @@ export async function addTeamMember(teamId: number, userId: number, role: string
   );
 }
 
+export async function removeTeamMember(teamId: number, userId: number) {
+  await pool.query(
+    'DELETE FROM team_members WHERE team_id = $1 AND user_id = $2',
+    [teamId, userId]
+  );
+}
+
 export async function isTeamMember(teamId: number, userId: number) {
   const result = await pool.query(
     'SELECT role FROM team_members WHERE team_id = $1 AND user_id = $2',

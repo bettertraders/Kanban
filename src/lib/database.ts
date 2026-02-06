@@ -133,10 +133,12 @@ export async function findOrCreateUser(email: string, name?: string, avatarUrl?:
     const user = result.rows[0];
     
     // Create personal board for new user
+    const firstName = name ? name.split(' ')[0] : null;
+    const boardName = firstName ? `${firstName}'s Personal Board` : 'Personal Board';
     await client.query(
       `INSERT INTO boards (name, description, owner_id, is_personal, columns) 
        VALUES ($1, $2, $3, true, $4)`,
-      [`${name || email}'s Board`, 'Personal task board', user.id, JSON.stringify(['Backlog', 'Planned', 'In Progress', 'Done'])]
+      [boardName, 'Personal task board', user.id, JSON.stringify(['Backlog', 'Planned', 'In Progress', 'Done'])]
     );
     
     return user;
@@ -176,10 +178,12 @@ export async function createUserWithPassword(email: string, password: string, na
     const user = result.rows[0];
     
     // Create personal board for new user
+    const firstName = name ? name.split(' ')[0] : null;
+    const boardName = firstName ? `${firstName}'s Personal Board` : 'Personal Board';
     await client.query(
       `INSERT INTO boards (name, description, owner_id, is_personal, columns) 
        VALUES ($1, $2, $3, true, $4)`,
-      [`${name || email}'s Board`, 'Personal task board', user.id, JSON.stringify(['Backlog', 'Planned', 'In Progress', 'Done'])]
+      [boardName, 'Personal task board', user.id, JSON.stringify(['Backlog', 'Planned', 'In Progress', 'Done'])]
     );
     
     return user;

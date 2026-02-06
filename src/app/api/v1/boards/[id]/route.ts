@@ -2,6 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/api-auth';
 import { getBoard, getTasksForBoard, pool } from '@/lib/database';
 
+// Check if user can edit a board (personal: owner only, team: admin only)
+async function canEditBoard(board: any, userId: number): Promise<boolean> {
+  // Personal boards: only owner can edit
+  if (board.is_personal) {
+    return board.owner_id === userId;
+  }
+  
+  // Team boards: only admins can edit
+  if (board.team_id) {
+    const result = await pool.query(
+      'SELECT role FROM team_members WHERE team_id = $1 AND user_id = $2',
+      [board.team_id, userId]
+    );
+    return result.rows[0]?.role === 'admin';
+  }
+  
+  return false;
+}
+
 // GET /api/v1/boards/:id - Get board with tasks grouped by column
 export async function GET(
   request: NextRequest,
@@ -53,6 +72,16 @@ export async function PATCH(
     const board = await getBoard(boardId, user.id);
     if (!board) {
       return NextResponse.json({ error: 'Board not found' }, { status: 404 });
+    }
+
+    // Check if user can edit this board
+    const canEdit = await canEditBoard(board, user.id);
+    if (!canEdit) {
+      return NextResponse.json({ 
+        error: board.is_personal 
+          ? 'Only the board owner can edit this board' 
+          : 'Only team admins can edit team boards' 
+      }, { status: 403 });
     }
 
     const { name, description, columns } = await request.json();

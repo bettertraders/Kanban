@@ -83,10 +83,20 @@ export default function BoardPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addColumn, setAddColumn] = useState('Backlog');
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [teamMembers, setTeamMembers] = useState<{id: number; name: string; email: string}[]>([]);
+  const [teamMembers, setTeamMembers] = useState<{id: number; name: string; email: string; role?: string}[]>([]);
+  const [showBoardSettings, setShowBoardSettings] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [isTeamAdmin, setIsTeamAdmin] = useState(false);
 
   const fetchBoard = useCallback(async () => {
     try {
+      // Get current user info
+      const meRes = await fetch('/api/v1/me');
+      if (meRes.ok) {
+        const meData = await meRes.json();
+        setCurrentUserId(meData.user?.id || null);
+      }
+      
       const res = await fetch(`/api/v1/boards`);
       if (!res.ok) { router.push('/'); return; }
       const data = await res.json();
@@ -102,6 +112,7 @@ export default function BoardPage() {
             const teamsData = await teamsRes.json();
             const team = teamsData.teams?.find((t: any) => t.slug === b.team_slug);
             if (team) {
+              setIsTeamAdmin(team.role === 'admin');
               const membersRes = await fetch(`/api/v1/teams/${team.id}/members`);
               if (membersRes.ok) {
                 const membersData = await membersRes.json();
@@ -150,6 +161,33 @@ export default function BoardPage() {
 
   const totalTasks = tasks.length;
   const doneTasks = tasks.filter(t => t.column_name === 'Done').length;
+  
+  // Can user rename this board?
+  const canRenameBoard = board && (
+    (board.is_personal) || // Personal board owner can always rename
+    (board.team_name && isTeamAdmin) // Team board requires admin
+  );
+  
+  // Handle board rename
+  const handleRenameBoard = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!board) return;
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    const newName = formData.get('boardName') as string;
+    
+    try {
+      const res = await fetch(`/api/v1/boards/${board.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName }),
+      });
+      if (res.ok) {
+        setBoard({ ...board, name: newName });
+        setShowBoardSettings(false);
+      }
+    } catch {}
+  };
 
   // Drag and drop handlers
   const handleDragStart = (taskId: number) => setDragTaskId(taskId);
@@ -277,6 +315,30 @@ export default function BoardPage() {
             <h1 style={{ fontSize: 'clamp(26px, 4vw, 36px)', fontWeight: 600, letterSpacing: '0.02em' }}>
               {board.name}
             </h1>
+            {canRenameBoard && (
+              <button
+                onClick={() => setShowBoardSettings(true)}
+                title="Rename board"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--muted)',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  transition: 'color 0.2s ease',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted)')}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+              </button>
+            )}
           </div>
           <div style={{ color: 'var(--muted)', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.2em' }}>
             {board.team_name || 'Personal Board'}
@@ -641,6 +703,38 @@ export default function BoardPage() {
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '18px' }}>
                 <button type="button" onClick={() => setShowAddModal(false)} style={secondaryBtnStyle}>Cancel</button>
                 <button type="submit" style={primaryBtnStyle}>Create Task</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Board Settings Modal */}
+      {showBoardSettings && board && (
+        <div
+          onClick={e => { if (e.target === e.currentTarget) setShowBoardSettings(false); }}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(5, 5, 15, 0.7)',
+            display: 'grid', placeItems: 'center', padding: '20px', zIndex: 50,
+          }}
+        >
+          <div style={{
+            width: 'min(420px, 100%)', background: 'var(--panel)',
+            border: '1px solid var(--border)', borderRadius: '18px',
+            padding: '24px', boxShadow: 'var(--shadow)',
+            animation: 'floatIn 0.3s ease',
+          }}>
+            <h2 style={{ fontSize: '20px', marginBottom: '16px' }}>Board Settings</h2>
+            <form onSubmit={handleRenameBoard}>
+              <div style={{ display: 'grid', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Board Name</label>
+                  <input name="boardName" required defaultValue={board.name} style={inputStyle} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '18px' }}>
+                <button type="button" onClick={() => setShowBoardSettings(false)} style={secondaryBtnStyle}>Cancel</button>
+                <button type="submit" style={primaryBtnStyle}>Save</button>
               </div>
             </form>
           </div>

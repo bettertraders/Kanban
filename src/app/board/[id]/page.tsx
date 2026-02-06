@@ -112,7 +112,7 @@ export default function BoardPage() {
             const teamsData = await teamsRes.json();
             const team = teamsData.teams?.find((t: any) => t.slug === b.team_slug);
             if (team) {
-              setIsTeamAdmin(team.role === 'admin');
+              setIsTeamAdmin(team.role === 'admin' || team.user_role === 'admin');
               const membersRes = await fetch(`/api/v1/teams/${team.id}/members`);
               if (membersRes.ok) {
                 const membersData = await membersRes.json();

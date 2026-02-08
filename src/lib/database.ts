@@ -1142,6 +1142,38 @@ export async function updateTradeSignals(
   return updated;
 }
 
+export async function updateActiveTradePrices(prices: Record<string, number>) {
+  const result = await pool.query(
+    `SELECT id, coin_pair, entry_price, direction, position_size
+     FROM trades
+     WHERE status = 'active'`
+  );
+
+  let updatedCount = 0;
+
+  for (const trade of result.rows) {
+    const pair = String(trade.coin_pair || '').toUpperCase();
+    const directPrice = prices[pair];
+    const altPrice = prices[pair.replace('/', '-')];
+    const price = directPrice ?? altPrice;
+    if (price === undefined) continue;
+
+    const pnl = computePnl(trade.entry_price, price, trade.position_size, trade.direction);
+    await pool.query(
+      `UPDATE trades
+       SET current_price = $1,
+           pnl_dollar = $2,
+           pnl_percent = $3,
+           updated_at = NOW()
+       WHERE id = $4`,
+      [price, pnl?.pnlDollar ?? null, pnl?.pnlPercent ?? null, trade.id]
+    );
+    updatedCount += 1;
+  }
+
+  return updatedCount;
+}
+
 export async function scanTrades(
   boardId: number,
   scans: Array<{
@@ -1318,6 +1350,10 @@ export async function addPriceHistory(coinPair: string, price: number, volume: n
     [coinPair, price, volume, source]
   );
   return result.rows[0];
+}
+
+export async function recordPriceSnapshot(pair: string, price: number, volume: number) {
+  return addPriceHistory(pair, price, volume, 'ccxt');
 }
 
 export async function getPriceHistory(coinPair: string, hours: number = 24) {

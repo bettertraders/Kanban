@@ -1382,6 +1382,30 @@ export async function getBoardTradingStats(boardId: number) {
   };
 }
 
+export async function getEquityCurve(boardId: number) {
+  const result = await pool.query(
+    `
+      SELECT exited_at, pnl_dollar, coin_pair
+      FROM trades
+      WHERE board_id = $1 AND status = 'closed' AND exited_at IS NOT NULL
+      ORDER BY exited_at ASC
+    `,
+    [boardId]
+  );
+
+  let cumulative = 0;
+  return result.rows.map((row) => {
+    const pnl = parseFloat(row.pnl_dollar || 0);
+    cumulative += Number.isFinite(pnl) ? pnl : 0;
+    return {
+      date: row.exited_at,
+      pnl: Number.isFinite(pnl) ? pnl : 0,
+      cumulative,
+      coin_pair: row.coin_pair
+    };
+  });
+}
+
 export async function addPriceHistory(coinPair: string, price: number, volume: number | null, source: string = 'ccxt') {
   const result = await pool.query(
     `INSERT INTO price_history (coin_pair, price, volume, timestamp, source)

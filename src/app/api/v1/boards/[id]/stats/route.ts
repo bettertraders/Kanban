@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/api-auth';
-import { getBoard, getBoardTradingStats } from '@/lib/database';
+import { getBoard, getBoardTradingStats, getEquityCurve } from '@/lib/database';
 
 export async function GET(
   request: NextRequest,
@@ -15,7 +15,8 @@ export async function GET(
     if (!board) return NextResponse.json({ error: 'Board not found' }, { status: 404 });
 
     const stats = await getBoardTradingStats(parseInt(id));
-    return NextResponse.json({ stats });
+    const equityCurve = await getEquityCurve(parseInt(id));
+    return NextResponse.json({ stats: { ...stats, equityCurve } });
   } catch (e) {
     console.error('GET /boards/[id]/stats error:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

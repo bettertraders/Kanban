@@ -30,6 +30,38 @@ interface Trade {
   lesson_tag?: string | null;
 }
 
+interface EquityPoint {
+  date: string;
+  pnl: number;
+  cumulative: number;
+  coin_pair: string;
+}
+
+interface TradingStats {
+  total_trades: number;
+  active_trades: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
+  total_pnl: number;
+  avg_win: number;
+  avg_loss: number;
+  best_trade: number;
+  worst_trade: number;
+  by_coin: Array<{
+    coin_pair: string;
+    total_trades: number;
+    wins: number;
+    losses: number;
+    win_rate: number;
+    total_pnl: number;
+    avg_win: number;
+    avg_loss: number;
+  }>;
+  recent_trades: Trade[];
+  equityCurve?: EquityPoint[];
+}
+
 interface Board {
   id: number;
   name: string;
@@ -164,6 +196,9 @@ export default function TradingBoardPage() {
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [priceMap, setPriceMap] = useState<Record<string, { price: number; volume24h: number; change24h: number }>>({});
   const [exitPrompt, setExitPrompt] = useState<{ trade: Trade; target: string } | null>(null);
+  const [stats, setStats] = useState<TradingStats | null>(null);
+  const [statsExpanded, setStatsExpanded] = useState(true);
+  const [statsInitialized, setStatsInitialized] = useState(false);
 
   const fetchBoard = useCallback(async () => {
     try {
@@ -195,10 +230,30 @@ export default function TradingBoardPage() {
     setLoading(false);
   }, [boardId]);
 
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/v1/boards/${boardId}/stats`);
+      if (res.ok) {
+        const data = await res.json();
+        setStats(data.stats || null);
+      }
+    } catch {
+      // silent
+    }
+  }, [boardId]);
+
   useEffect(() => {
     fetchBoard();
     fetchTrades();
-  }, [fetchBoard, fetchTrades]);
+    fetchStats();
+  }, [fetchBoard, fetchTrades, fetchStats]);
+
+  useEffect(() => {
+    if (!stats || statsInitialized) return;
+    const hasClosedTrades = (stats.equityCurve?.length || 0) > 0;
+    setStatsExpanded(hasClosedTrades);
+    setStatsInitialized(true);
+  }, [stats, statsInitialized]);
 
   const pairList = useMemo(() => {
     const pairs = new Set<string>();
@@ -303,6 +358,78 @@ export default function TradingBoardPage() {
     return totals;
   }, [trades, priceMap]);
 
+  const bestWorstTrades = useMemo(() => {
+    const closedTrades = trades.filter((trade) => {
+      const status = String(trade.status || '').toLowerCase();
+      return trade.column_name === 'Wins' || trade.column_name === 'Losses' || ['closed', 'won', 'lost'].includes(status);
+    });
+
+    const withPnl = closedTrades.map((trade) => {
+      const exitPrice = toNumber(trade.exit_price);
+      const computed = computePnl(trade, exitPrice);
+      const pnl = toNumber(trade.pnl_dollar) ?? computed?.pnlDollar ?? null;
+      return pnl === null ? null : { trade, pnl };
+    }).filter(Boolean) as Array<{ trade: Trade; pnl: number }>;
+
+    if (!withPnl.length) {
+      return { best: null, worst: null };
+    }
+
+    let best = withPnl[0];
+    let worst = withPnl[0];
+    withPnl.forEach((item) => {
+      if (item.pnl > best.pnl) best = item;
+      if (item.pnl < worst.pnl) worst = item;
+    });
+    return { best, worst };
+  }, [trades]);
+
+  const equityChart = useMemo(() => {
+    const points = stats?.equityCurve ?? [];
+    if (!points.length) return null;
+
+    const w = 800;
+    const h = 110;
+    const pad = 18;
+    const chartW = w - pad * 2;
+    const chartH = h - pad * 2;
+    const values = points.map(p => p.cumulative);
+    const minVal = Math.min(...values, 0);
+    const maxVal = Math.max(...values, 0);
+    const range = maxVal - minVal || 1;
+
+    const toPoint = (value: number, index: number) => {
+      const x = pad + (points.length === 1 ? 0 : (index / (points.length - 1)) * chartW);
+      const y = pad + chartH - ((value - minVal) / range) * chartH;
+      return { x, y };
+    };
+
+    const linePoints = points.map((p, i) => {
+      const { x, y } = toPoint(p.cumulative, i);
+      return `${x},${y}`;
+    }).join(' ');
+
+    const lastValue = values[values.length - 1] || 0;
+    const lineColor = lastValue >= 0 ? '#4ade80' : '#f05b6f';
+
+    return { w, h, pad, chartW, chartH, linePoints, lineColor, toPoint };
+  }, [stats]);
+
+  const glassCard: React.CSSProperties = {
+    background: 'rgba(20, 20, 40, 0.6)',
+    backdropFilter: 'blur(12px)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '16px',
+    padding: '16px',
+  };
+
+  const winRateValue = stats ? stats.win_rate : null;
+  const winRateColor = winRateValue === null ? 'var(--muted)' : winRateValue >= 50 ? '#4ade80' : '#f05b6f';
+  const totalPnlValue = stats ? stats.total_pnl : null;
+  const totalPnlColor = totalPnlValue === null ? 'var(--muted)' : totalPnlValue >= 0 ? '#4ade80' : '#f05b6f';
+  const bestTradeColor = bestWorstTrades.best ? (bestWorstTrades.best.pnl >= 0 ? '#4ade80' : '#f05b6f') : 'var(--muted)';
+  const worstTradeColor = bestWorstTrades.worst ? (bestWorstTrades.worst.pnl >= 0 ? '#4ade80' : '#f05b6f') : 'var(--muted)';
+
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -339,6 +466,129 @@ export default function TradingBoardPage() {
         </div>
       </header>
 
+      <section style={{ marginBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
+          <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'var(--muted)' }}>
+            Performance Dashboard
+          </div>
+          <button
+            onClick={() => setStatsExpanded((prev) => !prev)}
+            style={{
+              background: 'transparent',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              padding: '8px 14px',
+              borderRadius: '999px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 600,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+            }}
+          >
+            Stats {statsExpanded ? '▲' : '▼'}
+          </button>
+        </div>
+
+        <div
+          style={{
+            overflow: 'hidden',
+            maxHeight: statsExpanded ? '520px' : '0px',
+            opacity: statsExpanded ? 1 : 0,
+            transition: 'max-height 0.45s ease, opacity 0.3s ease',
+            pointerEvents: statsExpanded ? 'auto' : 'none',
+          }}
+        >
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '14px', marginBottom: '14px' }}>
+            <div style={glassCard}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '34px', height: '34px', borderRadius: '12px', background: 'rgba(123,125,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)', fontSize: '18px' }}>📊</div>
+                <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--muted)' }}>Total Trades</div>
+              </div>
+              <div style={{ fontSize: '28px', fontWeight: 700, marginTop: '10px' }}>{stats?.total_trades ?? 0}</div>
+              <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px' }}>All board entries</div>
+            </div>
+            <div style={glassCard}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '34px', height: '34px', borderRadius: '12px', background: 'rgba(245,181,68,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f5b544', fontSize: '18px' }}>⚡</div>
+                <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--muted)' }}>Active Trades</div>
+              </div>
+              <div style={{ fontSize: '28px', fontWeight: 700, marginTop: '10px' }}>{stats?.active_trades ?? 0}</div>
+              <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px' }}>Currently open</div>
+            </div>
+            <div style={glassCard}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '34px', height: '34px', borderRadius: '12px', background: 'rgba(74,222,128,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4ade80', fontSize: '18px' }}>🏆</div>
+                <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--muted)' }}>Win Rate</div>
+              </div>
+              <div style={{ fontSize: '28px', fontWeight: 700, marginTop: '10px', color: winRateColor }}>
+                {winRateValue === null ? '—' : `${winRateValue.toFixed(1)}%`}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px' }}>
+                {stats ? `${stats.wins} wins / ${stats.losses} losses` : 'No closed trades'}
+              </div>
+            </div>
+            <div style={glassCard}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '34px', height: '34px', borderRadius: '12px', background: 'rgba(74,222,128,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4ade80', fontSize: '18px' }}>💵</div>
+                <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--muted)' }}>Total P&amp;L</div>
+              </div>
+              <div style={{ fontSize: '28px', fontWeight: 700, marginTop: '10px', color: totalPnlColor }}>
+                {totalPnlValue === null ? '—' : formatCurrency(totalPnlValue)}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px' }}>Net performance</div>
+            </div>
+            <div style={glassCard}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '34px', height: '34px', borderRadius: '12px', background: `${bestTradeColor}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: bestTradeColor, fontSize: '18px' }}>🚀</div>
+                <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--muted)' }}>Best Trade</div>
+              </div>
+              <div style={{ fontSize: '26px', fontWeight: 700, marginTop: '10px', color: bestTradeColor }}>
+                {bestWorstTrades.best ? formatCurrency(bestWorstTrades.best.pnl) : '—'}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px' }}>
+                {bestWorstTrades.best ? normalizePair(bestWorstTrades.best.trade.coin_pair) : 'No wins yet'}
+              </div>
+            </div>
+            <div style={glassCard}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '34px', height: '34px', borderRadius: '12px', background: `${worstTradeColor}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: worstTradeColor, fontSize: '18px' }}>🧊</div>
+                <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--muted)' }}>Worst Trade</div>
+              </div>
+              <div style={{ fontSize: '26px', fontWeight: 700, marginTop: '10px', color: worstTradeColor }}>
+                {bestWorstTrades.worst ? formatCurrency(bestWorstTrades.worst.pnl) : '—'}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px' }}>
+                {bestWorstTrades.worst ? normalizePair(bestWorstTrades.worst.trade.coin_pair) : 'No losses yet'}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ ...glassCard, padding: '14px 16px' }}>
+            <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'var(--muted)', marginBottom: '8px' }}>
+              Equity Curve
+            </div>
+            {equityChart ? (
+              <svg width="100%" viewBox={`0 0 ${equityChart.w} ${equityChart.h}`} style={{ display: 'block', height: '110px' }}>
+                {[0, 0.5, 1].map((pct, i) => {
+                  const y = equityChart.pad + equityChart.chartH - pct * equityChart.chartH;
+                  return <line key={i} x1={equityChart.pad} x2={equityChart.w - equityChart.pad} y1={y} y2={y} stroke="var(--border)" strokeWidth="0.6" />;
+                })}
+                <polyline points={equityChart.linePoints} fill="none" stroke={equityChart.lineColor} strokeWidth="2" />
+                {(stats?.equityCurve ?? []).map((point, i) => {
+                  const { x, y } = equityChart.toPoint(point.cumulative, i);
+                  return <circle key={point.date + i} cx={x} cy={y} r="3" fill={equityChart.lineColor} />;
+                })}
+              </svg>
+            ) : (
+              <div style={{ height: '110px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: '13px', borderRadius: '12px', border: '1px dashed var(--border)', background: 'rgba(15, 15, 30, 0.4)' }}>
+                No closed trades yet
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(220px, 1fr))', gap: '16px', alignItems: 'start', overflowX: 'auto', paddingBottom: '16px' }}>
         {columns.map((col) => {
           const colTrades = trades.filter(t => t.column_name === col.name);
@@ -361,12 +611,17 @@ export default function TradingBoardPage() {
                 boxShadow: dragOverCol === col.name ? `0 0 0 1px ${col.color}, 0 10px 30px rgba(0,0,0,0.35)` : 'none'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '12px' }}>
-                <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <div style={{ fontSize: '14px', fontWeight: 600, color: col.color }}>{col.name}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>{totals.count} trades</div>
+                  <div style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '999px', background: 'var(--panel-2)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
+                    {totals.count}
+                  </div>
                 </div>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: pnlColor }}>{formatCurrency(totals.pnl)}</div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--muted)' }}>P&amp;L</div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: pnlColor }}>{formatCurrency(totals.pnl)}</div>
+                </div>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

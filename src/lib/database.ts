@@ -90,6 +90,14 @@ export async function initializeDatabase() {
         END IF;
       END $$;
 
+      -- Add links column if it doesn't exist (migration)
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tasks' AND column_name='links') THEN
+          ALTER TABLE tasks ADD COLUMN links JSONB DEFAULT '[]';
+        END IF;
+      END $$;
+
       -- Comments table
       CREATE TABLE IF NOT EXISTS comments (
         id SERIAL PRIMARY KEY,
@@ -459,7 +467,7 @@ export async function createTask(
 }
 
 export async function updateTask(taskId: number, updates: Record<string, unknown>) {
-  const allowedFields = ['title', 'description', 'notes', 'column_name', 'position', 'priority', 'assigned_to', 'due_date', 'labels'];
+  const allowedFields = ['title', 'description', 'notes', 'links', 'column_name', 'position', 'priority', 'assigned_to', 'due_date', 'labels'];
   const setClause: string[] = [];
   const values: unknown[] = [];
   let paramIndex = 1;
@@ -467,7 +475,7 @@ export async function updateTask(taskId: number, updates: Record<string, unknown
   for (const [key, value] of Object.entries(updates)) {
     if (allowedFields.includes(key)) {
       setClause.push(`${key} = $${paramIndex}`);
-      values.push(key === 'labels' ? JSON.stringify(value) : value);
+      values.push((key === 'labels' || key === 'links') ? JSON.stringify(value) : value);
       paramIndex++;
     }
   }

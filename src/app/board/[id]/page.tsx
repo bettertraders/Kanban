@@ -9,6 +9,8 @@ interface Task {
   id: number;
   title: string;
   description?: string;
+  notes?: string;
+  links?: { url: string; label: string }[];
   column_name: string;
   priority: string;
   assigned_to?: number;
@@ -17,6 +19,15 @@ interface Task {
   labels: string[] | string;
   due_date?: string;
   created_by_name?: string;
+  created_at: string;
+}
+
+interface Comment {
+  id: number;
+  content: string;
+  user_name?: string;
+  user_avatar?: string;
+  user_id?: number;
   created_at: string;
 }
 
@@ -817,66 +828,15 @@ export default function BoardPage() {
         </div>
       )}
 
-      {/* Edit Task Modal */}
+      {/* Task Detail Modal */}
       {editingTask && (
-        <div
-          onClick={e => { if (e.target === e.currentTarget) setEditingTask(null); }}
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(5, 5, 15, 0.7)',
-            display: 'grid', placeItems: 'center', padding: '20px', zIndex: 50,
-          }}
-        >
-          <div style={{
-            width: 'min(520px, 100%)', background: 'var(--panel)',
-            border: '1px solid var(--border)', borderRadius: '18px',
-            padding: '24px', boxShadow: 'var(--shadow)',
-            animation: 'floatIn 0.3s ease',
-          }}>
-            <h2 style={{ fontSize: '20px', marginBottom: '16px' }}>Edit Task</h2>
-            <form onSubmit={handleEditTask}>
-              <div style={{ display: 'grid', gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Title</label>
-                  <input name="title" required defaultValue={editingTask.title} style={inputStyle} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Description</label>
-                  <textarea name="description" defaultValue={editingTask.description || ''} style={{ ...inputStyle, resize: 'vertical', minHeight: '80px' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Priority</label>
-                  <select name="priority" defaultValue={editingTask.priority} style={inputStyle}>
-                    <option value="urgent">Urgent</option>
-                    <option value="high">High</option>
-                    <option value="medium">Medium</option>
-                    <option value="low">Low</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Column</label>
-                  <select name="column" defaultValue={editingTask.column_name} style={inputStyle}>
-                    {board.columns.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Assignee</label>
-                  <select name="assignedTo" defaultValue={editingTask.assigned_to ? String(editingTask.assigned_to) : 'unassigned'} style={inputStyle}>
-                    <option value="unassigned">Unassigned</option>
-                    {teamMembers.map(m => <option key={m.id} value={String(m.id)}>{m.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Labels (comma separated)</label>
-                  <input name="labels" defaultValue={normalizeLabels(editingTask.labels).join(', ')} style={inputStyle} />
-                </div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '18px' }}>
-                <button type="button" onClick={() => setEditingTask(null)} style={secondaryBtnStyle}>Cancel</button>
-                <button type="submit" style={primaryBtnStyle}>Save Changes</button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <TaskDetailModal
+          task={editingTask}
+          board={board}
+          teamMembers={teamMembers}
+          onClose={() => setEditingTask(null)}
+          onSaved={() => { setEditingTask(null); fetchTasks(); }}
+        />
       )}
 
       <style jsx global>{`
@@ -889,6 +849,318 @@ export default function BoardPage() {
           color: #eef0ff;
         }
       `}</style>
+    </div>
+  );
+}
+
+// Task Detail Modal Component
+function TaskDetailModal({ task, board, teamMembers, onClose, onSaved }: {
+  task: Task;
+  board: Board;
+  teamMembers: { id: number; name: string; email: string }[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [title, setTitle] = useState(task.title);
+  const [description, setDescription] = useState(task.description || '');
+  const [notes, setNotes] = useState(task.notes || '');
+  const [priority, setPriority] = useState(task.priority);
+  const [column, setColumn] = useState(task.column_name);
+  const [assignedTo, setAssignedTo] = useState(task.assigned_to ? String(task.assigned_to) : 'unassigned');
+  const [labelsStr, setLabelsStr] = useState(normalizeLabels(task.labels).join(', '));
+  const [links, setLinks] = useState<{ url: string; label: string }[]>(() => {
+    const raw = task.links;
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'string') try { return JSON.parse(raw); } catch { return []; }
+    return [];
+  });
+  const [showAddLink, setShowAddLink] = useState(false);
+  const [newLinkLabel, setNewLinkLabel] = useState('');
+  const [newLinkUrl, setNewLinkUrl] = useState('');
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [loadingComments, setLoadingComments] = useState(true);
+
+  // Fetch full task data + comments on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`/api/v1/tasks/${task.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          const t = data.task;
+          if (t) {
+            setNotes(t.notes || '');
+            const l = t.links;
+            if (Array.isArray(l)) setLinks(l);
+            else if (typeof l === 'string') try { setLinks(JSON.parse(l)); } catch {}
+          }
+        }
+      } catch {}
+      try {
+        const res = await fetch(`/api/v1/tasks/${task.id}/comments`);
+        if (res.ok) {
+          const data = await res.json();
+          setComments(data.comments || []);
+        }
+      } catch {}
+      setLoadingComments(false);
+    })();
+  }, [task.id]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await fetch(`/api/v1/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          description,
+          notes,
+          links,
+          column: column,
+          priority,
+          labels: labelsStr.split(',').map(l => l.trim()).filter(Boolean),
+          assignedTo: assignedTo === 'unassigned' ? null : parseInt(assignedTo),
+        }),
+      });
+      onSaved();
+    } catch {}
+    setSaving(false);
+  };
+
+  const handleAddLink = () => {
+    if (!newLinkUrl.trim()) return;
+    const url = newLinkUrl.trim().startsWith('http') ? newLinkUrl.trim() : `https://${newLinkUrl.trim()}`;
+    setLinks([...links, { url, label: newLinkLabel.trim() || url }]);
+    setNewLinkLabel('');
+    setNewLinkUrl('');
+    setShowAddLink(false);
+  };
+
+  const handleDeleteLink = (i: number) => {
+    setLinks(links.filter((_, idx) => idx !== i));
+  };
+
+  const handleAddComment = async () => {
+    if (!newComment.trim()) return;
+    try {
+      const res = await fetch(`/api/v1/tasks/${task.id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newComment }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setComments(prev => [...prev, data.comment]);
+        setNewComment('');
+      }
+    } catch {}
+  };
+
+  const sidebarLabelStyle: React.CSSProperties = { fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '4px' };
+  const sectionTitleStyle: React.CSSProperties = { fontSize: '13px', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' };
+
+  return (
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(5, 5, 15, 0.75)',
+        display: 'grid', placeItems: 'center', padding: '20px', zIndex: 50,
+      }}
+    >
+      <div style={{
+        width: 'min(720px, 95vw)', maxHeight: '90vh', overflow: 'auto',
+        background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px',
+        boxShadow: 'var(--shadow)', animation: 'floatIn 0.3s ease',
+      }}>
+        {/* Header */}
+        <div style={{ padding: '20px 24px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <input
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            style={{ ...inputStyle, fontSize: '20px', fontWeight: 600, border: 'none', background: 'transparent', padding: '4px 0', flex: 1 }}
+          />
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', fontSize: '22px', cursor: 'pointer', padding: '4px 8px', lineHeight: 1 }}>×</button>
+        </div>
+
+        {/* Body: Main + Sidebar */}
+        <div style={{ display: 'flex', gap: '0', minHeight: '400px' }}>
+          {/* Main content */}
+          <div style={{ flex: 1, padding: '16px 24px 24px', display: 'flex', flexDirection: 'column', gap: '20px', borderRight: '1px solid var(--border)' }}>
+            {/* Description */}
+            <div>
+              <div style={sectionTitleStyle}>Description</div>
+              <textarea
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                placeholder="Add a description..."
+                style={{ ...inputStyle, resize: 'vertical', minHeight: '60px' }}
+              />
+            </div>
+
+            {/* Notes */}
+            <div>
+              <div style={sectionTitleStyle}>Notes</div>
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Private notes, thoughts, context..."
+                style={{ ...inputStyle, resize: 'vertical', minHeight: '80px', fontSize: '13px' }}
+              />
+            </div>
+
+            {/* Links */}
+            <div>
+              <div style={{ ...sectionTitleStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Links</span>
+                <button
+                  onClick={() => setShowAddLink(!showAddLink)}
+                  style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '11px', padding: '3px 10px', borderRadius: '999px', cursor: 'pointer' }}
+                >
+                  + Add Link
+                </button>
+              </div>
+              {showAddLink && (
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                  <input
+                    placeholder="Label (optional)"
+                    value={newLinkLabel}
+                    onChange={e => setNewLinkLabel(e.target.value)}
+                    style={{ ...inputStyle, flex: '1 1 120px', fontSize: '13px', padding: '8px 10px' }}
+                  />
+                  <input
+                    placeholder="https://..."
+                    value={newLinkUrl}
+                    onChange={e => setNewLinkUrl(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddLink())}
+                    style={{ ...inputStyle, flex: '2 1 200px', fontSize: '13px', padding: '8px 10px' }}
+                  />
+                  <button onClick={handleAddLink} style={{ ...primaryBtnStyle, padding: '8px 14px', fontSize: '12px' }}>Add</button>
+                </div>
+              )}
+              {links.length === 0 && !showAddLink && (
+                <div style={{ fontSize: '13px', color: 'var(--muted)', fontStyle: 'italic' }}>No links yet</div>
+              )}
+              {links.map((link, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <span style={{ fontSize: '14px' }}>🔗</span>
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: 'var(--accent)', fontSize: '13px', textDecoration: 'none', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    {link.label || link.url}
+                  </a>
+                  <button
+                    onClick={() => handleDeleteLink(i)}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '14px', padding: '2px 6px' }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Divider */}
+            <div style={{ borderTop: '1px solid var(--border)' }} />
+
+            {/* Comments */}
+            <div>
+              <div style={sectionTitleStyle}>Comments</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '240px', overflowY: 'auto', marginBottom: '10px' }}>
+                {loadingComments ? (
+                  <div style={{ fontSize: '13px', color: 'var(--muted)' }}>Loading comments...</div>
+                ) : comments.length === 0 ? (
+                  <div style={{ fontSize: '13px', color: 'var(--muted)', fontStyle: 'italic' }}>No comments yet</div>
+                ) : (
+                  comments.map(c => {
+                    const isBot = (c.user_name || '').toLowerCase().includes('penny') || (c.user_name || '').toLowerCase().includes('bot');
+                    return (
+                      <div key={c.id} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                        <div style={{
+                          width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
+                          background: isBot ? 'linear-gradient(135deg, #7b7dff, #9a9cff)' : 'var(--panel-3)',
+                          border: '1px solid var(--border)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: isBot ? '14px' : '12px', fontWeight: 600, color: '#fff',
+                        }}>
+                          {isBot ? '🤖' : (c.user_name || '?').charAt(0).toUpperCase()}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'baseline' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>{c.user_name || 'Unknown'}</span>
+                            {isBot && <span style={{ fontSize: '10px', background: 'rgba(123,125,255,0.2)', color: 'var(--accent)', padding: '1px 6px', borderRadius: '999px' }}>bot</span>}
+                            <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                              {new Date(c.created_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '13px', color: 'var(--text)', lineHeight: 1.5, marginTop: '2px', whiteSpace: 'pre-wrap' }}>{c.content}</div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  value={newComment}
+                  onChange={e => setNewComment(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleAddComment())}
+                  placeholder="Write a comment..."
+                  style={{ ...inputStyle, flex: 1, fontSize: '13px', padding: '8px 12px' }}
+                />
+                <button onClick={handleAddComment} style={{ ...primaryBtnStyle, padding: '8px 16px', fontSize: '13px' }}>Send</button>
+              </div>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div style={{ width: '200px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', flexShrink: 0 }}>
+            <div>
+              <div style={sidebarLabelStyle}>Priority</div>
+              <select value={priority} onChange={e => setPriority(e.target.value)} style={{ ...inputStyle, fontSize: '13px', padding: '6px 8px' }}>
+                <option value="urgent">Urgent</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
+            <div>
+              <div style={sidebarLabelStyle}>Column</div>
+              <select value={column} onChange={e => setColumn(e.target.value)} style={{ ...inputStyle, fontSize: '13px', padding: '6px 8px' }}>
+                {board.columns.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={sidebarLabelStyle}>Assignee</div>
+              <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)} style={{ ...inputStyle, fontSize: '13px', padding: '6px 8px' }}>
+                <option value="unassigned">Unassigned</option>
+                {teamMembers.map(m => <option key={m.id} value={String(m.id)}>{m.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={sidebarLabelStyle}>Labels</div>
+              <input
+                value={labelsStr}
+                onChange={e => setLabelsStr(e.target.value)}
+                placeholder="api, ux"
+                style={{ ...inputStyle, fontSize: '13px', padding: '6px 8px' }}
+              />
+            </div>
+            <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <button onClick={handleSave} disabled={saving} style={{ ...primaryBtnStyle, width: '100%', textAlign: 'center', opacity: saving ? 0.6 : 1 }}>
+                {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+              <button onClick={onClose} style={{ ...secondaryBtnStyle, width: '100%', textAlign: 'center' }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

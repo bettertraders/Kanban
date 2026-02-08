@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { findOrCreateUser, getBoardsForUser, autoJoinTeams, getStatsForUser, getTeamsForUser } from '@/lib/database';
+import { findOrCreateUser, getBoardsForUser, autoJoinTeams, getDashboardStats, getTeamsForUser } from '@/lib/database';
 import { DashboardClient } from '@/components/DashboardClient';
 
 export const dynamic = 'force-dynamic';
@@ -20,7 +20,7 @@ export default async function HomePage() {
   
   const boards = await getBoardsForUser(user.id);
   const teams = await getTeamsForUser(user.id);
-  const stats = await getStatsForUser(user.id);
+  const stats = await getDashboardStats(user.id);
 
   return (
     <DashboardClient 

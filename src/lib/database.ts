@@ -545,57 +545,166 @@ export async function deleteComment(commentId: number) {
 }
 
 export async function getStatsForUser(userId: number) {
+  const stats = await getDashboardStats(userId);
+  return stats;
+}
+
+export async function getDashboardStats(userId: number) {
   // Get all board IDs the user has access to
   const boardsResult = await pool.query(
-    `SELECT DISTINCT b.id 
+    `SELECT DISTINCT b.id, b.name
      FROM boards b
      LEFT JOIN team_members tm ON b.team_id = tm.team_id
      WHERE b.owner_id = $1 OR tm.user_id = $1`,
     [userId]
   );
   const boardIds = boardsResult.rows.map(r => r.id);
-  
-  if (boardIds.length === 0) {
-    return { total: 0, byStatus: {}, byPriority: {}, recentlyCompleted: 0 };
+  const boardNames: Record<number, string> = {};
+  boardsResult.rows.forEach(r => { boardNames[r.id] = r.name; });
+
+  const empty = {
+    total: 0, byStatus: {} as Record<string, number>, byPriority: {} as Record<string, number>,
+    recentlyCompleted: 0, tasksCreatedThisWeek: 0, tasksCompletedThisWeek: 0,
+    avgCompletionDays: 0, mostActiveBoard: '', overdueCount: 0,
+    perBoardStats: [] as { boardId: number; boardName: string; total: number; done: number; inProgress: number; backlog: number }[],
+    dailyCompleted: [] as { date: string; count: number }[],
+    dailyCreated: [] as { date: string; count: number }[],
+    recentActivity: [] as { taskTitle: string; boardName: string; action: string; userName: string; timestamp: string }[],
+  };
+
+  if (boardIds.length === 0) return empty;
+
+  const client = await pool.connect();
+  try {
+    // By status
+    const statusResult = await client.query(
+      `SELECT column_name, COUNT(*) as count FROM tasks WHERE board_id = ANY($1) GROUP BY column_name`,
+      [boardIds]
+    );
+    const byStatus: Record<string, number> = {};
+    statusResult.rows.forEach(r => { byStatus[r.column_name] = parseInt(r.count); });
+
+    // By priority
+    const priorityResult = await client.query(
+      `SELECT priority, COUNT(*) as count FROM tasks WHERE board_id = ANY($1) GROUP BY priority`,
+      [boardIds]
+    );
+    const byPriority: Record<string, number> = {};
+    priorityResult.rows.forEach(r => { byPriority[r.priority] = parseInt(r.count); });
+
+    const total = Object.values(byStatus).reduce((a, b) => a + b, 0);
+
+    // Completed this week
+    const completedWeek = await client.query(
+      `SELECT COUNT(*) as count FROM tasks WHERE board_id = ANY($1) AND column_name = 'Done' AND updated_at > NOW() - INTERVAL '7 days'`,
+      [boardIds]
+    );
+    const tasksCompletedThisWeek = parseInt(completedWeek.rows[0]?.count || '0');
+
+    // Created this week
+    const createdWeek = await client.query(
+      `SELECT COUNT(*) as count FROM tasks WHERE board_id = ANY($1) AND created_at > NOW() - INTERVAL '7 days'`,
+      [boardIds]
+    );
+    const tasksCreatedThisWeek = parseInt(createdWeek.rows[0]?.count || '0');
+
+    // Avg completion days
+    const avgResult = await client.query(
+      `SELECT AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400) as avg_days
+       FROM tasks WHERE board_id = ANY($1) AND column_name = 'Done'`,
+      [boardIds]
+    );
+    const avgCompletionDays = parseFloat(parseFloat(avgResult.rows[0]?.avg_days || '0').toFixed(1));
+
+    // Most active board (most tasks updated in last 7 days)
+    const activeBoard = await client.query(
+      `SELECT board_id, COUNT(*) as cnt FROM tasks
+       WHERE board_id = ANY($1) AND updated_at > NOW() - INTERVAL '7 days'
+       GROUP BY board_id ORDER BY cnt DESC LIMIT 1`,
+      [boardIds]
+    );
+    const mostActiveBoard = activeBoard.rows[0] ? (boardNames[activeBoard.rows[0].board_id] || '') : '';
+
+    // Overdue
+    const overdueResult = await client.query(
+      `SELECT COUNT(*) as count FROM tasks
+       WHERE board_id = ANY($1) AND due_date < NOW() AND column_name != 'Done'`,
+      [boardIds]
+    );
+    const overdueCount = parseInt(overdueResult.rows[0]?.count || '0');
+
+    // Per board stats
+    const perBoardResult = await client.query(
+      `SELECT board_id, column_name, COUNT(*) as count FROM tasks
+       WHERE board_id = ANY($1) GROUP BY board_id, column_name`,
+      [boardIds]
+    );
+    const boardMap: Record<number, { done: number; inProgress: number; backlog: number; total: number }> = {};
+    boardIds.forEach(id => { boardMap[id] = { done: 0, inProgress: 0, backlog: 0, total: 0 }; });
+    perBoardResult.rows.forEach(r => {
+      const bid = r.board_id;
+      const cnt = parseInt(r.count);
+      if (!boardMap[bid]) boardMap[bid] = { done: 0, inProgress: 0, backlog: 0, total: 0 };
+      boardMap[bid].total += cnt;
+      if (r.column_name === 'Done') boardMap[bid].done += cnt;
+      else if (r.column_name === 'In Progress') boardMap[bid].inProgress += cnt;
+      else boardMap[bid].backlog += cnt;
+    });
+    const perBoardStats = boardIds.map(id => ({
+      boardId: id, boardName: boardNames[id] || '', ...boardMap[id],
+    }));
+
+    // Daily completed (14 days)
+    const dailyCompletedResult = await client.query(
+      `SELECT DATE(updated_at) as date, COUNT(*) as count FROM tasks
+       WHERE board_id = ANY($1) AND column_name = 'Done' AND updated_at > NOW() - INTERVAL '14 days'
+       GROUP BY DATE(updated_at) ORDER BY date`,
+      [boardIds]
+    );
+    const dailyCompleted = dailyCompletedResult.rows.map(r => ({
+      date: r.date.toISOString().split('T')[0], count: parseInt(r.count),
+    }));
+
+    // Daily created (14 days)
+    const dailyCreatedResult = await client.query(
+      `SELECT DATE(created_at) as date, COUNT(*) as count FROM tasks
+       WHERE board_id = ANY($1) AND created_at > NOW() - INTERVAL '14 days'
+       GROUP BY DATE(created_at) ORDER BY date`,
+      [boardIds]
+    );
+    const dailyCreated = dailyCreatedResult.rows.map(r => ({
+      date: r.date.toISOString().split('T')[0], count: parseInt(r.count),
+    }));
+
+    // Recent activity
+    const activityResult = await client.query(
+      `SELECT t.title as task_title, t.column_name, t.updated_at, b.name as board_name,
+              COALESCE(u.name, 'Someone') as user_name
+       FROM tasks t
+       JOIN boards b ON t.board_id = b.id
+       LEFT JOIN users u ON t.assigned_to = u.id
+       WHERE t.board_id = ANY($1)
+       ORDER BY t.updated_at DESC LIMIT 15`,
+      [boardIds]
+    );
+    const recentActivity = activityResult.rows.map(r => ({
+      taskTitle: r.task_title,
+      boardName: r.board_name,
+      action: `moved to ${r.column_name}`,
+      userName: r.user_name,
+      timestamp: r.updated_at.toISOString(),
+    }));
+
+    return {
+      total, byStatus, byPriority,
+      recentlyCompleted: tasksCompletedThisWeek,
+      tasksCreatedThisWeek, tasksCompletedThisWeek,
+      avgCompletionDays, mostActiveBoard, overdueCount,
+      perBoardStats, dailyCompleted, dailyCreated, recentActivity,
+    };
+  } finally {
+    client.release();
   }
-
-  // Get task counts by status
-  const statusResult = await pool.query(
-    `SELECT column_name, COUNT(*) as count 
-     FROM tasks 
-     WHERE board_id = ANY($1)
-     GROUP BY column_name`,
-    [boardIds]
-  );
-  const byStatus: Record<string, number> = {};
-  statusResult.rows.forEach(r => { byStatus[r.column_name] = parseInt(r.count); });
-
-  // Get task counts by priority
-  const priorityResult = await pool.query(
-    `SELECT priority, COUNT(*) as count 
-     FROM tasks 
-     WHERE board_id = ANY($1)
-     GROUP BY priority`,
-    [boardIds]
-  );
-  const byPriority: Record<string, number> = {};
-  priorityResult.rows.forEach(r => { byPriority[r.priority] = parseInt(r.count); });
-
-  // Get recently completed (last 7 days)
-  const recentResult = await pool.query(
-    `SELECT COUNT(*) as count 
-     FROM tasks 
-     WHERE board_id = ANY($1) 
-     AND column_name = 'Done'
-     AND updated_at > NOW() - INTERVAL '7 days'`,
-    [boardIds]
-  );
-  const recentlyCompleted = parseInt(recentResult.rows[0]?.count || '0');
-
-  // Total tasks
-  const total = Object.values(byStatus).reduce((a, b) => a + b, 0);
-
-  return { total, byStatus, byPriority, recentlyCompleted };
 }
 
 // Task file functions

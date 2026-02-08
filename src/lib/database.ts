@@ -139,6 +139,97 @@ export async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_team_members_team ON team_members(team_id);
       CREATE INDEX IF NOT EXISTS idx_comments_task ON comments(task_id);
       CREATE INDEX IF NOT EXISTS idx_task_files_task ON task_files(task_id);
+
+      -- Trading View: Add board_type to boards
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='boards' AND column_name='board_type') THEN
+          ALTER TABLE boards ADD COLUMN board_type VARCHAR(20) DEFAULT 'task';
+        END IF;
+      END $$;
+
+      -- Trades table
+      CREATE TABLE IF NOT EXISTS trades (
+        id SERIAL PRIMARY KEY,
+        board_id INTEGER REFERENCES boards(id) ON DELETE CASCADE,
+        column_name VARCHAR(50) DEFAULT 'Watchlist',
+        coin_pair VARCHAR(20) NOT NULL,
+        direction VARCHAR(10),
+        entry_price DECIMAL(20,8),
+        current_price DECIMAL(20,8),
+        exit_price DECIMAL(20,8),
+        stop_loss DECIMAL(20,8),
+        take_profit DECIMAL(20,8),
+        position_size DECIMAL(20,8),
+        tbo_signal VARCHAR(20),
+        rsi_value DECIMAL(5,2),
+        macd_status VARCHAR(20),
+        volume_assessment VARCHAR(20),
+        confidence_score INTEGER,
+        pnl_dollar DECIMAL(20,2),
+        pnl_percent DECIMAL(10,4),
+        bot_id INTEGER,
+        created_by INTEGER REFERENCES users(id),
+        priority VARCHAR(10) DEFAULT 'medium',
+        pause_reason TEXT,
+        lesson_tag TEXT,
+        notes TEXT,
+        links JSONB DEFAULT '[]',
+        status VARCHAR(20) DEFAULT 'watching',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        entered_at TIMESTAMP,
+        exited_at TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_trades_board ON trades(board_id);
+      CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status);
+      CREATE INDEX IF NOT EXISTS idx_trades_coin ON trades(coin_pair);
+
+      -- Trade activity log
+      CREATE TABLE IF NOT EXISTS trade_activity (
+        id SERIAL PRIMARY KEY,
+        trade_id INTEGER REFERENCES trades(id) ON DELETE CASCADE,
+        action VARCHAR(50) NOT NULL,
+        from_column VARCHAR(50),
+        to_column VARCHAR(50),
+        actor_type VARCHAR(10),
+        actor_name VARCHAR(100),
+        details JSONB,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_trade_activity_trade ON trade_activity(trade_id);
+
+      -- Price cache
+      CREATE TABLE IF NOT EXISTS price_history (
+        id SERIAL PRIMARY KEY,
+        coin_pair VARCHAR(20) NOT NULL,
+        price DECIMAL(20,8) NOT NULL,
+        volume DECIMAL(20,2),
+        timestamp TIMESTAMP NOT NULL,
+        source VARCHAR(50) DEFAULT 'ccxt'
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_price_history_pair ON price_history(coin_pair, timestamp);
+
+      -- Performance stats (aggregated daily)
+      CREATE TABLE IF NOT EXISTS trading_stats (
+        id SERIAL PRIMARY KEY,
+        board_id INTEGER REFERENCES boards(id) ON DELETE CASCADE,
+        bot_id INTEGER,
+        date DATE NOT NULL,
+        total_trades INTEGER DEFAULT 0,
+        wins INTEGER DEFAULT 0,
+        losses INTEGER DEFAULT 0,
+        total_pnl DECIMAL(20,2) DEFAULT 0,
+        win_rate DECIMAL(5,2),
+        avg_win DECIMAL(20,2),
+        avg_loss DECIMAL(20,2),
+        sharpe_ratio DECIMAL(10,4),
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_trading_stats_board ON trading_stats(board_id, date);
     `);
     console.log('Database schema initialized');
   } finally {
@@ -741,6 +832,269 @@ export async function getFile(fileId: number) {
 export async function deleteFile(fileId: number) {
   const result = await pool.query('DELETE FROM task_files WHERE id = $1 RETURNING *', [fileId]);
   return result.rows[0];
+}
+
+// ============================================
+// Trading functions
+// ============================================
+
+export async function createTrade(boardId: number, userId: number, data: Record<string, unknown>) {
+  const fields = [
+    'coin_pair', 'direction', 'entry_price', 'current_price', 'exit_price',
+    'stop_loss', 'take_profit', 'position_size', 'tbo_signal', 'rsi_value',
+    'macd_status', 'volume_assessment', 'confidence_score', 'pnl_dollar',
+    'pnl_percent', 'bot_id', 'priority', 'pause_reason', 'lesson_tag',
+    'notes', 'links', 'status', 'column_name'
+  ];
+  const cols = ['board_id', 'created_by'];
+  const vals: unknown[] = [boardId, userId];
+  let idx = 3;
+
+  for (const f of fields) {
+    if (data[f] !== undefined) {
+      cols.push(f);
+      vals.push(f === 'links' ? JSON.stringify(data[f]) : data[f]);
+      idx++;
+    }
+  }
+
+  const placeholders = vals.map((_, i) => `$${i + 1}`).join(', ');
+  const result = await pool.query(
+    `INSERT INTO trades (${cols.join(', ')}) VALUES (${placeholders}) RETURNING *`,
+    vals
+  );
+  return result.rows[0];
+}
+
+export async function getTrade(tradeId: number) {
+  const result = await pool.query(`
+    SELECT t.*, u.name as created_by_name, b.name as board_name
+    FROM trades t
+    LEFT JOIN users u ON t.created_by = u.id
+    LEFT JOIN boards b ON t.board_id = b.id
+    WHERE t.id = $1
+  `, [tradeId]);
+  return result.rows[0];
+}
+
+export async function updateTrade(tradeId: number, updates: Record<string, unknown>) {
+  const allowedFields = [
+    'column_name', 'coin_pair', 'direction', 'entry_price', 'current_price',
+    'exit_price', 'stop_loss', 'take_profit', 'position_size', 'tbo_signal',
+    'rsi_value', 'macd_status', 'volume_assessment', 'confidence_score',
+    'pnl_dollar', 'pnl_percent', 'bot_id', 'priority', 'pause_reason',
+    'lesson_tag', 'notes', 'links', 'status', 'entered_at', 'exited_at'
+  ];
+  const setClause: string[] = [];
+  const values: unknown[] = [];
+  let paramIndex = 1;
+
+  for (const [key, value] of Object.entries(updates)) {
+    if (allowedFields.includes(key)) {
+      setClause.push(`${key} = $${paramIndex}`);
+      values.push(key === 'links' ? JSON.stringify(value) : value);
+      paramIndex++;
+    }
+  }
+
+  if (setClause.length === 0) return null;
+  setClause.push(`updated_at = NOW()`);
+  values.push(tradeId);
+
+  const result = await pool.query(
+    `UPDATE trades SET ${setClause.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
+    values
+  );
+  return result.rows[0];
+}
+
+export async function deleteTrade(tradeId: number) {
+  await pool.query('DELETE FROM trades WHERE id = $1', [tradeId]);
+}
+
+export async function getTradesForBoard(boardId: number) {
+  const result = await pool.query(`
+    SELECT t.*, u.name as created_by_name
+    FROM trades t
+    LEFT JOIN users u ON t.created_by = u.id
+    WHERE t.board_id = $1
+    ORDER BY t.column_name, t.created_at
+  `, [boardId]);
+  return result.rows;
+}
+
+export async function moveTrade(tradeId: number, toColumn: string, actorType: string, actorName: string) {
+  const trade = await getTrade(tradeId);
+  if (!trade) return null;
+
+  const fromColumn = trade.column_name;
+  const updates: Record<string, unknown> = { column_name: toColumn };
+
+  // Auto-set timestamps and status based on column
+  if (toColumn === 'Active' && !trade.entered_at) {
+    updates.entered_at = new Date().toISOString();
+    updates.status = 'active';
+  } else if (toColumn === 'Wins' || toColumn === 'Losses') {
+    updates.exited_at = new Date().toISOString();
+    updates.status = toColumn === 'Wins' ? 'won' : 'lost';
+  } else if (toColumn === 'Parked') {
+    updates.status = 'parked';
+  } else if (toColumn === 'Watchlist') {
+    updates.status = 'watching';
+  } else if (toColumn === 'Analyzing') {
+    updates.status = 'analyzing';
+  }
+
+  const updated = await updateTrade(tradeId, updates);
+  await logTradeActivity(tradeId, 'move', fromColumn, toColumn, actorType, actorName, null);
+  return updated;
+}
+
+export async function logTradeActivity(
+  tradeId: number, action: string, fromCol: string | null,
+  toCol: string | null, actorType: string, actorName: string, details: unknown
+) {
+  const result = await pool.query(
+    `INSERT INTO trade_activity (trade_id, action, from_column, to_column, actor_type, actor_name, details)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    [tradeId, action, fromCol, toCol, actorType, actorName, details ? JSON.stringify(details) : null]
+  );
+  return result.rows[0];
+}
+
+export async function getTradeActivity(tradeId: number) {
+  const result = await pool.query(
+    `SELECT * FROM trade_activity WHERE trade_id = $1 ORDER BY created_at DESC`,
+    [tradeId]
+  );
+  return result.rows;
+}
+
+export async function addPriceHistory(coinPair: string, price: number, volume: number | null, source: string = 'ccxt') {
+  const result = await pool.query(
+    `INSERT INTO price_history (coin_pair, price, volume, timestamp, source)
+     VALUES ($1, $2, $3, NOW(), $4) RETURNING *`,
+    [coinPair, price, volume, source]
+  );
+  return result.rows[0];
+}
+
+export async function getPriceHistory(coinPair: string, hours: number = 24) {
+  const result = await pool.query(
+    `SELECT * FROM price_history WHERE coin_pair = $1 AND timestamp > NOW() - INTERVAL '1 hour' * $2
+     ORDER BY timestamp DESC`,
+    [coinPair, hours]
+  );
+  return result.rows;
+}
+
+export async function getLatestPrice(coinPair: string) {
+  const result = await pool.query(
+    `SELECT * FROM price_history WHERE coin_pair = $1 ORDER BY timestamp DESC LIMIT 1`,
+    [coinPair]
+  );
+  return result.rows[0];
+}
+
+export async function getTradingStats(boardId: number) {
+  const result = await pool.query(
+    `SELECT column_name, COUNT(*) as count,
+            SUM(COALESCE(pnl_dollar, 0)) as total_pnl,
+            AVG(CASE WHEN column_name = 'Wins' THEN pnl_dollar END) as avg_win,
+            AVG(CASE WHEN column_name = 'Losses' THEN pnl_dollar END) as avg_loss
+     FROM trades WHERE board_id = $1
+     GROUP BY column_name`,
+    [boardId]
+  );
+
+  const stats: Record<string, number> = {};
+  let totalPnl = 0;
+  let wins = 0;
+  let losses = 0;
+  let avgWin = 0;
+  let avgLoss = 0;
+  let totalTrades = 0;
+
+  for (const row of result.rows) {
+    stats[row.column_name] = parseInt(row.count);
+    totalTrades += parseInt(row.count);
+    totalPnl += parseFloat(row.total_pnl || '0');
+    if (row.column_name === 'Wins') {
+      wins = parseInt(row.count);
+      avgWin = parseFloat(row.avg_win || '0');
+    }
+    if (row.column_name === 'Losses') {
+      losses = parseInt(row.count);
+      avgLoss = parseFloat(row.avg_loss || '0');
+    }
+  }
+
+  const closedTrades = wins + losses;
+  const winRate = closedTrades > 0 ? (wins / closedTrades) * 100 : 0;
+
+  return {
+    totalTrades,
+    byColumn: stats,
+    wins,
+    losses,
+    winRate: Math.round(winRate * 100) / 100,
+    totalPnl: Math.round(totalPnl * 100) / 100,
+    avgWin: Math.round(avgWin * 100) / 100,
+    avgLoss: Math.round(avgLoss * 100) / 100,
+  };
+}
+
+export async function seedTradingBoard(userId: number) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Create trading board
+    const boardResult = await client.query(
+      `INSERT INTO boards (name, description, owner_id, is_personal, board_type, columns)
+       VALUES ($1, $2, $3, true, 'trading', $4) RETURNING *`,
+      ['Paper Trading', 'Paper trading board for practice', userId,
+       JSON.stringify(['Watchlist', 'Analyzing', 'Active', 'Parked', 'Wins', 'Losses'])]
+    );
+    const board = boardResult.rows[0];
+
+    // Sample trades
+    const trades = [
+      { coin_pair: 'BTC/USDT', column_name: 'Watchlist', direction: 'long', status: 'watching', confidence_score: 65, notes: 'Watching for breakout above 100k' },
+      { coin_pair: 'ETH/USDT', column_name: 'Analyzing', direction: 'long', status: 'analyzing', rsi_value: 42, tbo_signal: 'buy', confidence_score: 72, notes: 'TBO buy signal fired, checking confirmation' },
+      { coin_pair: 'SOL/USDT', column_name: 'Active', direction: 'long', status: 'active', entry_price: 195.50, current_price: 201.30, stop_loss: 188.00, take_profit: 220.00, position_size: 10, confidence_score: 80 },
+      { coin_pair: 'DOGE/USDT', column_name: 'Wins', direction: 'long', status: 'won', entry_price: 0.32, exit_price: 0.38, pnl_dollar: 187.50, pnl_percent: 18.75 },
+    ];
+
+    for (const t of trades) {
+      const tradeResult = await client.query(
+        `INSERT INTO trades (board_id, created_by, coin_pair, column_name, direction, status, entry_price, current_price, exit_price, stop_loss, take_profit, position_size, confidence_score, rsi_value, tbo_signal, pnl_dollar, pnl_percent, notes, entered_at, exited_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING id`,
+        [board.id, userId, t.coin_pair, t.column_name, t.direction, t.status,
+         t.entry_price || null, t.current_price || null, t.exit_price || null,
+         t.stop_loss || null, t.take_profit || null, t.position_size || null,
+         t.confidence_score || null, t.rsi_value || null, t.tbo_signal || null,
+         t.pnl_dollar || null, t.pnl_percent || null, t.notes || null,
+         t.column_name === 'Active' || t.column_name === 'Wins' ? new Date() : null,
+         t.column_name === 'Wins' ? new Date() : null]
+      );
+
+      // Add activity for each trade
+      await client.query(
+        `INSERT INTO trade_activity (trade_id, action, to_column, actor_type, actor_name)
+         VALUES ($1, 'created', $2, 'user', 'System Seed')`,
+        [tradeResult.rows[0].id, t.column_name]
+      );
+    }
+
+    await client.query('COMMIT');
+    return board;
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 export { pool };

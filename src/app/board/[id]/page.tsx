@@ -503,9 +503,9 @@ export default function BoardPage() {
         {botQuotes[Math.floor(Date.now() / 60000) % botQuotes.length]}
       </div>
 
-      {/* Board layout with backlog drawer */}
-      <div style={{ position: 'relative' }}>
-        {/* Backlog collapsed tab */}
+      {/* Board layout with inline backlog */}
+      <div style={{ display: 'flex', gap: '12px', overflowX: 'auto' }}>
+        {/* Backlog collapsed tab (when closed) */}
         {!backlogOpen && (
           <div
             onClick={() => setBacklogOpen(true)}
@@ -513,23 +513,20 @@ export default function BoardPage() {
             onDragLeave={handleDragLeave}
             onDrop={e => handleDrop(e, 'Backlog')}
             style={{
-              position: 'fixed',
-              left: 0,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              zIndex: 40,
+              flexShrink: 0,
+              width: '44px',
+              minHeight: '60vh',
               background: dragOverCol === 'Backlog' ? 'rgba(123, 125, 255, 0.25)' : 'var(--panel)',
               border: `1px solid ${dragOverCol === 'Backlog' ? 'rgba(123, 125, 255, 0.7)' : 'var(--border)'}`,
-              borderLeft: 'none',
-              borderRadius: '0 12px 12px 0',
-              padding: '16px 10px',
+              borderRadius: '16px',
+              padding: '16px 0',
               cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               gap: '10px',
               transition: 'all 0.3s ease',
-              boxShadow: (isDragging || dragOverCol === 'Backlog') ? '0 0 20px rgba(123, 125, 255, 0.4)' : 'var(--shadow)',
+              boxShadow: (isDragging || dragOverCol === 'Backlog') ? '0 0 20px rgba(123, 125, 255, 0.4)' : 'none',
             }}
           >
             <span style={{
@@ -558,190 +555,13 @@ export default function BoardPage() {
           </div>
         )}
 
-        {/* Backlog drawer overlay */}
-        {backlogOpen && (
-          <div
-            onClick={e => { if (e.target === e.currentTarget) setBacklogOpen(false); }}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(5, 5, 15, 0.4)',
-              zIndex: 39,
-            }}
-          />
-        )}
-
-        {/* Backlog drawer panel */}
-        <div
-          style={{
-            position: 'fixed',
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: '320px',
-            background: 'var(--panel)',
-            borderRight: '1px solid var(--border)',
-            zIndex: 40,
-            transform: backlogOpen ? 'translateX(0)' : 'translateX(-100%)',
-            transition: 'transform 0.3s ease',
-            display: 'flex',
-            flexDirection: 'column',
-            boxShadow: backlogOpen ? '4px 0 24px rgba(0,0,0,0.3)' : 'none',
-          }}
-          onDragOver={e => handleDragOver(e, 'Backlog')}
-          onDragLeave={handleDragLeave}
-          onDrop={e => handleDrop(e, 'Backlog')}
-        >
-          {/* Drawer header */}
-          <div style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '20px 16px 12px',
-            borderBottom: '1px solid var(--border)',
-          }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '10px',
-              fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.16em', color: 'var(--muted)',
-            }}>
-              <span>Backlog</span>
-              <span style={{
-                background: 'var(--panel-3)', border: '1px solid var(--border)',
-                borderRadius: '999px', padding: '4px 10px', fontSize: '12px', color: 'var(--text)',
-              }}>
-                {filteredTasks.filter(t => t.column_name === 'Backlog').length}
-              </span>
-            </div>
-            <button
-              onClick={() => setBacklogOpen(false)}
-              style={{
-                background: 'transparent', border: 'none', color: 'var(--muted)',
-                cursor: 'pointer', fontSize: '20px', padding: '4px 8px', borderRadius: '6px',
-              }}
-            >
-              ✕
-            </button>
-          </div>
-
-          {/* Drawer task list */}
-          <div style={{
-            flex: 1, overflowY: 'auto', padding: '12px',
-            display: 'flex', flexDirection: 'column', gap: '12px',
-            borderColor: dragOverCol === 'Backlog' ? 'rgba(123, 125, 255, 0.7)' : 'transparent',
-            transition: 'all 0.2s ease',
-          }}>
-            {filteredTasks.filter(t => t.column_name === 'Backlog').map(task => {
-              const labels = normalizeLabels(task.labels);
-              const prio = priorityColors[task.priority] || priorityColors.medium;
-              const isExpanded = expandedCards.has(task.id);
-
-              return (
-                <article
-                  key={task.id}
-                  draggable
-                  onDragStart={() => handleDragStart(task.id)}
-                  onClick={() => setEditingTask(task)}
-                  style={{
-                    background: 'var(--panel-2)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '14px',
-                    padding: '14px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '10px',
-                    cursor: 'grab',
-                    transition: 'transform 0.2s ease, border-color 0.2s ease',
-                  }}
-                  onMouseEnter={e => {
-                    (e.currentTarget as HTMLElement).style.borderColor = 'rgba(123, 125, 255, 0.4)';
-                    (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';
-                    (e.currentTarget as HTMLElement).style.transform = 'none';
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ fontWeight: 600, fontSize: '15px', flex: 1 }}>{task.title}</div>
-                    <span style={{
-                      fontSize: '11px', padding: '4px 8px', borderRadius: '999px',
-                      textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600,
-                      background: prio.bg, color: prio.text, border: `1px solid ${prio.border}`,
-                      whiteSpace: 'nowrap',
-                    }}>
-                      {task.priority}
-                    </span>
-                  </div>
-                  {task.description && (
-                    <>
-                      {isExpanded && (
-                        <div style={{ fontSize: '13px', color: 'var(--muted)', lineHeight: 1.4 }}>
-                          {task.description}
-                        </div>
-                      )}
-                      <button
-                        onClick={e => { e.stopPropagation(); toggleExpand(task.id); }}
-                        style={{
-                          background: 'transparent', border: 'none', color: 'var(--accent-2)',
-                          fontSize: '12px', cursor: 'pointer', alignSelf: 'flex-start', padding: 0,
-                        }}
-                      >
-                        {isExpanded ? 'Hide details' : 'Show details'}
-                      </button>
-                    </>
-                  )}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', color: 'var(--muted)', fontSize: '12px' }}>
-                    {task.assigned_to_name && (
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: '6px',
-                        padding: '4px 8px', borderRadius: '999px',
-                        background: 'rgba(123, 125, 255, 0.12)', border: '1px solid rgba(123, 125, 255, 0.2)',
-                        color: 'var(--text)',
-                      }}>
-                        {task.assigned_to_avatar ? (
-                          <img src={task.assigned_to_avatar} alt="" style={{ width: 18, height: 18, borderRadius: '50%' }} />
-                        ) : (
-                          <span style={{
-                            width: 18, height: 18, borderRadius: '50%', display: 'inline-flex',
-                            alignItems: 'center', justifyContent: 'center', fontSize: '11px',
-                            background: 'var(--panel-3)', border: '1px solid var(--border)',
-                          }}>
-                            {task.assigned_to_name.charAt(0)}
-                          </span>
-                        )}
-                        {task.assigned_to_name}
-                      </span>
-                    )}
-                    {task.created_by_name && <span>by {task.created_by_name}</span>}
-                    <span>Created {formatDate(task.created_at)}</span>
-                  </div>
-                  {labels.length > 0 && (
-                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                      {labels.map((label, i) => (
-                        <span key={i} style={{
-                          fontSize: '11px', background: 'rgba(255, 255, 255, 0.08)',
-                          padding: '3px 8px', borderRadius: '999px',
-                          border: '1px solid rgba(255, 255, 255, 0.12)',
-                        }}>
-                          {label}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </article>
-              );
-            })}
-            {filteredTasks.filter(t => t.column_name === 'Backlog').length === 0 && (
-              <div style={{ color: 'var(--muted)', fontSize: '13px', textAlign: 'center', padding: '40px 0' }}>
-                No backlog tasks
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Main board columns (excluding Backlog) */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
-          {(board.columns as string[]).filter(col => col !== 'Backlog').map(col => {
+        {/* All columns (Backlog included when open, excluded when closed) */}
+        {(board.columns as string[])
+          .filter(col => backlogOpen || col !== 'Backlog')
+          .map(col => {
             const colTasks = filteredTasks.filter(t => t.column_name === col);
             const isDragOver = dragOverCol === col;
+            const isBacklogCol = col === 'Backlog';
 
             return (
               <section
@@ -750,6 +570,8 @@ export default function BoardPage() {
                 onDragLeave={handleDragLeave}
                 onDrop={e => handleDrop(e, col)}
                 style={{
+                  flex: '1 0 260px',
+                  maxWidth: backlogOpen ? undefined : '25%',
                   background: 'var(--panel)',
                   border: `1px solid ${isDragOver ? 'rgba(123, 125, 255, 0.7)' : 'var(--border)'}`,
                   borderRadius: '16px',
@@ -768,7 +590,22 @@ export default function BoardPage() {
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.16em', color: 'var(--muted)',
                 }}>
-                  <span>{col}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>{col}</span>
+                    {isBacklogCol && (
+                      <button
+                        onClick={() => setBacklogOpen(false)}
+                        title="Collapse backlog"
+                        style={{
+                          background: 'transparent', border: 'none', color: 'var(--muted)',
+                          cursor: 'pointer', fontSize: '16px', padding: '2px 4px', borderRadius: '4px',
+                          lineHeight: 1,
+                        }}
+                      >
+                        ◂
+                      </button>
+                    )}
+                  </div>
                   <span style={{
                     background: 'var(--panel-3)', border: '1px solid var(--border)',
                     borderRadius: '999px', padding: '4px 10px', fontSize: '12px', color: 'var(--text)',
@@ -884,7 +721,6 @@ export default function BoardPage() {
               </section>
             );
           })}
-        </div>
       </div>
 
       {/* Add Task Modal */}

@@ -316,6 +316,57 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail 
         </div>
       </header>
 
+      {/* BOARD NAV TABS */}
+      <nav style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 40,
+        background: 'rgba(20, 20, 40, 0.8)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        borderRadius: '12px',
+        padding: '8px 12px',
+        marginBottom: '24px',
+        display: 'flex',
+        gap: '8px',
+        overflowX: 'auto',
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none',
+      }}>
+        <style>{`nav::-webkit-scrollbar { display: none; }`}</style>
+        {boards.map((board) => {
+          const boardStat = stats.perBoardStats.find(b => b.boardId === board.id);
+          const taskCount = boardStat?.total ?? 0;
+          return (
+            <Link
+              key={board.id}
+              href={`/board/${board.id}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: '999px',
+                background: 'var(--panel-2)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
+                textDecoration: 'none',
+                fontSize: '13px',
+                fontWeight: 500,
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                transition: 'border-color 0.2s, box-shadow 0.2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 0 8px rgba(123,125,255,0.3)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+            >
+              {board.name}
+              <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 400 }}>{taskCount}</span>
+            </Link>
+          );
+        })}
+      </nav>
+
       {/* A. STATS CARDS ROW */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '14px', marginBottom: '24px' }}>
         <div style={glassCard}>

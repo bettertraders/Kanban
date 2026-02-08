@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/api-auth';
-import { updateTradeSignals } from '@/lib/database';
+import { getBoard, getTrade, updateTradeSignals } from '@/lib/database';
 
 export async function POST(
   request: NextRequest,
@@ -12,6 +12,7 @@ export async function POST(
 
     const { id } = await params;
     const body = await request.json();
+    const tradeId = parseInt(id);
 
     const signals = {
       tbo_signal: body.tbo_signal,
@@ -27,10 +28,15 @@ export async function POST(
       return NextResponse.json({ error: 'No signal fields provided' }, { status: 400 });
     }
 
-    const trade = await updateTradeSignals(parseInt(id), signals, user.id);
+    const trade = await getTrade(tradeId);
     if (!trade) return NextResponse.json({ error: 'Trade not found' }, { status: 404 });
+    const board = await getBoard(trade.board_id, user.id);
+    if (!board) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
 
-    return NextResponse.json({ trade });
+    const updatedTrade = await updateTradeSignals(tradeId, signals, user.id);
+    if (!updatedTrade) return NextResponse.json({ error: 'Trade not found' }, { status: 404 });
+
+    return NextResponse.json({ trade: updatedTrade });
   } catch (e) {
     console.error('POST /trades/[id]/signal error:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

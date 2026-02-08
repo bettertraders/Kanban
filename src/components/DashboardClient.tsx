@@ -12,6 +12,7 @@ interface Board {
   team_id?: number;
   team_name?: string;
   columns: string[];
+  board_type?: string;
 }
 
 interface Team {
@@ -337,10 +338,11 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail 
         {boards.map((board) => {
           const boardStat = stats.perBoardStats.find(b => b.boardId === board.id);
           const taskCount = boardStat?.total ?? 0;
+          const boardHref = board.board_type === 'trading' ? `/trading/${board.id}` : `/board/${board.id}`;
           return (
             <Link
               key={board.id}
-              href={`/board/${board.id}`}
+              href={boardHref}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -360,7 +362,7 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail 
               onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 0 8px rgba(123,125,255,0.3)'; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
             >
-              {board.name}
+              {board.board_type === 'trading' ? `📈 ${board.name}` : board.name}
               <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 400 }}>{taskCount}</span>
             </Link>
           );
@@ -442,12 +444,16 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail 
           const isTeamAdmin = team?.user_role === 'admin';
           const boardStat = stats.perBoardStats.find(b => b.boardId === board.id);
           const pctDone = boardStat && boardStat.total > 0 ? Math.round((boardStat.done / boardStat.total) * 100) : 0;
+          const boardHref = board.board_type === 'trading' ? `/trading/${board.id}` : `/board/${board.id}`;
 
           return (
             <div key={board.id} style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px', transition: 'border-color 0.2s ease' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', overflow: 'hidden' }}>
-                <Link href={`/board/${board.id}`} style={{ textDecoration: 'none', color: 'var(--text)', overflow: 'hidden' }}>
-                  <h2 style={{ fontSize: '18px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{board.name}</h2>
+                <Link href={boardHref} style={{ textDecoration: 'none', color: 'var(--text)', overflow: 'hidden' }}>
+                  <h2 style={{ fontSize: '18px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>
+                    {board.board_type === 'trading' ? '📈 ' : ''}
+                    {board.name}
+                  </h2>
                 </Link>
                 {board.is_personal ? (
                   <span style={{ fontSize: '11px', padding: '4px 8px', borderRadius: '999px', background: 'rgba(123, 125, 255, 0.12)', border: '1px solid rgba(123, 125, 255, 0.2)', color: 'var(--accent)', whiteSpace: 'nowrap', flexShrink: 0 }}>Personal</span>

@@ -108,6 +108,7 @@ export async function initializeDatabase() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
+
       -- API keys table for bot access
       CREATE TABLE IF NOT EXISTS api_keys (
         id SERIAL PRIMARY KEY,
@@ -184,6 +185,18 @@ export async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_trades_board ON trades(board_id);
       CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status);
       CREATE INDEX IF NOT EXISTS idx_trades_coin ON trades(coin_pair);
+
+      -- Trade comments table
+      CREATE TABLE IF NOT EXISTS trade_comments (
+        id SERIAL PRIMARY KEY,
+        trade_id INTEGER REFERENCES trades(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id),
+        content TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_trade_comments_trade ON trade_comments(trade_id);
 
       -- Trade activity log
       CREATE TABLE IF NOT EXISTS trade_activity (
@@ -633,6 +646,32 @@ export async function addComment(taskId: number, userId: number, content: string
 
 export async function deleteComment(commentId: number) {
   await pool.query('DELETE FROM comments WHERE id = $1', [commentId]);
+}
+
+// Trade comments functions
+export async function getTradeComments(tradeId: number) {
+  const result = await pool.query(`
+    SELECT c.*, u.name as user_name, u.avatar_url as user_avatar
+    FROM trade_comments c
+    LEFT JOIN users u ON c.user_id = u.id
+    WHERE c.trade_id = $1
+    ORDER BY c.created_at ASC
+  `, [tradeId]);
+  return result.rows;
+}
+
+export async function addTradeComment(tradeId: number, userId: number, content: string) {
+  const result = await pool.query(`
+    WITH inserted AS (
+      INSERT INTO trade_comments (trade_id, user_id, content)
+      VALUES ($1, $2, $3)
+      RETURNING *
+    )
+    SELECT inserted.*, u.name as user_name, u.avatar_url as user_avatar
+    FROM inserted
+    LEFT JOIN users u ON inserted.user_id = u.id
+  `, [tradeId, userId, content]);
+  return result.rows[0];
 }
 
 export async function getStatsForUser(userId: number) {

@@ -118,6 +118,18 @@ export async function initializeDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
+      -- Task files table
+      CREATE TABLE IF NOT EXISTS task_files (
+        id SERIAL PRIMARY KEY,
+        task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+        filename VARCHAR(255) NOT NULL,
+        original_name VARCHAR(255) NOT NULL,
+        mime_type VARCHAR(100),
+        size_bytes INTEGER,
+        uploaded_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
       -- Indexes
       CREATE INDEX IF NOT EXISTS idx_tasks_board ON tasks(board_id);
       CREATE INDEX IF NOT EXISTS idx_tasks_column ON tasks(board_id, column_name);
@@ -126,6 +138,7 @@ export async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_team_members_user ON team_members(user_id);
       CREATE INDEX IF NOT EXISTS idx_team_members_team ON team_members(team_id);
       CREATE INDEX IF NOT EXISTS idx_comments_task ON comments(task_id);
+      CREATE INDEX IF NOT EXISTS idx_task_files_task ON task_files(task_id);
     `);
     console.log('Database schema initialized');
   } finally {
@@ -583,6 +596,42 @@ export async function getStatsForUser(userId: number) {
   const total = Object.values(byStatus).reduce((a, b) => a + b, 0);
 
   return { total, byStatus, byPriority, recentlyCompleted };
+}
+
+// Task file functions
+export async function getFilesForTask(taskId: number) {
+  const result = await pool.query(`
+    SELECT tf.*, u.name as uploaded_by_name
+    FROM task_files tf
+    LEFT JOIN users u ON tf.uploaded_by = u.id
+    WHERE tf.task_id = $1
+    ORDER BY tf.created_at DESC
+  `, [taskId]);
+  return result.rows;
+}
+
+export async function addFile(taskId: number, userId: number, filename: string, originalName: string, mimeType: string, sizeBytes: number) {
+  const result = await pool.query(`
+    WITH inserted AS (
+      INSERT INTO task_files (task_id, uploaded_by, filename, original_name, mime_type, size_bytes)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    )
+    SELECT inserted.*, u.name as uploaded_by_name
+    FROM inserted
+    LEFT JOIN users u ON inserted.uploaded_by = u.id
+  `, [taskId, userId, filename, originalName, mimeType, sizeBytes]);
+  return result.rows[0];
+}
+
+export async function getFile(fileId: number) {
+  const result = await pool.query('SELECT * FROM task_files WHERE id = $1', [fileId]);
+  return result.rows[0];
+}
+
+export async function deleteFile(fileId: number) {
+  const result = await pool.query('DELETE FROM task_files WHERE id = $1 RETURNING *', [fileId]);
+  return result.rows[0];
 }
 
 export { pool };

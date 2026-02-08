@@ -881,6 +881,9 @@ function TaskDetailModal({ task, board, teamMembers, onClose, onSaved }: {
   const [newComment, setNewComment] = useState('');
   const [saving, setSaving] = useState(false);
   const [loadingComments, setLoadingComments] = useState(true);
+  const [files, setFiles] = useState<{ id: number; filename: string; original_name: string; mime_type: string; size_bytes: number; uploaded_by_name: string; created_at: string }[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
 
   // Fetch full task data + comments on mount
   useEffect(() => {
@@ -903,6 +906,13 @@ function TaskDetailModal({ task, board, teamMembers, onClose, onSaved }: {
         if (res.ok) {
           const data = await res.json();
           setComments(data.comments || []);
+        }
+      } catch {}
+      try {
+        const res = await fetch(`/api/v1/tasks/${task.id}/files`);
+        if (res.ok) {
+          const data = await res.json();
+          setFiles(data.files || []);
         }
       } catch {}
       setLoadingComments(false);
@@ -1064,6 +1074,80 @@ function TaskDetailModal({ task, board, teamMembers, onClose, onSaved }: {
                   </button>
                 </div>
               ))}
+            </div>
+
+            {/* Files */}
+            <div>
+              <div style={{ ...sectionTitleStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Files</span>
+                <label style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '11px', padding: '3px 10px', borderRadius: '999px', cursor: 'pointer', display: 'inline-block' }}>
+                  📎 Upload (max 10MB)
+                  <input
+                    type="file"
+                    style={{ display: 'none' }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (file.size > 10 * 1024 * 1024) { setUploadError('File too large (max 10MB)'); return; }
+                      setUploading(true);
+                      setUploadError('');
+                      try {
+                        const fd = new FormData();
+                        fd.append('file', file);
+                        const res = await fetch(`/api/v1/tasks/${task.id}/files`, { method: 'POST', body: fd });
+                        if (res.ok) {
+                          const data = await res.json();
+                          setFiles(prev => [data.file, ...prev]);
+                        } else {
+                          const data = await res.json().catch(() => ({}));
+                          setUploadError(data.error || 'Upload failed');
+                        }
+                      } catch { setUploadError('Upload failed'); }
+                      setUploading(false);
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+              </div>
+              {uploading && <div style={{ fontSize: '12px', color: 'var(--accent)', marginBottom: '6px' }}>Uploading...</div>}
+              {uploadError && <div style={{ fontSize: '12px', color: '#ff6b6b', marginBottom: '6px' }}>{uploadError}</div>}
+              {files.length === 0 && !uploading && (
+                <div style={{ fontSize: '13px', color: 'var(--muted)', fontStyle: 'italic' }}>No files attached</div>
+              )}
+              {files.map(f => {
+                const icon = f.mime_type?.startsWith('image/') ? '🖼️'
+                  : f.mime_type === 'application/pdf' ? '📄'
+                  : f.mime_type?.includes('spreadsheet') || f.mime_type?.includes('excel') || f.mime_type === 'text/csv' ? '📊'
+                  : f.mime_type?.includes('zip') ? '📦'
+                  : '📝';
+                const sizeStr = f.size_bytes < 1024 ? `${f.size_bytes}B`
+                  : f.size_bytes < 1048576 ? `${(f.size_bytes / 1024).toFixed(1)}KB`
+                  : `${(f.size_bytes / 1048576).toFixed(1)}MB`;
+                return (
+                  <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <span style={{ fontSize: '14px' }}>{icon}</span>
+                    <a
+                      href={`/api/v1/files/${f.id}`}
+                      download={f.original_name}
+                      style={{ color: 'var(--accent)', fontSize: '13px', textDecoration: 'none', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    >
+                      {f.original_name}
+                    </a>
+                    <span style={{ fontSize: '11px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>{sizeStr}</span>
+                    <span style={{ fontSize: '11px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>{f.uploaded_by_name || '?'}</span>
+                    <span style={{ fontSize: '11px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                      {new Date(f.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </span>
+                    <button
+                      onClick={async () => {
+                        await fetch(`/api/v1/tasks/${task.id}/files?fileId=${f.id}`, { method: 'DELETE' });
+                        setFiles(prev => prev.filter(x => x.id !== f.id));
+                      }}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '14px', padding: '2px 6px' }}
+                    >×</button>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Divider */}

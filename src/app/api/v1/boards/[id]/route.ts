@@ -84,7 +84,7 @@ export async function PATCH(
       }, { status: 403 });
     }
 
-    const { name, description, columns } = await request.json();
+    const { name, description, columns, board_type, team_id } = await request.json();
 
     const updates: string[] = [];
     const values: unknown[] = [];
@@ -104,6 +104,16 @@ export async function PATCH(
       }
       updates.push(`columns = $${paramIdx++}`);
       values.push(JSON.stringify(columns));
+    }
+
+    if (board_type !== undefined) {
+      updates.push(`board_type = $${paramIdx++}`);
+      values.push(board_type);
+    }
+    if (team_id !== undefined) {
+      updates.push(`team_id = $${paramIdx++}`);
+      values.push(team_id);
+      updates.push(`is_personal = false`);
     }
 
     if (updates.length === 0) {

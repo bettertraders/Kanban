@@ -970,6 +970,347 @@ export async function getTradeActivity(tradeId: number) {
   return result.rows;
 }
 
+function parseNumeric(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const parsed = parseFloat(String(value));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function computePnl(
+  entryPrice: unknown,
+  exitPrice: unknown,
+  positionSize: unknown,
+  direction: unknown
+): { pnlDollar: number; pnlPercent: number } | null {
+  const entry = parseNumeric(entryPrice);
+  const exit = parseNumeric(exitPrice);
+  const size = parseNumeric(positionSize);
+  if (entry === null || exit === null || size === null) return null;
+
+  const isShort = String(direction || '').toLowerCase() === 'short';
+  const perUnit = isShort ? entry - exit : exit - entry;
+  const pnlDollar = perUnit * size;
+  const pnlPercent = entry !== 0 ? (perUnit / entry) * 100 : 0;
+  return { pnlDollar, pnlPercent };
+}
+
+export async function enterTrade(tradeId: number, entryPrice: number | null, userId: number) {
+  const trade = await getTrade(tradeId);
+  if (!trade) return null;
+
+  const finalEntryPrice = entryPrice ?? parseNumeric(trade.current_price);
+  if (finalEntryPrice === null) {
+    throw new Error('ENTRY_PRICE_REQUIRED');
+  }
+
+  const updates: Record<string, unknown> = {
+    entry_price: finalEntryPrice,
+    entered_at: new Date().toISOString(),
+    status: 'active',
+    column_name: 'Active'
+  };
+  if (trade.current_price === null || trade.current_price === undefined) {
+    updates.current_price = finalEntryPrice;
+  }
+
+  const updated = await updateTrade(tradeId, updates);
+  const user = await getUserById(userId);
+  await logTradeActivity(
+    tradeId,
+    'ENTERED',
+    trade.column_name,
+    'Active',
+    'user',
+    user?.name || 'Unknown',
+    { entry_price: finalEntryPrice, direction: trade.direction, position_size: trade.position_size }
+  );
+  return updated;
+}
+
+export async function exitTrade(tradeId: number, exitPrice: number, lessonTag: string | null, userId: number) {
+  const trade = await getTrade(tradeId);
+  if (!trade) return null;
+
+  if (exitPrice === null || exitPrice === undefined) {
+    throw new Error('EXIT_PRICE_REQUIRED');
+  }
+
+  if (trade.entry_price === null || trade.entry_price === undefined) {
+    throw new Error('ENTRY_PRICE_REQUIRED');
+  }
+
+  const pnl = computePnl(trade.entry_price, exitPrice, trade.position_size, trade.direction);
+  const pnlDollar = pnl ? pnl.pnlDollar : null;
+  const pnlPercent = pnl ? pnl.pnlPercent : null;
+  const toColumn = pnlDollar !== null && pnlDollar < 0 ? 'Losses' : 'Wins';
+
+  const updates: Record<string, unknown> = {
+    exit_price: exitPrice,
+    exited_at: new Date().toISOString(),
+    pnl_dollar: pnlDollar,
+    pnl_percent: pnlPercent,
+    status: 'closed',
+    column_name: toColumn
+  };
+  if (lessonTag) {
+    updates.lesson_tag = lessonTag;
+  }
+
+  const updated = await updateTrade(tradeId, updates);
+  const user = await getUserById(userId);
+  await logTradeActivity(
+    tradeId,
+    'EXITED',
+    trade.column_name,
+    toColumn,
+    'user',
+    user?.name || 'Unknown',
+    { exit_price: exitPrice, pnl_dollar: pnlDollar, pnl_percent: pnlPercent, lesson_tag: lessonTag || null }
+  );
+  return updated;
+}
+
+export async function parkTrade(tradeId: number, pauseReason: string, userId: number) {
+  const trade = await getTrade(tradeId);
+  if (!trade) return null;
+  if (!pauseReason) {
+    throw new Error('PAUSE_REASON_REQUIRED');
+  }
+
+  const updated = await updateTrade(tradeId, {
+    column_name: 'Parked',
+    status: 'parked',
+    pause_reason: pauseReason
+  });
+
+  const user = await getUserById(userId);
+  await logTradeActivity(
+    tradeId,
+    'PARKED',
+    trade.column_name,
+    'Parked',
+    'user',
+    user?.name || 'Unknown',
+    { pause_reason: pauseReason }
+  );
+  return updated;
+}
+
+export async function updateTradeSignals(
+  tradeId: number,
+  signals: {
+    tbo_signal?: string;
+    rsi_value?: number;
+    macd_status?: string;
+    volume_assessment?: string;
+    confidence_score?: number;
+    current_price?: number;
+  },
+  userId: number
+) {
+  const trade = await getTrade(tradeId);
+  if (!trade) return null;
+
+  const updates: Record<string, unknown> = {};
+  if (signals.tbo_signal !== undefined) updates.tbo_signal = signals.tbo_signal;
+  if (signals.rsi_value !== undefined) updates.rsi_value = signals.rsi_value;
+  if (signals.macd_status !== undefined) updates.macd_status = signals.macd_status;
+  if (signals.volume_assessment !== undefined) updates.volume_assessment = signals.volume_assessment;
+  if (signals.confidence_score !== undefined) updates.confidence_score = signals.confidence_score;
+  if (signals.current_price !== undefined) updates.current_price = signals.current_price;
+
+  if (signals.current_price !== undefined && trade.status === 'active') {
+    const pnl = computePnl(trade.entry_price, signals.current_price, trade.position_size, trade.direction);
+    if (pnl) {
+      updates.pnl_dollar = pnl.pnlDollar;
+      updates.pnl_percent = pnl.pnlPercent;
+    }
+  }
+
+  const updated = await updateTrade(tradeId, updates);
+  const user = await getUserById(userId);
+  await logTradeActivity(
+    tradeId,
+    'SIGNAL_UPDATE',
+    trade.column_name,
+    trade.column_name,
+    'bot',
+    user?.name || 'Bot',
+    signals
+  );
+  return updated;
+}
+
+export async function scanTrades(
+  boardId: number,
+  scans: Array<{
+    coin_pair: string;
+    direction?: string;
+    tbo_signal?: string;
+    confidence_score?: number;
+    rsi_value?: number;
+    notes?: string;
+  }>,
+  userId: number
+) {
+  if (!scans.length) return [];
+
+  const user = await getUserById(userId);
+  const actorName = user?.name || 'Bot';
+  const coinPairs = scans.map((scan) => scan.coin_pair).filter(Boolean);
+
+  const existingResult = await pool.query(
+    `SELECT * FROM trades WHERE board_id = $1 AND coin_pair = ANY($2)`,
+    [boardId, coinPairs]
+  );
+
+  const existingByPair = new Map<string, Record<string, unknown>>();
+  for (const row of existingResult.rows) {
+    existingByPair.set(row.coin_pair, row);
+  }
+
+  const results: Record<string, unknown>[] = [];
+
+  for (const scan of scans) {
+    if (!scan.coin_pair) continue;
+    const existing = existingByPair.get(scan.coin_pair) as Record<string, unknown> | undefined;
+
+    if (existing) {
+      const updates: Record<string, unknown> = {};
+      if (scan.direction !== undefined) updates.direction = scan.direction;
+      if (scan.tbo_signal !== undefined) updates.tbo_signal = scan.tbo_signal;
+      if (scan.confidence_score !== undefined) updates.confidence_score = scan.confidence_score;
+      if (scan.rsi_value !== undefined) updates.rsi_value = scan.rsi_value;
+      if (scan.notes !== undefined) updates.notes = scan.notes;
+
+      const updated = Object.keys(updates).length > 0
+        ? await updateTrade(Number(existing.id), updates)
+        : existing;
+
+      await logTradeActivity(
+        Number(existing.id),
+        'SCANNED',
+        (existing.column_name as string | null) ?? null,
+        (existing.column_name as string | null) ?? null,
+        'bot',
+        actorName,
+        updates
+      );
+      results.push(updated || existing);
+    } else {
+      const created = await createTrade(boardId, userId, {
+        coin_pair: scan.coin_pair,
+        direction: scan.direction,
+        tbo_signal: scan.tbo_signal,
+        confidence_score: scan.confidence_score,
+        rsi_value: scan.rsi_value,
+        notes: scan.notes,
+        status: 'watching',
+        column_name: 'Watchlist'
+      });
+
+      await logTradeActivity(
+        created.id,
+        'SCANNED',
+        null,
+        'Watchlist',
+        'bot',
+        actorName,
+        scan
+      );
+      results.push(created);
+    }
+  }
+
+  return results;
+}
+
+export async function getBoardTradingStats(boardId: number) {
+  const totalsResult = await pool.query(
+    `
+      SELECT
+        COUNT(*)::int as total_trades,
+        COUNT(*) FILTER (WHERE status = 'active')::int as active_trades,
+        COUNT(*) FILTER (WHERE column_name = 'Wins')::int as wins,
+        COUNT(*) FILTER (WHERE column_name = 'Losses')::int as losses,
+        COALESCE(SUM(CASE WHEN column_name IN ('Wins', 'Losses') OR status IN ('closed', 'won', 'lost') THEN COALESCE(pnl_dollar, 0) END), 0) as total_pnl,
+        COALESCE(AVG(CASE WHEN pnl_dollar > 0 THEN pnl_dollar END), 0) as avg_win,
+        COALESCE(AVG(CASE WHEN pnl_dollar < 0 THEN pnl_dollar END), 0) as avg_loss,
+        COALESCE(MAX(CASE WHEN column_name IN ('Wins', 'Losses') OR status IN ('closed', 'won', 'lost') THEN pnl_dollar END), 0) as best_trade,
+        COALESCE(MIN(CASE WHEN column_name IN ('Wins', 'Losses') OR status IN ('closed', 'won', 'lost') THEN pnl_dollar END), 0) as worst_trade
+      FROM trades WHERE board_id = $1
+    `,
+    [boardId]
+  );
+
+  const totals = totalsResult.rows[0] || {};
+  const wins = Number(totals.wins || 0);
+  const losses = Number(totals.losses || 0);
+  const closedTrades = wins + losses;
+  const winRate = closedTrades > 0 ? (wins / closedTrades) * 100 : 0;
+
+  const byCoinResult = await pool.query(
+    `
+      SELECT
+        coin_pair,
+        COUNT(*)::int as total_trades,
+        COUNT(*) FILTER (WHERE column_name = 'Wins')::int as wins,
+        COUNT(*) FILTER (WHERE column_name = 'Losses')::int as losses,
+        COALESCE(SUM(CASE WHEN column_name IN ('Wins', 'Losses') OR status IN ('closed', 'won', 'lost') THEN COALESCE(pnl_dollar, 0) END), 0) as total_pnl,
+        COALESCE(AVG(CASE WHEN pnl_dollar > 0 THEN pnl_dollar END), 0) as avg_win,
+        COALESCE(AVG(CASE WHEN pnl_dollar < 0 THEN pnl_dollar END), 0) as avg_loss
+      FROM trades WHERE board_id = $1
+      GROUP BY coin_pair
+      ORDER BY coin_pair
+    `,
+    [boardId]
+  );
+
+  const byCoin = byCoinResult.rows.map((row) => {
+    const winsByCoin = Number(row.wins || 0);
+    const lossesByCoin = Number(row.losses || 0);
+    const closedByCoin = winsByCoin + lossesByCoin;
+    return {
+      coin_pair: row.coin_pair,
+      total_trades: Number(row.total_trades || 0),
+      wins: winsByCoin,
+      losses: lossesByCoin,
+      win_rate: closedByCoin > 0 ? (winsByCoin / closedByCoin) * 100 : 0,
+      total_pnl: parseNumeric(row.total_pnl) || 0,
+      avg_win: parseNumeric(row.avg_win) || 0,
+      avg_loss: parseNumeric(row.avg_loss) || 0
+    };
+  });
+
+  const recentResult = await pool.query(
+    `
+      SELECT id, coin_pair, direction, entry_price, exit_price, pnl_dollar, pnl_percent, exited_at, column_name, status
+      FROM trades
+      WHERE board_id = $1
+        AND (column_name IN ('Wins', 'Losses') OR status IN ('closed', 'won', 'lost'))
+      ORDER BY exited_at DESC NULLS LAST, updated_at DESC
+      LIMIT 10
+    `,
+    [boardId]
+  );
+
+  return {
+    total_trades: Number(totals.total_trades || 0),
+    active_trades: Number(totals.active_trades || 0),
+    wins,
+    losses,
+    win_rate: Math.round(winRate * 100) / 100,
+    total_pnl: parseNumeric(totals.total_pnl) || 0,
+    avg_win: parseNumeric(totals.avg_win) || 0,
+    avg_loss: parseNumeric(totals.avg_loss) || 0,
+    best_trade: parseNumeric(totals.best_trade) || 0,
+    worst_trade: parseNumeric(totals.worst_trade) || 0,
+    by_coin: byCoin,
+    recent_trades: recentResult.rows
+  };
+}
+
 export async function addPriceHistory(coinPair: string, price: number, volume: number | null, source: string = 'ccxt') {
   const result = await pool.query(
     `INSERT INTO price_history (coin_pair, price, volume, timestamp, source)

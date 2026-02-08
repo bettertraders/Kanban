@@ -59,7 +59,7 @@ export async function initializeDatabase() {
         owner_id INTEGER REFERENCES users(id),
         team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE,
         is_personal BOOLEAN DEFAULT false,
-        columns JSONB DEFAULT '["Backlog", "Planned", "In Progress", "Done"]',
+        columns JSONB DEFAULT '["Backlog", "Planned", "In Progress", "Review", "Done"]',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -70,6 +70,7 @@ export async function initializeDatabase() {
         board_id INTEGER REFERENCES boards(id) ON DELETE CASCADE,
         title VARCHAR(500) NOT NULL,
         description TEXT,
+        notes TEXT,
         column_name VARCHAR(100) DEFAULT 'Backlog',
         position INTEGER DEFAULT 0,
         priority VARCHAR(20) DEFAULT 'medium',
@@ -77,6 +78,24 @@ export async function initializeDatabase() {
         created_by INTEGER REFERENCES users(id),
         due_date TIMESTAMP,
         labels JSONB DEFAULT '[]',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Add notes column if it doesn't exist (migration)
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tasks' AND column_name='notes') THEN
+          ALTER TABLE tasks ADD COLUMN notes TEXT;
+        END IF;
+      END $$;
+
+      -- Comments table
+      CREATE TABLE IF NOT EXISTS comments (
+        id SERIAL PRIMARY KEY,
+        task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id),
+        content TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -98,6 +117,7 @@ export async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_boards_team ON boards(team_id);
       CREATE INDEX IF NOT EXISTS idx_team_members_user ON team_members(user_id);
       CREATE INDEX IF NOT EXISTS idx_team_members_team ON team_members(team_id);
+      CREATE INDEX IF NOT EXISTS idx_comments_task ON comments(task_id);
     `);
     console.log('Database schema initialized');
   } finally {
@@ -138,7 +158,7 @@ export async function findOrCreateUser(email: string, name?: string, avatarUrl?:
     await client.query(
       `INSERT INTO boards (name, description, owner_id, is_personal, columns) 
        VALUES ($1, $2, $3, true, $4)`,
-      [boardName, 'Personal task board', user.id, JSON.stringify(['Backlog', 'Planned', 'In Progress', 'Done'])]
+      [boardName, 'Personal task board', user.id, JSON.stringify(['Backlog', 'Planned', 'In Progress', 'Review', 'Done'])]
     );
     
     return user;
@@ -183,7 +203,7 @@ export async function createUserWithPassword(email: string, password: string, na
     await client.query(
       `INSERT INTO boards (name, description, owner_id, is_personal, columns) 
        VALUES ($1, $2, $3, true, $4)`,
-      [boardName, 'Personal task board', user.id, JSON.stringify(['Backlog', 'Planned', 'In Progress', 'Done'])]
+      [boardName, 'Personal task board', user.id, JSON.stringify(['Backlog', 'Planned', 'In Progress', 'Review', 'Done'])]
     );
     
     return user;
@@ -258,7 +278,7 @@ export async function createTeam(name: string, slug: string, createdBy: number, 
     await client.query(
       `INSERT INTO boards (name, description, team_id, is_personal, columns) 
        VALUES ($1, $2, $3, false, $4)`,
-      [`${name} Board`, 'Team collaboration board', team.id, JSON.stringify(['Backlog', 'Planned', 'In Progress', 'Done'])]
+      [`${name} Board`, 'Team collaboration board', team.id, JSON.stringify(['Backlog', 'Planned', 'In Progress', 'Review', 'Done'])]
     );
     
     await client.query('COMMIT');
@@ -386,7 +406,7 @@ export async function createBoard(name: string, ownerId: number, teamId?: number
   const result = await pool.query(
     `INSERT INTO boards (name, description, owner_id, team_id, is_personal, columns) 
      VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [name, description, teamId ? null : ownerId, teamId, !teamId, JSON.stringify(['Backlog', 'Planned', 'In Progress', 'Done'])]
+    [name, description, teamId ? null : ownerId, teamId, !teamId, JSON.stringify(['Backlog', 'Planned', 'In Progress', 'Review', 'Done'])]
   );
   return result.rows[0];
 }
@@ -439,7 +459,7 @@ export async function createTask(
 }
 
 export async function updateTask(taskId: number, updates: Record<string, unknown>) {
-  const allowedFields = ['title', 'description', 'column_name', 'position', 'priority', 'assigned_to', 'due_date', 'labels'];
+  const allowedFields = ['title', 'description', 'notes', 'column_name', 'position', 'priority', 'assigned_to', 'due_date', 'labels'];
   const setClause: string[] = [];
   const values: unknown[] = [];
   let paramIndex = 1;
@@ -471,6 +491,36 @@ export async function deleteTask(taskId: number) {
 export async function getTask(taskId: number) {
   const result = await pool.query('SELECT * FROM tasks WHERE id = $1', [taskId]);
   return result.rows[0];
+}
+
+// Comments functions
+export async function getCommentsForTask(taskId: number) {
+  const result = await pool.query(`
+    SELECT c.*, u.name as user_name, u.avatar_url as user_avatar
+    FROM comments c
+    LEFT JOIN users u ON c.user_id = u.id
+    WHERE c.task_id = $1
+    ORDER BY c.created_at ASC
+  `, [taskId]);
+  return result.rows;
+}
+
+export async function addComment(taskId: number, userId: number, content: string) {
+  const result = await pool.query(`
+    WITH inserted AS (
+      INSERT INTO comments (task_id, user_id, content)
+      VALUES ($1, $2, $3)
+      RETURNING *
+    )
+    SELECT inserted.*, u.name as user_name, u.avatar_url as user_avatar
+    FROM inserted
+    LEFT JOIN users u ON inserted.user_id = u.id
+  `, [taskId, userId, content]);
+  return result.rows[0];
+}
+
+export async function deleteComment(commentId: number) {
+  await pool.query('DELETE FROM comments WHERE id = $1', [commentId]);
 }
 
 export async function getStatsForUser(userId: number) {

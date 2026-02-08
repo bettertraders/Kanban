@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Save, Trash2, User, Tag, Flag, Calendar } from 'lucide-react';
+import { X, Save, Trash2, Tag, Flag } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface Task {
   id: number;
   title: string;
   description?: string;
+  notes?: string;
   column_name: string;
   priority: string;
   assigned_to?: number;
@@ -16,6 +17,17 @@ interface Task {
   due_date?: string;
   created_by_name?: string;
   created_at?: string;
+}
+
+interface TaskComment {
+  id: number;
+  task_id: number;
+  user_id?: number;
+  content: string;
+  created_at?: string;
+  updated_at?: string;
+  user_name?: string;
+  user_avatar?: string;
 }
 
 interface TaskModalProps {
@@ -35,6 +47,7 @@ export function TaskModal({ task, boardId, columns, onClose }: TaskModalProps) {
   const router = useRouter();
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
+  const [notes, setNotes] = useState(task.notes || '');
   const [column, setColumn] = useState(task.column_name);
   const [priority, setPriority] = useState(task.priority);
   const [labelInput, setLabelInput] = useState('');
@@ -43,6 +56,10 @@ export function TaskModal({ task, boardId, columns, onClose }: TaskModalProps) {
     if (typeof task.labels === 'string') return (task.labels as string).split(',').map(l => l.trim()).filter(Boolean);
     return [];
   });
+  const [comments, setComments] = useState<TaskComment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(true);
+  const [commentInput, setCommentInput] = useState('');
+  const [isCommenting, setIsCommenting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   // Close on escape key
@@ -54,6 +71,42 @@ export function TaskModal({ task, boardId, columns, onClose }: TaskModalProps) {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [onClose]);
 
+  const loadComments = async () => {
+    setCommentsLoading(true);
+    try {
+      const response = await fetch(`/api/v1/tasks/${task.id}/comments`);
+      if (response.ok) {
+        const data = await response.json();
+        setComments(Array.isArray(data.comments) ? data.comments : []);
+      }
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const run = async () => {
+      await loadComments();
+    };
+    run();
+  }, [task.id]);
+
+  const handleAddComment = async () => {
+    if (!commentInput.trim()) return;
+    setIsCommenting(true);
+    try {
+      await fetch(`/api/v1/tasks/${task.id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: commentInput.trim() }),
+      });
+      setCommentInput('');
+      await loadComments();
+    } finally {
+      setIsCommenting(false);
+    }
+  };
+
   const handleSave = async () => {
     setIsLoading(true);
     try {
@@ -63,6 +116,7 @@ export function TaskModal({ task, boardId, columns, onClose }: TaskModalProps) {
         body: JSON.stringify({
           title,
           description,
+          notes,
           column_name: column,
           priority,
           labels,
@@ -128,6 +182,81 @@ export function TaskModal({ task, boardId, columns, onClose }: TaskModalProps) {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Add a more detailed description..."
               rows={4}
+              className="w-full bg-slate-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            />
+          </div>
+
+          {/* Comments */}
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-2">Comments</label>
+            <div className="space-y-3">
+              {commentsLoading ? (
+                <div className="text-sm text-slate-500">Loading comments...</div>
+              ) : comments.length === 0 ? (
+                <div className="text-sm text-slate-500">No comments yet.</div>
+              ) : (
+                comments.map(comment => (
+                  <div key={comment.id} className="bg-slate-700 rounded-lg p-3 border border-slate-600">
+                    <div className="flex items-start gap-3">
+                      {comment.user_avatar ? (
+                        <img
+                          src={comment.user_avatar}
+                          alt={comment.user_name || 'User'}
+                          className="w-8 h-8 rounded-full"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center text-xs text-slate-200">
+                          {(comment.user_name || '?').charAt(0)}
+                        </div>
+                      )}
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm text-slate-200">
+                            {comment.user_name || 'Unknown'}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            {comment.created_at ? new Date(comment.created_at).toLocaleString() : ''}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-400 mt-1 whitespace-pre-wrap">{comment.content}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="mt-3 flex gap-2">
+              <input
+                type="text"
+                value={commentInput}
+                onChange={(e) => setCommentInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddComment();
+                  }
+                }}
+                placeholder="Write a comment..."
+                className="flex-1 bg-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                onClick={handleAddComment}
+                disabled={isCommenting || !commentInput.trim()}
+                className="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-lg text-sm disabled:opacity-50"
+              >
+                {isCommenting ? 'Posting...' : 'Comment'}
+              </button>
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-1">Notes &amp; References</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Add longer notes, links, or references..."
+              rows={6}
               className="w-full bg-slate-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>

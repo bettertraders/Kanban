@@ -64,6 +64,7 @@ export async function PATCH(
     const updates: Record<string, unknown> = {};
     if (rawUpdates.title !== undefined) updates.title = rawUpdates.title;
     if (rawUpdates.description !== undefined) updates.description = rawUpdates.description;
+    if (rawUpdates.notes !== undefined) updates.notes = rawUpdates.notes;
     if (rawUpdates.column !== undefined) updates.column_name = rawUpdates.column;
     if (rawUpdates.column_name !== undefined) updates.column_name = rawUpdates.column_name;
     if (rawUpdates.priority !== undefined) updates.priority = rawUpdates.priority;

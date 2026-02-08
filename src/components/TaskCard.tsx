@@ -7,6 +7,7 @@ interface Task {
   id: number;
   title: string;
   description?: string;
+  notes?: string;
   column_name: string;
   priority: string;
   assigned_to?: number;

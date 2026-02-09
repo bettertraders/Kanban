@@ -292,35 +292,7 @@ export default function MarketDashboard() {
           </div>
         )}
 
-        {/* ── Watchlist from Board 15 ── */}
-        {boardWatchlist.length > 0 && (
-          <div style={{ ...card, marginBottom: 20 }}>
-            <div style={sectionTitle}>⭐ Watchlist</div>
-            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 4 }}>
-              {boardWatchlist.map(task => {
-                const pair = task.coin_pair.replace(/-/g, '/').toUpperCase();
-                const priceKey = pair;
-                const live = boardWatchlistPrices[priceKey] || boardWatchlistPrices[task.coin_pair.replace(/\//g, '-').toUpperCase()];
-                return (
-                  <div key={task.id} style={{
-                    flex: '0 0 auto', minWidth: 150, padding: '12px 14px', borderRadius: 10,
-                    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
-                  }}>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: '#fff', marginBottom: 8 }}>{pair}</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 4 }}>
-                      {live ? fmt(live.price) : '—'}
-                    </div>
-                    {live && (
-                      <div style={{ fontSize: 12, color: pctColor(live.change24h), fontWeight: 600 }}>
-                        24h {pct(live.change24h)}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        {/* Watchlist removed — lives on the board only */}
 
         {loading && !data && <div style={{ textAlign: 'center', padding: 60, color: '#888' }}>Loading market data…</div>}
         {error && !data && <div style={{ textAlign: 'center', padding: 60, color: '#ef4444' }}>Error: {error}</div>}

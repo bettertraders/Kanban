@@ -12,12 +12,6 @@ type Coin = {
   marketCap: number; volume: number;
 };
 type TrendingCoin = { name: string; symbol: string; thumb: string; marketCapRank: number; priceBtc: number };
-type TboStatus = {
-  enabled: boolean;
-  signalsToday: number;
-  lastSignal: { time: string; ticker: string; signal: string; interval: string } | null;
-  activeTimeframes: string[];
-};
 type NewsItem = {
   title: string;
   link: string;
@@ -29,12 +23,6 @@ const NEWS_SOURCES: Record<string, { label: string; color: string }> = {
   CoinDesk: { label: 'CoinDesk', color: '#f39a26' },
   CoinTelegraph: { label: 'CoinTelegraph', color: '#1b6bff' },
   'Yahoo Finance': { label: 'Yahoo Finance', color: '#8b5cf6' },
-};
-
-type WatchlistTask = {
-  id: number;
-  coin_pair: string;
-  tbo_signal?: string | null;
 };
 
 type MarketData = {
@@ -124,45 +112,21 @@ export default function MarketDashboard() {
   const [data, setData] = useState<MarketData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [tbo, setTbo] = useState<TboStatus | null>(null);
-  const [tboLoading, setTboLoading] = useState(false);
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [newsError, setNewsError] = useState(false);
-  const [boardWatchlist, setBoardWatchlist] = useState<WatchlistTask[]>([]);
-  const [boardWatchlistPrices, setBoardWatchlistPrices] = useState<Record<string, { price: number; change24h: number }>>({});
-
-  const loadTbo = useCallback(async () => {
-    try {
-      const res = await fetch('/api/trading/tbo/status');
-      if (res.ok) setTbo(await res.json());
-    } catch {}
-  }, []);
-
-  const toggleTbo = useCallback(async () => {
-    if (!tbo || tboLoading) return;
-    setTboLoading(true);
-    try {
-      const res = await fetch('/api/trading/tbo/toggle', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: !tbo.enabled }),
-      });
-      if (res.ok) await loadTbo();
-    } finally { setTboLoading(false); }
-  }, [tbo, tboLoading, loadTbo]);
 
   const loadNews = useCallback(async () => {
     try {
-      const res = await fetch('/api/v1/news');
+      const res = await fetch('/api/trading/market');
       if (res.ok) {
         const json = await res.json();
-        setNewsItems(Array.isArray(json?.items) ? json.items : []);
-        setNewsError(false);
-      } else {
-        setNewsItems([]);
-        setNewsError(true);
+        // News comes from the market API response if available
+        if (json?.news) {
+          setNewsItems(Array.isArray(json.news) ? json.news : []);
+          setNewsError(false);
+        }
       }
     } catch {
-      setNewsItems([]);
       setNewsError(true);
     }
   }, []);
@@ -171,7 +135,11 @@ export default function MarketDashboard() {
     try {
       const res = await fetch('/api/trading/market');
       if (!res.ok) throw new Error('Failed to fetch');
-      setData(await res.json());
+      const json = await res.json();
+      setData(json);
+      if (json?.news) {
+        setNewsItems(Array.isArray(json.news) ? json.news : []);
+      }
       setError('');
     } catch (e: any) {
       setError(e.message);
@@ -180,32 +148,11 @@ export default function MarketDashboard() {
     }
   }, []);
 
-  const loadBoardWatchlist = useCallback(async () => {
-    try {
-      const res = await fetch('/api/v1/boards/15/trades');
-      if (res.ok) {
-        const json = await res.json();
-        const trades = (json.trades || []) as Array<{ id: number; coin_pair: string; column_name: string; tbo_signal?: string | null }>;
-        const wl = trades.filter((t) => t.column_name === 'Watchlist');
-        setBoardWatchlist(wl);
-        // fetch prices for watchlist coins
-        if (wl.length) {
-          const pairs = wl.map((t) => t.coin_pair.replace(/\//g, '-')).join(',');
-          const priceRes = await fetch(`/api/v1/prices?pairs=${encodeURIComponent(pairs)}`);
-          if (priceRes.ok) {
-            const priceJson = await priceRes.json();
-            setBoardWatchlistPrices(priceJson.prices || {});
-          }
-        }
-      }
-    } catch {}
-  }, []);
-
   useEffect(() => {
-    load(); loadTbo(); loadNews(); loadBoardWatchlist();
-    const iv = setInterval(() => { load(); loadTbo(); loadNews(); loadBoardWatchlist(); }, 60_000);
+    load();
+    const iv = setInterval(() => { load(); }, 60_000);
     return () => clearInterval(iv);
-  }, [load, loadTbo, loadNews, loadBoardWatchlist]);
+  }, [load]);
 
   return (
     <div style={{ minHeight: '100vh', color: '#e2e2ff' }}>
@@ -248,52 +195,7 @@ export default function MarketDashboard() {
           </div>
         </div>
 
-        {/* ── TBO PRO Toggle ── */}
-        {tbo && (
-          <div style={{
-            ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            flexWrap: 'wrap', gap: 12,
-            boxShadow: tbo.enabled ? '0 0 20px rgba(34,197,94,0.15)' : 'none',
-            borderColor: tbo.enabled ? 'rgba(34,197,94,0.3)' : 'rgba(123,125,255,0.15)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <button onClick={toggleTbo} disabled={tboLoading} style={{
-                width: 52, height: 28, borderRadius: 14, border: 'none', cursor: 'pointer',
-                background: tbo.enabled ? '#22c55e' : 'rgba(255,255,255,0.12)',
-                position: 'relative', transition: 'background 0.2s',
-              }}>
-                <div style={{
-                  width: 22, height: 22, borderRadius: 11, background: '#fff',
-                  position: 'absolute', top: 3,
-                  left: tbo.enabled ? 27 : 3, transition: 'left 0.2s',
-                }} />
-              </button>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: tbo.enabled ? '#22c55e' : '#888' }}>
-                  TBO PRO {tbo.enabled ? '— Active' : '— Paused'}
-                </div>
-                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
-                  {tbo.enabled ? (
-                    <>
-                      {tbo.signalsToday} signal{tbo.signalsToday !== 1 ? 's' : ''} today
-                      {tbo.lastSignal && <> · Last: {tbo.lastSignal.ticker} {tbo.lastSignal.signal} ({timeAgo(tbo.lastSignal.time)})</>}
-                    </>
-                  ) : 'Signal processing paused'}
-                </div>
-              </div>
-            </div>
-            {tbo.enabled && tbo.activeTimeframes.length > 0 && (
-              <div style={{ display: 'flex', gap: 6 }}>
-                {tbo.activeTimeframes.map(tf => (
-                  <span key={tf} style={{
-                    fontSize: 11, padding: '2px 8px', borderRadius: 6,
-                    background: 'rgba(34,197,94,0.12)', color: '#22c55e', fontWeight: 600,
-                  }}>{tf}</span>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+                {/* TBO PRO Toggle moved to board page */}
 
         {/* Watchlist removed — lives on the board only */}
 

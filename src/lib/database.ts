@@ -195,6 +195,7 @@ export async function initializeDatabase() {
         pause_reason TEXT,
         lesson_tag TEXT,
         notes TEXT,
+        trade_settings JSONB DEFAULT '{}',
         links JSONB DEFAULT '[]',
         status VARCHAR(20) DEFAULT 'watching',
         created_at TIMESTAMP DEFAULT NOW(),
@@ -202,6 +203,12 @@ export async function initializeDatabase() {
         entered_at TIMESTAMP,
         exited_at TIMESTAMP
       );
+
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='trades' AND column_name='trade_settings') THEN
+          ALTER TABLE trades ADD COLUMN trade_settings JSONB DEFAULT '{}';
+        END IF;
+      END $$;
 
       CREATE INDEX IF NOT EXISTS idx_trades_board ON trades(board_id);
       CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status);
@@ -1469,7 +1476,7 @@ export async function updateTrade(tradeId: number, updates: Record<string, unkno
     'exit_price', 'stop_loss', 'take_profit', 'position_size', 'tbo_signal',
     'rsi_value', 'macd_status', 'volume_assessment', 'confidence_score',
     'pnl_dollar', 'pnl_percent', 'bot_id', 'priority', 'pause_reason',
-    'lesson_tag', 'notes', 'links', 'status', 'entered_at', 'exited_at'
+    'lesson_tag', 'notes', 'links', 'trade_settings', 'status', 'entered_at', 'exited_at'
   ];
   const setClause: string[] = [];
   const values: unknown[] = [];
@@ -1478,7 +1485,7 @@ export async function updateTrade(tradeId: number, updates: Record<string, unkno
   for (const [key, value] of Object.entries(updates)) {
     if (allowedFields.includes(key)) {
       setClause.push(`${key} = $${paramIndex}`);
-      values.push(key === 'links' ? JSON.stringify(value) : value);
+      values.push(['links', 'trade_settings'].includes(key) ? JSON.stringify(value) : value);
       paramIndex++;
     }
   }

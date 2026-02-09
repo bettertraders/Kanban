@@ -34,6 +34,7 @@ interface Trade {
   created_by_name?: string;
   pause_reason?: string | null;
   lesson_tag?: string | null;
+  trade_settings?: Record<string, unknown> | null;
 }
 
 interface EquityPoint {
@@ -307,6 +308,14 @@ export default function TradingBoardPage() {
   const [statsExpanded, setStatsExpanded] = useState(true);
   const [statsInitialized, setStatsInitialized] = useState(false);
   const [chartPair, setChartPair] = useState<string | null>(null);
+  const [activeIndicators, setActiveIndicators] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      return JSON.parse(window.localStorage.getItem('clawdesk-indicators') || '[]');
+    } catch {
+      return [];
+    }
+  });
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [tradeStreamConnected, setTradeStreamConnected] = useState(false);
   const [priceStreamConnected, setPriceStreamConnected] = useState(false);
@@ -339,6 +348,11 @@ export default function TradingBoardPage() {
   const reconnectRef = useRef<Record<string, ReturnType<typeof setTimeout> | null>>({});
   const priceAlertRef = useRef<Record<string, { tp?: boolean; sl?: boolean }>>({});
   const alertCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('clawdesk-indicators', JSON.stringify(activeIndicators));
+  }, [activeIndicators]);
 
   const fetchBoard = useCallback(async () => {
     try {
@@ -944,6 +958,16 @@ export default function TradingBoardPage() {
   const sseConnected = priceStreamConnected && tradeStreamConnected;
   const selectedPair = chartPair ? normalizePair(chartPair) : null;
   const selectedPrice = selectedPair ? priceMap[selectedPair]?.price ?? null : null;
+  const indicatorOptions = [
+    { key: 'RSI', label: 'RSI' },
+    { key: 'MACD', label: 'MACD' },
+    { key: 'BB', label: 'Bollinger Bands' },
+    { key: 'EMA20', label: 'EMA 20' },
+    { key: 'EMA50', label: 'EMA 50' },
+    { key: 'EMA200', label: 'EMA 200' },
+    { key: 'Volume', label: 'Volume' },
+    { key: 'StochRSI', label: 'Stochastic RSI' },
+  ];
 
   const handleAutoTradeCreate = async () => {
     if (!boardId) return;
@@ -1308,7 +1332,85 @@ export default function TradingBoardPage() {
                 ✕
               </button>
             </div>
-            <TradingChart pair={chartPair} boardId={Number(boardId)} />
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+              {indicatorOptions.map((indicator) => {
+                const active = activeIndicators.includes(indicator.key);
+                return (
+                  <button
+                    key={indicator.key}
+                    onClick={() => {
+                      setActiveIndicators((prev) => (
+                        prev.includes(indicator.key)
+                          ? prev.filter((item) => item !== indicator.key)
+                          : [...prev, indicator.key]
+                      ));
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '6px 12px',
+                      borderRadius: '999px',
+                      border: `1px solid ${active ? '#7b7dff' : 'var(--border)'}`,
+                      background: active ? 'rgba(123,125,255,0.16)' : 'var(--panel-2)',
+                      color: 'var(--text)',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span>{indicator.label}</span>
+                    <span
+                      style={{
+                        position: 'relative',
+                        width: '34px',
+                        height: '18px',
+                        borderRadius: '999px',
+                        background: active ? '#7b7dff' : 'rgba(255,255,255,0.12)',
+                        border: `1px solid ${active ? '#7b7dff' : 'var(--border)'}`,
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      <span
+                        style={{
+                          position: 'absolute',
+                          top: '2px',
+                          left: active ? '18px' : '2px',
+                          width: '12px',
+                          height: '12px',
+                          borderRadius: '50%',
+                          background: '#0d0d1f',
+                          boxShadow: '0 0 4px rgba(0,0,0,0.5)',
+                          transition: 'all 0.2s ease',
+                        }}
+                      />
+                    </span>
+                  </button>
+                );
+              })}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '6px 12px',
+                  borderRadius: '999px',
+                  border: '1px solid rgba(148,163,184,0.4)',
+                  background: 'var(--panel-2)',
+                  color: 'var(--muted)',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  opacity: 0.6,
+                  cursor: 'not-allowed',
+                }}
+                title="Connect TBO to enable"
+              >
+                <span>TBO Pro</span>
+                <span style={{ fontSize: '10px', color: 'var(--muted)' }}>Connect TBO</span>
+                <span style={{ fontSize: '11px', border: '1px solid rgba(148,163,184,0.35)', borderRadius: '999px', padding: '2px 6px' }}>Soon</span>
+              </div>
+            </div>
+            <TradingChart pair={chartPair} boardId={Number(boardId)} indicators={activeIndicators} />
           </>
         )}
       </section>
@@ -1590,6 +1692,7 @@ export default function TradingBoardPage() {
       {editingTrade && (
         <TradeDetailModal
           trade={editingTrade}
+          boardId={Number(boardId)}
           livePrice={priceMap[normalizePair(editingTrade.coin_pair)]?.price ?? null}
           onClose={() => setEditingTrade(null)}
           onSaved={() => { setEditingTrade(null); fetchTrades(); }}
@@ -1788,13 +1891,22 @@ function ExitPromptModal({ trade, onClose, onConfirm }: { trade: Trade; onClose:
   );
 }
 
-function TradeDetailModal({ trade, livePrice, onClose, onSaved }: { trade: Trade; livePrice: number | null; onClose: () => void; onSaved: () => void; }) {
+function TradeDetailModal({ trade, boardId, livePrice, onClose, onSaved }: { trade: Trade; boardId: number; livePrice: number | null; onClose: () => void; onSaved: () => void; }) {
   const [entryPrice, setEntryPrice] = useState(String(trade.entry_price ?? ''));
   const [stopLoss, setStopLoss] = useState(String(trade.stop_loss ?? ''));
   const [takeProfit, setTakeProfit] = useState(String(trade.take_profit ?? ''));
   const [positionSize, setPositionSize] = useState(String(trade.position_size ?? ''));
   const [direction, setDirection] = useState(String(trade.direction || 'long').toLowerCase());
   const [notes, setNotes] = useState(String(trade.notes ?? ''));
+  const tradeSettings = (trade.trade_settings ?? {}) as Record<string, unknown>;
+  const [entryZoneLow, setEntryZoneLow] = useState(String(tradeSettings.entry_zone_low ?? ''));
+  const [entryZoneHigh, setEntryZoneHigh] = useState(String(tradeSettings.entry_zone_high ?? ''));
+  const [settingsStopLoss, setSettingsStopLoss] = useState(String(tradeSettings.stop_loss ?? trade.stop_loss ?? ''));
+  const [takeProfit1, setTakeProfit1] = useState(String(tradeSettings.take_profit_1 ?? trade.take_profit ?? ''));
+  const [takeProfit2, setTakeProfit2] = useState(String(tradeSettings.take_profit_2 ?? ''));
+  const [takeProfit3, setTakeProfit3] = useState(String(tradeSettings.take_profit_3 ?? ''));
+  const [positionSizePct, setPositionSizePct] = useState(String(tradeSettings.position_size_pct ?? ''));
+  const [tradeSettingsOpen, setTradeSettingsOpen] = useState(true);
   const [exitPrice, setExitPrice] = useState('');
   const [pauseReason, setPauseReason] = useState('');
   const [saving, setSaving] = useState(false);
@@ -1840,6 +1952,15 @@ function TradeDetailModal({ trade, livePrice, onClose, onSaved }: { trade: Trade
 
   const handleSave = async () => {
     setSaving(true);
+    const tradeSettingsPayload = {
+      entry_zone_low: entryZoneLow ? parseFloat(entryZoneLow) : null,
+      entry_zone_high: entryZoneHigh ? parseFloat(entryZoneHigh) : null,
+      stop_loss: settingsStopLoss ? parseFloat(settingsStopLoss) : null,
+      take_profit_1: takeProfit1 ? parseFloat(takeProfit1) : null,
+      take_profit_2: takeProfit2 ? parseFloat(takeProfit2) : null,
+      take_profit_3: takeProfit3 ? parseFloat(takeProfit3) : null,
+      position_size_pct: positionSizePct ? parseFloat(positionSizePct) : null,
+    };
     const payload: Record<string, unknown> = {
       entry_price: entryPrice ? parseFloat(entryPrice) : null,
       stop_loss: stopLoss ? parseFloat(stopLoss) : null,
@@ -1847,9 +1968,10 @@ function TradeDetailModal({ trade, livePrice, onClose, onSaved }: { trade: Trade
       position_size: positionSize ? parseFloat(positionSize) : null,
       direction,
       notes,
+      trade_settings: tradeSettingsPayload,
     };
     try {
-      await fetch(`/api/v1/trades/${trade.id}`, {
+      await fetch(`/api/v1/boards/${boardId}/trades/${trade.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -2033,6 +2155,65 @@ function TradeDetailModal({ trade, livePrice, onClose, onSaved }: { trade: Trade
                   style={{ ...inputStyle, minHeight: '100px', resize: 'vertical' }}
                   placeholder="Trade notes..."
                 />
+              </div>
+
+              <div style={{ background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: '14px', padding: '12px 14px' }}>
+                <button
+                  onClick={() => setTradeSettingsOpen((prev) => !prev)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    padding: 0,
+                    marginBottom: tradeSettingsOpen ? '10px' : 0,
+                  }}
+                  type="button"
+                >
+                  <span>⚙️</span>
+                  <span>Trade Settings</span>
+                  <span style={{ fontSize: '11px', color: 'var(--muted)' }}>{tradeSettingsOpen ? 'Hide' : 'Show'}</span>
+                </button>
+                {tradeSettingsOpen && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--muted)' }}>Entry Zone Low</label>
+                      <input type="number" value={entryZoneLow} onChange={e => setEntryZoneLow(e.target.value)} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--muted)' }}>Entry Zone High</label>
+                      <input type="number" value={entryZoneHigh} onChange={e => setEntryZoneHigh(e.target.value)} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--muted)' }}>Stop Loss</label>
+                      <input type="number" value={settingsStopLoss} onChange={e => setSettingsStopLoss(e.target.value)} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--muted)' }}>Take Profit 1</label>
+                      <input type="number" value={takeProfit1} onChange={e => setTakeProfit1(e.target.value)} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--muted)' }}>Take Profit 2</label>
+                      <input type="number" value={takeProfit2} onChange={e => setTakeProfit2(e.target.value)} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--muted)' }}>Take Profit 3</label>
+                      <input type="number" value={takeProfit3} onChange={e => setTakeProfit3(e.target.value)} style={inputStyle} />
+                    </div>
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <label style={{ fontSize: '11px', color: 'var(--muted)' }}>Position Size</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input type="number" value={positionSizePct} onChange={e => setPositionSizePct(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+                        <span style={{ fontSize: '12px', color: 'var(--muted)' }}>% of paper balance</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { UserMenu } from '@/components/UserMenu';
 import TradingChart from '@/components/TradingChart';
 import { ToastStack, type ToastItem } from '@/components/ToastStack';
@@ -1067,21 +1066,18 @@ export default function TradingBoardPage() {
 
   return (
     <div style={{ padding: '32px clamp(20px, 4vw, 48px) 40px', maxWidth: '1720px', margin: '0 auto' }}>
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Link href="/" style={{ color: 'var(--muted)', textDecoration: 'none', fontSize: '20px' }}>←</Link>
-            <img src="/icons/clawdesk-mark.png" alt="ClawDesk" style={{ width: '48px', height: '48px', borderRadius: '10px' }} />
-            <h1 style={{ fontSize: 'clamp(26px, 4vw, 36px)', fontWeight: 600, letterSpacing: '0.02em', margin: 0 }}>
-              {board.name}
-            </h1>
-            <span style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '999px', background: 'rgba(74, 222, 128, 0.16)', border: '1px solid rgba(74, 222, 128, 0.28)', color: '#4ade80', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
-              Trading Board
-            </span>
-          </div>
-          <div style={{ color: 'var(--muted)', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.2em' }}>
-            {board.team_name || 'Personal Board'} · {trades.length} trades tracked
-          </div>
+      <header style={{ marginBottom: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <img src="/icons/clawdesk-mark.png" alt="" style={{ width: '48px', height: '48px', borderRadius: '10px' }} />
+          <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4vw, 36px)' }}>{board.name}</h1>
+        </div>
+      </header>
+      <TradingNav activeTab="board" />
+
+      {/* Board action bar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        <div style={{ color: 'var(--muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.18em' }}>
+          {board.team_name || 'Personal Board'} · {trades.length} trades tracked
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '999px', background: 'var(--panel-2)', border: '1px solid var(--border)', fontSize: '12px', color: 'var(--muted)' }}>
@@ -1179,8 +1175,7 @@ export default function TradingBoardPage() {
           </div>
           <UserMenu />
         </div>
-      </header>
-      <TradingNav activeTab="board" />
+      </div>
 
       <div style={{ margin: '16px 0' }}>
         <TboToggle />

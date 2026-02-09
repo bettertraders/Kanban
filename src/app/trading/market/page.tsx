@@ -209,15 +209,18 @@ export default function MarketDashboard() {
   return (
     <div style={{ minHeight: '100vh', color: '#e2e2ff', padding: '32px clamp(20px, 4vw, 48px) 40px' }}>
       <div style={{ maxWidth: 1400, margin: '0 auto', width: '100%' }}>
+        <header style={{ marginBottom: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <img src="/icons/clawdesk-mark.png" alt="" style={{ width: '48px', height: '48px', borderRadius: '10px' }} />
+            <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4vw, 36px)' }}>Market Overview</h1>
+          </div>
+        </header>
         <TradingNav activeTab={'market' as any} />
 
         {/* TBO toggle moved to board page */}
 
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>
-            📊 Market Overview
-          </h1>
+        {/* Refresh bar */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {data && (
               <span style={{ fontSize: 12, color: data.stale ? '#f97316' : '#888' }}>

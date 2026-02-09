@@ -364,6 +364,24 @@ export async function initializeDatabase() {
       );
 
       CREATE INDEX IF NOT EXISTS idx_trading_stats_board ON trading_stats(board_id, date);
+
+      -- TBO Signals table
+      CREATE TABLE IF NOT EXISTS tbo_signals (
+        id SERIAL PRIMARY KEY,
+        ticker VARCHAR(20) NOT NULL,
+        exchange VARCHAR(50) NOT NULL,
+        interval VARCHAR(20) NOT NULL,
+        signal VARCHAR(50) NOT NULL,
+        price DOUBLE PRECISION NOT NULL,
+        volume DOUBLE PRECISION,
+        signal_time TIMESTAMP NOT NULL,
+        received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        processed BOOLEAN DEFAULT false
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_tbo_signals_ticker ON tbo_signals(ticker);
+      CREATE INDEX IF NOT EXISTS idx_tbo_signals_signal ON tbo_signals(signal);
+      CREATE INDEX IF NOT EXISTS idx_tbo_signals_received ON tbo_signals(received_at);
     `);
     console.log('Database schema initialized');
   } finally {

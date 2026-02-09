@@ -379,8 +379,18 @@ function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
 
+const COLUMN_STATUS_MAP = {
+  'Watchlist': 'watching',
+  'Analyzing': 'analyzing',
+  'Active': 'active',
+  'Parked': 'parked',
+  'Wins': 'closed',
+  'Losses': 'closed',
+};
+
 async function moveCard(tradeId, columnName) {
-  await apiPatch('/api/trading/trades', { trade_id: tradeId, column_name: columnName });
+  const status = COLUMN_STATUS_MAP[columnName] || 'watching';
+  await apiPatch('/api/trading/trades', { trade_id: tradeId, column_name: columnName, status });
 }
 
 async function ensureBot() {

@@ -45,9 +45,9 @@ export function TradingNav({ activeTab }: TradingNavProps) {
           gap: '6px',
           padding: '6px 12px',
           borderRadius: '999px',
-          border: '1px solid rgba(34,197,94,0.4)',
-          background: 'rgba(34,197,94,0.1)',
-          color: '#22c55e',
+          border: '1px solid rgba(123,125,255,0.4)',
+          background: 'rgba(123,125,255,0.1)',
+          color: '#7b7dff',
           fontSize: '12px',
           fontWeight: 600,
           textDecoration: 'none',
@@ -55,7 +55,7 @@ export function TradingNav({ activeTab }: TradingNavProps) {
           marginRight: '4px',
         }}
       >
-        <img src="/icons/clawdesk-mark.png" alt="" style={{ width: '18px', height: '18px', borderRadius: '4px', filter: 'hue-rotate(90deg) saturate(1.5) brightness(1.2)' }} />
+        <img src="/icons/clawdesk-mark.png" alt="" style={{ width: '18px', height: '18px', borderRadius: '4px' }} />
         ClawDesk
       </Link>
       <div style={{ width: '1px', height: '20px', background: 'var(--border)', marginRight: '4px' }} />

@@ -2414,7 +2414,9 @@ export async function getPaperAccount(boardId: number, userId: number, startingB
       `
         INSERT INTO paper_accounts (board_id, user_id, starting_balance, current_balance)
         VALUES ($1, $2, $3, $3)
-        ON CONFLICT (board_id, user_id) DO NOTHING
+        ON CONFLICT (board_id, user_id) DO UPDATE
+        SET starting_balance = EXCLUDED.starting_balance,
+            current_balance = EXCLUDED.starting_balance
       `,
       [boardId, userId, startingBalance]
     );
@@ -2638,11 +2640,27 @@ export async function getPortfolioStats(userId: number) {
     };
   });
 
+  // Fetch paper balance from paper_accounts
+  const paperResult = await pool.query(
+    `SELECT COALESCE(SUM(current_balance), 0) as paper_balance,
+            COALESCE(SUM(starting_balance), 0) as starting_balance
+     FROM paper_accounts pa
+     JOIN boards b ON pa.board_id = b.id
+     LEFT JOIN team_members tm ON b.team_id = tm.team_id AND tm.user_id = $1
+     WHERE (b.owner_id = $1 OR tm.user_id = $1)
+       AND b.board_type = 'trading'`,
+    [userId]
+  );
+  const paperBalance = parseNumeric(paperResult.rows[0]?.paper_balance) || 0;
+  const startingBalance = parseNumeric(paperResult.rows[0]?.starting_balance) || 0;
+
   return {
     summary: {
       total_portfolio_value: parseNumeric(summaryRow.total_position_size) || 0,
       total_realized_pnl: parseNumeric(summaryRow.total_realized_pnl) || 0,
       total_unrealized_pnl: parseNumeric(summaryRow.total_unrealized_pnl) || 0,
+      paper_balance: paperBalance,
+      starting_balance: startingBalance,
       win_rate: Math.round(winRate * 100) / 100,
       active_positions: Number(summaryRow.active_positions || 0),
       board_count: Number(summaryRow.board_count || 0)

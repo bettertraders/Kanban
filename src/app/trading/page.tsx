@@ -532,6 +532,15 @@ export default function TradingDashboardPage() {
 
     if (next && boardId) {
       try {
+        // Create/update paper account with the configured trading amount
+        if (tradingAmount) {
+          await fetch('/api/trading/account', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ boardId, initialBalance: tradingAmount }),
+          });
+        }
+
         for (const bot of bots) {
           if (bot.status !== 'running') {
             await fetch(`/api/v1/bots/${bot.id}/start`, { method: 'POST' });

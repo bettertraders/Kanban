@@ -1,5 +1,5 @@
 import { registerStrategy, type TradingStrategy, type CoinSignal, type StrategyConfig } from './index';
-import { getCurrentPrice, getPriceSeries } from './utils';
+import { getCurrentPrice, getPriceSeries, getVolumeSeries, isVolumeSpike, momentum as priceMomentum } from './utils';
 
 function getPair(coin: any): string | null {
   const pair = coin?.coin_pair ?? coin?.pair ?? coin?.symbol ?? null;
@@ -16,6 +16,16 @@ function buildSignal(pair: string, action: CoinSignal['action'], confidence: num
     stop_loss: action === 'buy' ? price * (1 - config.stopLossPercent / 100) : undefined,
     take_profit: action === 'buy' ? price * (1 + config.takeProfitPercent / 100) : undefined
   };
+}
+
+function getVolumeStats(coin: any) {
+  const volumes = getVolumeSeries(coin);
+  if (volumes.length) {
+    const avg = volumes.reduce((a, b) => a + b, 0) / volumes.length;
+    return { current: volumes[volumes.length - 1], average: avg };
+  }
+  const fallback = Number(coin?.volume24h ?? coin?.volume ?? 0);
+  return { current: fallback, average: fallback / 24 || fallback };
 }
 
 const grid: TradingStrategy = {
@@ -41,34 +51,32 @@ const grid: TradingStrategy = {
       const currentPrice = getCurrentPrice(coin);
       if (currentPrice === null) continue;
       const prices = getPriceSeries(coin);
-      if (prices.length < 3) continue;
+      if (prices.length < 2) continue;
       const last = prices[prices.length - 2];
-      const change = (currentPrice - last) / last;
-      if (Math.abs(change) >= (this.defaultConfig.gridSpacingPercent ?? 0.7) / 100) {
-        const action: CoinSignal['action'] = change < 0 ? 'buy' : 'sell';
-        const reason = change < 0 ? 'Price dipped to next grid level' : 'Price reached upper grid level';
-        signals.push(buildSignal(pair, action, 55, reason, this.defaultConfig, currentPrice));
-      } else {
-        signals.push(buildSignal(pair, 'hold', 40, 'Price within grid band', this.defaultConfig, currentPrice));
+      if (!Number.isFinite(last) || last <= 0) continue;
+      const drop = (last - currentPrice) / last;
+      const levels = [0.01, 0.02, 0.03];
+      for (const level of levels) {
+        if (drop >= level) {
+          signals.push(buildSignal(pair, 'buy', 58, `Grid buy at -${level * 100}%`, this.defaultConfig, currentPrice));
+        }
       }
     }
     return signals;
   },
-  shouldEnter(coinData: any, currentPrice: number, config: StrategyConfig): boolean {
+  shouldEnter(coinData: any, currentPrice: number, _config: StrategyConfig): boolean {
     const prices = getPriceSeries(coinData);
     if (prices.length < 2) return false;
     const last = prices[prices.length - 2];
-    const change = Math.abs((currentPrice - last) / last);
-    return change >= (config.gridSpacingPercent ?? 0.7) / 100;
+    if (!Number.isFinite(last) || last <= 0) return false;
+    const drop = (last - currentPrice) / last;
+    return drop >= 0.01;
   },
-  shouldExit(trade: any, currentPrice: number, config: StrategyConfig) {
+  shouldExit(trade: any, currentPrice: number, _config: StrategyConfig) {
     const entry = Number(trade?.entry_price);
     if (Number.isFinite(entry)) {
-      if (currentPrice <= entry * (1 - config.stopLossPercent / 100)) {
-        return { exit: true, reason: 'Stop loss hit' };
-      }
-      if (currentPrice >= entry * (1 + config.takeProfitPercent / 100)) {
-        return { exit: true, reason: 'Take profit reached' };
+      if (currentPrice >= entry * 1.005) {
+        return { exit: true, reason: 'Grid profit hit (+0.5%)' };
       }
     }
     return { exit: false, reason: '' };
@@ -97,14 +105,11 @@ const momentum: TradingStrategy = {
       const currentPrice = getCurrentPrice(coin);
       if (currentPrice === null) continue;
       const prices = getPriceSeries(coin);
-      if (prices.length < 3) continue;
-      const fast = prices[prices.length - 1];
-      const slow = prices[prices.length - 3];
-      const change = (fast - slow) / slow;
-      if (change > 0.002) {
-        signals.push(buildSignal(pair, 'buy', 62, 'Micro-trend accelerating upward', this.defaultConfig, currentPrice));
-      } else if (change < -0.002) {
-        signals.push(buildSignal(pair, 'sell', 60, 'Micro-trend reversing', this.defaultConfig, currentPrice));
+      const { current, average } = getVolumeStats(coin);
+      const volumeSpike = isVolumeSpike(current, average, 1.5);
+      const move = priceMomentum(prices, 5);
+      if (move >= 1 && volumeSpike) {
+        signals.push(buildSignal(pair, 'buy', 62, '1%+ move in 5m with volume', this.defaultConfig, currentPrice));
       } else {
         signals.push(buildSignal(pair, 'watch', 40, 'No clear micro-trend', this.defaultConfig, currentPrice));
       }
@@ -113,19 +118,17 @@ const momentum: TradingStrategy = {
   },
   shouldEnter(coinData: any, _currentPrice: number, _config: StrategyConfig): boolean {
     const prices = getPriceSeries(coinData);
-    if (prices.length < 3) return false;
-    const fast = prices[prices.length - 1];
-    const slow = prices[prices.length - 3];
-    return (fast - slow) / slow > 0.002;
+    const { current, average } = getVolumeStats(coinData);
+    return priceMomentum(prices, 5) >= 1 && isVolumeSpike(current, average, 1.5);
   },
-  shouldExit(trade: any, currentPrice: number, config: StrategyConfig) {
+  shouldExit(trade: any, currentPrice: number, _config: StrategyConfig) {
     const entry = Number(trade?.entry_price);
     if (Number.isFinite(entry)) {
-      if (currentPrice <= entry * (1 - config.stopLossPercent / 100)) {
-        return { exit: true, reason: 'Stop loss hit' };
+      if (currentPrice <= entry * 0.99) {
+        return { exit: true, reason: 'Stop loss hit (-1%)' };
       }
-      if (currentPrice >= entry * (1 + config.takeProfitPercent / 100)) {
-        return { exit: true, reason: 'Take profit reached' };
+      if (currentPrice >= entry * 1.015) {
+        return { exit: true, reason: 'Take profit reached (+1.5%)' };
       }
     }
     return { exit: false, reason: '' };

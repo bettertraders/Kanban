@@ -1,5 +1,5 @@
 import { registerStrategy, type TradingStrategy, type CoinSignal, type StrategyConfig } from './index';
-import { getCurrentPrice, getPriceSeries, getVolumeSeries, sma, recentHigh, getRsi, volumeIncreasing } from './utils';
+import { getCurrentPrice, getPriceSeries, getVolumeSeries, isVolumeSpike, rsi, sma } from './utils';
 
 function getPair(coin: any): string | null {
   const pair = coin?.coin_pair ?? coin?.pair ?? coin?.symbol ?? null;
@@ -16,6 +16,16 @@ function buildSignal(pair: string, action: CoinSignal['action'], confidence: num
     stop_loss: action === 'buy' ? price * (1 - config.stopLossPercent / 100) : undefined,
     take_profit: action === 'buy' ? price * (1 + config.takeProfitPercent / 100) : undefined
   };
+}
+
+function getVolumeStats(coin: any) {
+  const volumes = getVolumeSeries(coin);
+  if (volumes.length) {
+    const avg = volumes.reduce((a, b) => a + b, 0) / volumes.length;
+    return { current: volumes[volumes.length - 1], average: avg };
+  }
+  const fallback = Number(coin?.volume24h ?? coin?.volume ?? 0);
+  return { current: fallback, average: fallback / 24 || fallback };
 }
 
 const momentum: TradingStrategy = {
@@ -38,39 +48,29 @@ const momentum: TradingStrategy = {
     for (const coin of coins) {
       const pair = getPair(coin);
       if (!pair) continue;
-      const prices = getPriceSeries(coin);
-      const volumes = getVolumeSeries(coin);
       const currentPrice = getCurrentPrice(coin);
       if (currentPrice === null) continue;
-
+      const prices = getPriceSeries(coin);
       const smaValue = sma(prices, this.defaultConfig.smaPeriod);
-      const volumeUp = volumeIncreasing(volumes, 3);
-      if (smaValue !== null && currentPrice > smaValue && volumeUp) {
-        signals.push(buildSignal(pair, 'buy', 72, 'Price above SMA with rising volume', this.defaultConfig, currentPrice));
+      const { current, average } = getVolumeStats(coin);
+      const volumeSpike = isVolumeSpike(current, average, 1.5);
+      if (currentPrice > smaValue && volumeSpike) {
+        signals.push(buildSignal(pair, 'buy', 72, 'Price above SMA with volume spike', this.defaultConfig, currentPrice));
       } else {
-        signals.push(buildSignal(pair, 'watch', 45, 'Waiting for momentum confirmation', this.defaultConfig, currentPrice));
+        signals.push(buildSignal(pair, 'watch', 45, 'Waiting for SMA breakout + volume spike', this.defaultConfig, currentPrice));
       }
     }
     return signals;
   },
   shouldEnter(coinData: any, currentPrice: number, config: StrategyConfig): boolean {
     const prices = getPriceSeries(coinData);
-    const volumes = getVolumeSeries(coinData);
     const smaValue = sma(prices, config.smaPeriod ?? 20);
-    return smaValue !== null && currentPrice > smaValue && volumeIncreasing(volumes, 3);
+    const { current, average } = getVolumeStats(coinData);
+    return currentPrice > smaValue && isVolumeSpike(current, average, 1.5);
   },
   shouldExit(trade: any, currentPrice: number, config: StrategyConfig) {
-    const entry = Number(trade?.entry_price);
-    if (Number.isFinite(entry)) {
-      if (currentPrice <= entry * (1 - config.stopLossPercent / 100)) {
-        return { exit: true, reason: 'Stop loss hit' };
-      }
-      if (currentPrice >= entry * (1 + config.takeProfitPercent / 100)) {
-        return { exit: true, reason: 'Take profit reached' };
-      }
-    }
     const smaValue = sma(getPriceSeries(trade), config.smaPeriod ?? 20);
-    if (smaValue !== null && currentPrice < smaValue) {
+    if (currentPrice < smaValue) {
       return { exit: true, reason: 'Price dropped below SMA' };
     }
     return { exit: false, reason: '' };
@@ -98,8 +98,8 @@ const meanReversion: TradingStrategy = {
       if (!pair) continue;
       const currentPrice = getCurrentPrice(coin);
       if (currentPrice === null) continue;
-      const rsi = getRsi(coin);
-      if (rsi !== null && rsi < 30) {
+      const rsiValue = rsi(getPriceSeries(coin), 14);
+      if (rsiValue < 30) {
         signals.push(buildSignal(pair, 'buy', 70, 'RSI oversold (<30)', this.defaultConfig, currentPrice));
       } else {
         signals.push(buildSignal(pair, 'watch', 40, 'Waiting for RSI oversold signal', this.defaultConfig, currentPrice));
@@ -108,21 +108,12 @@ const meanReversion: TradingStrategy = {
     return signals;
   },
   shouldEnter(coinData: any, _currentPrice: number, _config: StrategyConfig): boolean {
-    const rsi = getRsi(coinData);
-    return rsi !== null && rsi < 30;
+    const rsiValue = rsi(getPriceSeries(coinData), 14);
+    return rsiValue < 30;
   },
-  shouldExit(trade: any, currentPrice: number, config: StrategyConfig) {
-    const entry = Number(trade?.entry_price);
-    if (Number.isFinite(entry)) {
-      if (currentPrice <= entry * (1 - config.stopLossPercent / 100)) {
-        return { exit: true, reason: 'Stop loss hit' };
-      }
-      if (currentPrice >= entry * (1 + config.takeProfitPercent / 100)) {
-        return { exit: true, reason: 'Take profit reached' };
-      }
-    }
-    const rsi = getRsi(trade);
-    if (rsi !== null && rsi > 70) {
+  shouldExit(trade: any, _currentPrice: number, _config: StrategyConfig) {
+    const rsiValue = rsi(getPriceSeries(trade), 14);
+    if (rsiValue > 70) {
       return { exit: true, reason: 'RSI overbought (>70)' };
     }
     return { exit: false, reason: '' };
@@ -149,37 +140,30 @@ const breakout: TradingStrategy = {
     for (const coin of coins) {
       const pair = getPair(coin);
       if (!pair) continue;
-      const prices = getPriceSeries(coin);
-      const volumes = getVolumeSeries(coin);
       const currentPrice = getCurrentPrice(coin);
       if (currentPrice === null) continue;
-      const lookback = this.defaultConfig.breakoutLookback ?? 20;
-      const priorHigh = recentHigh(prices.slice(0, -1), lookback);
-      const volumeUp = volumeIncreasing(volumes, 3);
-      if (priorHigh !== null && currentPrice > priorHigh && volumeUp) {
-        signals.push(buildSignal(pair, 'buy', 75, 'Breakout above recent high with volume surge', this.defaultConfig, currentPrice));
+      const high24h = Number(coin?.high24h ?? coin?.high_24h ?? currentPrice);
+      const { current, average } = getVolumeStats(coin);
+      const volumeSpike = isVolumeSpike(current, average, 1.5);
+      if (currentPrice > high24h * 0.98 && volumeSpike) {
+        signals.push(buildSignal(pair, 'buy', 75, 'Breakout near 24h high with volume spike', this.defaultConfig, currentPrice));
       } else {
         signals.push(buildSignal(pair, 'watch', 42, 'Waiting for breakout confirmation', this.defaultConfig, currentPrice));
       }
     }
     return signals;
   },
-  shouldEnter(coinData: any, currentPrice: number, config: StrategyConfig): boolean {
-    const prices = getPriceSeries(coinData);
-    const volumes = getVolumeSeries(coinData);
-    const lookback = config.breakoutLookback ?? 20;
-    const priorHigh = recentHigh(prices.slice(0, -1), lookback);
-    return priorHigh !== null && currentPrice > priorHigh && volumeIncreasing(volumes, 3);
+  shouldEnter(coinData: any, currentPrice: number, _config: StrategyConfig): boolean {
+    const high24h = Number(coinData?.high24h ?? coinData?.high_24h ?? currentPrice);
+    const { current, average } = getVolumeStats(coinData);
+    return currentPrice > high24h * 0.98 && isVolumeSpike(current, average, 1.5);
   },
-  shouldExit(trade: any, currentPrice: number, config: StrategyConfig) {
-    const entry = Number(trade?.entry_price);
-    if (Number.isFinite(entry)) {
-      if (currentPrice <= entry * (1 - config.stopLossPercent / 100)) {
-        return { exit: true, reason: 'Trailing stop hit' };
-      }
-      if (currentPrice >= entry * (1 + config.takeProfitPercent / 100)) {
-        return { exit: true, reason: 'Take profit reached' };
-      }
+  shouldExit(trade: any, currentPrice: number, _config: StrategyConfig) {
+    const entry = Number(trade?.entry_price ?? currentPrice);
+    const series = getPriceSeries(trade);
+    const peak = Math.max(entry, currentPrice, series.length ? Math.max(...series) : entry);
+    if (currentPrice <= peak * 0.96) {
+      return { exit: true, reason: 'Trailing stop hit (4% drop from peak)' };
     }
     return { exit: false, reason: '' };
   }

@@ -1,5 +1,5 @@
 import { registerStrategy, type TradingStrategy, type CoinSignal, type StrategyConfig } from './index';
-import { getCurrentPrice } from './utils';
+import { getCurrentPrice, getPriceSeries, momentum } from './utils';
 
 function getPair(coin: any): string | null {
   const pair = coin?.coin_pair ?? coin?.pair ?? coin?.symbol ?? null;
@@ -17,6 +17,15 @@ function buildSignal(pair: string, action: CoinSignal['action'], confidence: num
     take_profit: action === 'buy' ? price * (1 + config.takeProfitPercent / 100) : undefined
   };
 }
+
+const NARRATIVE_COINS = new Set([
+  'FET/USDT',
+  'RENDER/USDT',
+  'INJ/USDT',
+  'TAO/USDT',
+  'AKT/USDT',
+  'RNDR/USDT'
+]);
 
 const value: TradingStrategy = {
   name: 'Fundamental Value',
@@ -39,37 +48,30 @@ const value: TradingStrategy = {
       if (!pair) continue;
       const currentPrice = getCurrentPrice(coin);
       if (currentPrice === null) continue;
-      const rank = Number(coin?.market_cap_rank);
-      const volumeStability = Number(coin?.volume_stability ?? coin?.volume_score ?? 0);
-      const volumeChange = Number(coin?.volume_change ?? 0);
-      const stableVolume = Number.isFinite(volumeStability)
-        ? volumeStability >= 0.7
-        : Math.abs(volumeChange) <= 0.1;
-      if (Number.isFinite(rank) && rank > 0 && rank <= 25 && stableVolume) {
-        signals.push(buildSignal(pair, 'buy', 65, 'Large-cap with stable volume', this.defaultConfig, currentPrice));
+      const volume = Number(coin?.volume24h ?? coin?.volume ?? 0);
+      const change24h = Number(coin?.change24h ?? 0);
+      const avgVolume = Number(coin?.avg_volume_global ?? 0);
+      const highVolume = avgVolume > 0 ? volume >= avgVolume : volume >= 50_000_000;
+      if (highVolume && change24h < 0) {
+        signals.push(buildSignal(pair, 'buy', 65, 'High volume with negative 24h change', this.defaultConfig, currentPrice));
       } else {
-        signals.push(buildSignal(pair, 'watch', 38, 'Waiting for fundamental confirmation', this.defaultConfig, currentPrice));
+        signals.push(buildSignal(pair, 'watch', 38, 'Waiting for high-volume dip', this.defaultConfig, currentPrice));
       }
     }
     return signals;
   },
   shouldEnter(coinData: any, _currentPrice: number, _config: StrategyConfig): boolean {
-    const rank = Number(coinData?.market_cap_rank);
-    const volumeStability = Number(coinData?.volume_stability ?? coinData?.volume_score ?? 0);
-    const volumeChange = Number(coinData?.volume_change ?? 0);
-    const stableVolume = Number.isFinite(volumeStability)
-      ? volumeStability >= 0.7
-      : Math.abs(volumeChange) <= 0.1;
-    return Number.isFinite(rank) && rank > 0 && rank <= 25 && stableVolume;
+    const volume = Number(coinData?.volume24h ?? coinData?.volume ?? 0);
+    const change24h = Number(coinData?.change24h ?? 0);
+    const avgVolume = Number(coinData?.avg_volume_global ?? 0);
+    const highVolume = avgVolume > 0 ? volume >= avgVolume : volume >= 50_000_000;
+    return highVolume && change24h < 0;
   },
-  shouldExit(trade: any, currentPrice: number, config: StrategyConfig) {
+  shouldExit(trade: any, currentPrice: number, _config: StrategyConfig) {
     const entry = Number(trade?.entry_price);
     if (Number.isFinite(entry)) {
-      if (currentPrice <= entry * (1 - config.stopLossPercent / 100)) {
-        return { exit: true, reason: 'Stop loss hit' };
-      }
-      if (currentPrice >= entry * (1 + config.takeProfitPercent / 100)) {
-        return { exit: true, reason: 'Target reached' };
+      if (currentPrice >= entry * 1.1) {
+        return { exit: true, reason: 'Recovered 10%+' };
       }
     }
     return { exit: false, reason: '' };
@@ -97,9 +99,11 @@ const narrative: TradingStrategy = {
       if (!pair) continue;
       const currentPrice = getCurrentPrice(coin);
       if (currentPrice === null) continue;
-      const trending = Boolean(coin?.trending) || Number(coin?.narrative_score ?? 0) >= 70;
+      const normalized = pair.toUpperCase();
+      const prices = getPriceSeries(coin);
+      const trending = NARRATIVE_COINS.has(normalized) && (Number(coin?.change24h ?? 0) > 2 || momentum(prices, 10) > 2);
       if (trending) {
-        signals.push(buildSignal(pair, 'buy', 68, 'Narrative trend detected', this.defaultConfig, currentPrice));
+        signals.push(buildSignal(pair, 'buy', 68, 'Narrative momentum detected', this.defaultConfig, currentPrice));
       } else {
         signals.push(buildSignal(pair, 'watch', 40, 'Narrative momentum not detected', this.defaultConfig, currentPrice));
       }
@@ -107,16 +111,15 @@ const narrative: TradingStrategy = {
     return signals;
   },
   shouldEnter(coinData: any, _currentPrice: number, _config: StrategyConfig): boolean {
-    return Boolean(coinData?.trending) || Number(coinData?.narrative_score ?? 0) >= 70;
+    const pair = String(coinData?.coin_pair ?? coinData?.pair ?? '').toUpperCase();
+    const prices = getPriceSeries(coinData);
+    return NARRATIVE_COINS.has(pair) && (Number(coinData?.change24h ?? 0) > 2 || momentum(prices, 10) > 2);
   },
-  shouldExit(trade: any, currentPrice: number, config: StrategyConfig) {
+  shouldExit(trade: any, currentPrice: number, _config: StrategyConfig) {
     const entry = Number(trade?.entry_price);
     if (Number.isFinite(entry)) {
-      if (currentPrice <= entry * (1 - config.stopLossPercent / 100)) {
-        return { exit: true, reason: 'Stop loss hit' };
-      }
-      if (currentPrice >= entry * (1 + config.takeProfitPercent / 100)) {
-        return { exit: true, reason: 'Target reached' };
+      if (currentPrice >= entry * 1.15) {
+        return { exit: true, reason: 'Narrative momentum target hit' };
       }
     }
     return { exit: false, reason: '' };

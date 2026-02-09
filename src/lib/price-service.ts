@@ -4,6 +4,8 @@ type PriceSnapshot = {
   price: number;
   volume24h: number;
   change24h: number;
+  high24h: number;
+  low24h: number;
   timestamp: Date;
 };
 
@@ -20,6 +22,8 @@ type PriceSummary = {
   price: number;
   volume24h: number;
   change24h: number;
+  high24h: number;
+  low24h: number;
 };
 
 type CachedEntry = {
@@ -59,6 +63,8 @@ function setCachedPrice(pair: string, data: PriceSnapshot) {
 function extractPriceSnapshot(ticker: Ticker): PriceSnapshot {
   const price = Number(ticker.last ?? ticker.close ?? ticker.ask ?? ticker.bid ?? 0);
   const volume24h = Number(ticker.quoteVolume ?? ticker.baseVolume ?? 0);
+  const high24h = Number(ticker.high ?? 0);
+  const low24h = Number(ticker.low ?? 0);
   let change24h = Number(ticker.percentage ?? ticker.change ?? 0);
 
   if (!Number.isFinite(change24h)) {
@@ -77,6 +83,8 @@ function extractPriceSnapshot(ticker: Ticker): PriceSnapshot {
     price: Number.isFinite(price) ? price : 0,
     volume24h: Number.isFinite(volume24h) ? volume24h : 0,
     change24h,
+    high24h: Number.isFinite(high24h) && high24h > 0 ? high24h : (Number.isFinite(price) ? price : 0),
+    low24h: Number.isFinite(low24h) && low24h > 0 ? low24h : (Number.isFinite(price) ? price : 0),
     timestamp
   };
 }
@@ -172,7 +180,9 @@ export async function getMultiplePrices(pairs: string[]): Promise<Record<string,
     results[pair] = {
       price: snapshot.price,
       volume24h: snapshot.volume24h,
-      change24h: snapshot.change24h
+      change24h: snapshot.change24h,
+      high24h: snapshot.high24h,
+      low24h: snapshot.low24h
     };
   }
 
@@ -186,14 +196,16 @@ export async function getTopCoins(limit: number): Promise<Array<{ pair: string; 
       .filter(([symbol]) => symbol.endsWith('/USDT'))
       .map(([symbol, ticker]) => {
         const snapshot = extractPriceSnapshot(ticker);
-        return {
-          pair: symbol,
-          price: snapshot.price,
-          volume24h: snapshot.volume24h,
-          change24h: snapshot.change24h
-        };
-      })
-      .sort((a, b) => b.volume24h - a.volume24h);
+    return {
+      pair: symbol,
+      price: snapshot.price,
+      volume24h: snapshot.volume24h,
+      change24h: snapshot.change24h,
+      high24h: snapshot.high24h,
+      low24h: snapshot.low24h
+    };
+  })
+  .sort((a, b) => b.volume24h - a.volume24h);
 
     return entries.slice(0, limit);
   } catch (error) {
@@ -205,14 +217,24 @@ export async function getTopCoins(limit: number): Promise<Array<{ pair: string; 
     .filter(([symbol]) => symbol.endsWith('/USD'))
     .map(([symbol, ticker]) => {
       const snapshot = extractPriceSnapshot(ticker);
-      return {
-        pair: symbol,
-        price: snapshot.price,
-        volume24h: snapshot.volume24h,
-        change24h: snapshot.change24h
-      };
-    })
-    .sort((a, b) => b.volume24h - a.volume24h);
+    return {
+      pair: symbol,
+      price: snapshot.price,
+      volume24h: snapshot.volume24h,
+      change24h: snapshot.change24h,
+      high24h: snapshot.high24h,
+      low24h: snapshot.low24h
+    };
+  })
+  .sort((a, b) => b.volume24h - a.volume24h);
 
   return entries.slice(0, limit);
+}
+
+export async function getPrice(pair: string): Promise<PriceSnapshot> {
+  return getCurrentPrice(pair);
+}
+
+export async function getBatchPrices(pairs: string[]): Promise<Record<string, PriceSummary>> {
+  return getMultiplePrices(pairs);
 }

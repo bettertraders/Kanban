@@ -47,13 +47,6 @@ type Board = {
   board_type: string;
 };
 
-type NewsItem = {
-  title: string;
-  link: string;
-  pubDate: string;
-  source: string;
-};
-
 const RISK_OPTIONS = [
   {
     label: 'Conservative',
@@ -130,12 +123,6 @@ const SUBSTYLE_MAP: Record<(typeof STYLE_OPTIONS)[number], string[]> = {
   'Long-Term': ['Core', 'Growth', 'Income'],
 };
 
-const NEWS_SOURCES = {
-  CoinDesk: { label: 'CoinDesk', color: '#f39a26' },
-  CoinTelegraph: { label: 'CoinTelegraph', color: '#1b6bff' },
-  'Yahoo Finance': { label: 'Yahoo Finance', color: '#8b5cf6' },
-} as const;
-
 function formatCurrency(value: number, { compact = false } = {}) {
   if (!Number.isFinite(value)) return '—';
   if (compact) {
@@ -151,28 +138,11 @@ function formatPercent(value: number) {
   return `${value.toFixed(2)}%`;
 }
 
-function formatTimeAgo(ts?: string) {
-  if (!ts) return '—';
-  const date = new Date(ts);
-  if (Number.isNaN(date.getTime())) return '—';
-  const diffMs = Date.now() - date.getTime();
-  const minutes = Math.max(0, Math.floor(diffMs / 60000));
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
 export default function TradingDashboardPage() {
   const [pulse, setPulse] = useState<CoinPulse[]>([]);
   const [bots, setBots] = useState<Bot[]>([]);
   const [portfolio, setPortfolio] = useState<PortfolioStats | null>(null);
-  const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
-  const [newsError, setNewsError] = useState(false);
   const [boardId, setBoardId] = useState<number | null>(null);
-  const [isCompact, setIsCompact] = useState(false);
-
   const [modalOpen, setModalOpen] = useState(false);
   const [amountInput, setAmountInput] = useState('500');
   const [selectedRisk, setSelectedRisk] = useState<(typeof RISK_OPTIONS)[number] | null>(RISK_OPTIONS[1]);
@@ -204,12 +174,11 @@ export default function TradingDashboardPage() {
 
   const loadDashboard = useCallback(async () => {
     try {
-      const [coinsRes, botsRes, portfolioRes, boardsRes, newsRes] = await Promise.allSettled([
+      const [coinsRes, botsRes, portfolioRes, boardsRes] = await Promise.allSettled([
         fetch('/api/v1/prices?top=25'),
         fetch('/api/v1/bots'),
         fetch('/api/v1/portfolio'),
         fetch('/api/v1/boards'),
-        fetch('/api/v1/news'),
       ]);
 
       if (coinsRes.status === 'fulfilled' && coinsRes.value.ok) {
@@ -240,21 +209,10 @@ export default function TradingDashboardPage() {
         if (tradingBoard?.id) setBoardId(tradingBoard.id);
       }
 
-      if (newsRes.status === 'fulfilled' && newsRes.value.ok) {
-        const newsJson = await newsRes.value.json();
-        const items = Array.isArray(newsJson?.items) ? newsJson.items : [];
-        setNewsItems(items);
-        setNewsError(false);
-      } else {
-        setNewsItems([]);
-        setNewsError(true);
-      }
     } catch {
       setPulse([]);
       setBots([]);
       setPortfolio(null);
-      setNewsItems([]);
-      setNewsError(true);
     }
   }, []);
 
@@ -276,13 +234,6 @@ export default function TradingDashboardPage() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [modalOpen]);
 
-  useEffect(() => {
-    const updateLayout = () => setIsCompact(window.innerWidth < 980);
-    updateLayout();
-    window.addEventListener('resize', updateLayout);
-    return () => window.removeEventListener('resize', updateLayout);
-  }, []);
-
   const paperBalance = Number(portfolio?.summary?.paper_balance ?? 0);
 
   const allocationData = useMemo(() => {
@@ -296,19 +247,6 @@ export default function TradingDashboardPage() {
       }))
       .filter((item) => Number.isFinite(item.value) && item.value > 0);
   }, [portfolio]);
-
-  const btcPulse = useMemo(
-    () => pulse.find((coin) => coin.pair.toUpperCase().startsWith('BTC')),
-    [pulse]
-  );
-
-  const btcChange = Number(btcPulse?.change24h ?? 0);
-  const sentiment =
-    Math.abs(btcChange) < 0.5
-      ? { label: 'Sideways', emoji: '➡️', bg: 'linear-gradient(135deg, rgba(123,125,255,0.2), rgba(123,125,255,0.05))', color: 'var(--text)' }
-      : btcChange >= 0.5
-        ? { label: 'Bullish', emoji: '🐂', bg: 'linear-gradient(135deg, rgba(74,222,128,0.25), rgba(74,222,128,0.08))', color: 'var(--green)' }
-        : { label: 'Bearish', emoji: '🐻', bg: 'linear-gradient(135deg, rgba(240,91,111,0.25), rgba(240,91,111,0.08))', color: 'var(--red)' };
 
   const parsedAmount = Number(amountInput.replace(/[^0-9.]/g, ''));
   const amountReady = Number.isFinite(parsedAmount) && parsedAmount > 0;
@@ -494,87 +432,6 @@ export default function TradingDashboardPage() {
             </button>
           </div>
         )}
-      </section>
-
-      <div style={sectionDividerStyle} />
-
-      {/* Market Section — Sentiment at top, News below on left */}
-      <section style={{ marginTop: '18px' }}>
-        <div
-          style={{
-            background: sentiment.bg,
-            border: '1px solid var(--border)',
-            borderRadius: '16px',
-            padding: '14px 18px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-            marginBottom: '16px',
-          }}
-        >
-          <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)' }}>
-            Market Sentiment
-          </div>
-          <div style={{ fontSize: '14px', fontWeight: 700, color: sentiment.color }}>
-            {sentiment.emoji} {sentiment.label}
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: isCompact ? '1fr' : '1fr 1fr', gap: '16px' }}>
-          <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', marginBottom: '10px' }}>
-              Market News
-            </div>
-            <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px' }}>
-              {newsError ? (
-                <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Unable to load news</div>
-              ) : newsItems.length ? (
-                <div style={{ display: 'grid', gap: '10px' }}>
-                  {newsItems.slice(0, 5).map((item, index) => {
-                    const badge = NEWS_SOURCES[item.source as keyof typeof NEWS_SOURCES];
-                    return (
-                      <div
-                        key={`${item.link}-${item.pubDate}`}
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'auto 1fr auto',
-                          gap: '10px',
-                          alignItems: 'center',
-                          paddingLeft: index === 0 ? '10px' : '0',
-                          borderLeft: index === 0 ? '2px solid #f3c226' : '2px solid transparent',
-                        }}
-                      >
-                        <span
-                          style={{
-                            ...pillStyle,
-                            borderColor: badge?.color ?? 'var(--border)',
-                            color: badge?.color ?? 'var(--text)',
-                            padding: '4px 10px',
-                            justifySelf: 'start',
-                          }}
-                        >
-                          {badge?.label ?? item.source}
-                        </span>
-                        <a
-                          href={item.link}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ color: 'var(--text)', textDecoration: 'none', fontSize: '13px', fontWeight: 600 }}
-                        >
-                          {item.title}
-                        </a>
-                        <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{formatTimeAgo(item.pubDate)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Loading news...</div>
-              )}
-            </div>
-          </div>
-        </div>
       </section>
 
       <style jsx global>{`
@@ -939,10 +796,4 @@ const pillStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   gap: '6px',
-};
-
-const sectionDividerStyle: React.CSSProperties = {
-  background: 'linear-gradient(90deg, transparent, rgba(243,194,38,0.3), rgba(123,125,255,0.3), transparent)',
-  height: '1px',
-  margin: '20px 0',
 };

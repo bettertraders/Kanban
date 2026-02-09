@@ -17,6 +17,19 @@ type TboStatus = {
   lastSignal: { time: string; ticker: string; signal: string; interval: string } | null;
   activeTimeframes: string[];
 };
+type NewsItem = {
+  title: string;
+  link: string;
+  pubDate: string;
+  source: string;
+};
+
+const NEWS_SOURCES: Record<string, { label: string; color: string }> = {
+  CoinDesk: { label: 'CoinDesk', color: '#f39a26' },
+  CoinTelegraph: { label: 'CoinTelegraph', color: '#1b6bff' },
+  'Yahoo Finance': { label: 'Yahoo Finance', color: '#8b5cf6' },
+};
+
 type MarketData = {
   overview: {
     btc: Coin; eth: Coin;
@@ -106,6 +119,8 @@ export default function MarketDashboard() {
   const [error, setError] = useState('');
   const [tbo, setTbo] = useState<TboStatus | null>(null);
   const [tboLoading, setTboLoading] = useState(false);
+  const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
+  const [newsError, setNewsError] = useState(false);
 
   const loadTbo = useCallback(async () => {
     try {
@@ -126,6 +141,23 @@ export default function MarketDashboard() {
     } finally { setTboLoading(false); }
   }, [tbo, tboLoading, loadTbo]);
 
+  const loadNews = useCallback(async () => {
+    try {
+      const res = await fetch('/api/v1/news');
+      if (res.ok) {
+        const json = await res.json();
+        setNewsItems(Array.isArray(json?.items) ? json.items : []);
+        setNewsError(false);
+      } else {
+        setNewsItems([]);
+        setNewsError(true);
+      }
+    } catch {
+      setNewsItems([]);
+      setNewsError(true);
+    }
+  }, []);
+
   const load = useCallback(async () => {
     try {
       const res = await fetch('/api/trading/market');
@@ -140,10 +172,10 @@ export default function MarketDashboard() {
   }, []);
 
   useEffect(() => {
-    load(); loadTbo();
-    const iv = setInterval(() => { load(); loadTbo(); }, 60_000);
+    load(); loadTbo(); loadNews();
+    const iv = setInterval(() => { load(); loadTbo(); loadNews(); }, 60_000);
     return () => clearInterval(iv);
-  }, [load, loadTbo]);
+  }, [load, loadTbo, loadNews]);
 
   return (
     <div style={{ minHeight: '100vh', color: '#e2e2ff', padding: '32px clamp(20px, 4vw, 48px) 40px' }}>
@@ -292,6 +324,44 @@ export default function MarketDashboard() {
 
               <div style={card}>
                 <FearGreedGauge value={data.overview.fearGreed.value} label={data.overview.fearGreed.label} />
+              </div>
+
+              <div style={card}>
+                <div style={sectionTitle}>📰 Market News</div>
+                {newsError ? (
+                  <div style={{ fontSize: 12, color: '#888' }}>Unable to load news</div>
+                ) : newsItems.length ? (
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    {newsItems.slice(0, 5).map((item, i) => {
+                      const badge = NEWS_SOURCES[item.source];
+                      return (
+                        <div key={`${item.link}-${item.pubDate}`} style={{
+                          display: 'flex', alignItems: 'start', gap: 8,
+                          paddingLeft: i === 0 ? 10 : 0,
+                          borderLeft: i === 0 ? '2px solid #f3c226' : '2px solid transparent',
+                        }}>
+                          <span style={{
+                            fontSize: 10, padding: '2px 8px', borderRadius: 6, flexShrink: 0,
+                            background: 'rgba(255,255,255,0.04)',
+                            border: `1px solid ${badge?.color ?? 'rgba(255,255,255,0.1)'}`,
+                            color: badge?.color ?? '#888', fontWeight: 600, whiteSpace: 'nowrap',
+                          }}>
+                            {badge?.label ?? item.source}
+                          </span>
+                          <a href={item.link} target="_blank" rel="noreferrer" style={{
+                            color: '#e2e2ff', textDecoration: 'none', fontSize: 13, fontWeight: 600,
+                            flex: 1, lineHeight: 1.3,
+                          }}>
+                            {item.title}
+                          </a>
+                          <span style={{ fontSize: 11, color: '#888', flexShrink: 0 }}>{timeAgo(item.pubDate)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, color: '#888' }}>Loading news…</div>
+                )}
               </div>
             </div>
 

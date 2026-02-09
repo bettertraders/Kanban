@@ -162,10 +162,14 @@ function recordMove(symbol, state) {
 
 function shouldMoveToAnalyzing(ind) {
   if (!ind || ind.rsi == null) return false;
-  const rsiActive = ind.rsi < 40 || ind.rsi > 60;
-  const nearSMA20 = ind.sma20 && Math.abs(ind.currentPrice - ind.sma20) / ind.sma20 < 0.03;
-  const volumeBuilding = ind.volumeRatio > 0.9;
-  return rsiActive && (nearSMA20 || volumeBuilding);
+  // Any coin worth analyzing if it has 2+ of these signals:
+  let signals = 0;
+  if (ind.rsi < 35 || ind.rsi > 65) signals += 2; // Strong RSI = double weight
+  else if (ind.rsi < 45 || ind.rsi > 55) signals += 1; // Mild RSI still counts
+  if (ind.sma20 && Math.abs(ind.currentPrice - ind.sma20) / ind.sma20 < 0.03) signals += 1; // Near SMA20
+  if (ind.volumeRatio > 1.0) signals += 1; // Above-average volume
+  if (ind.momentum && Math.abs(ind.momentum) > 2) signals += 1; // Momentum building
+  return signals >= 2;
 }
 
 function shouldMoveToActive(ind) {

@@ -170,46 +170,36 @@ export default function LoginPage() {
             or a custom AI handling customer support — they all get the same task board access as your human teammates.
           </p>
 
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            gap: '20px', 
-            flexWrap: 'nowrap',
-            marginBottom: '32px',
+          <div style={{
+            position: 'relative',
             maxWidth: '900px',
             margin: '0 auto 32px auto',
           }}>
-            {[
-              { name: 'Claw Bots', icon: '/icons/member-openclaw.png' },
-              { name: 'AI Agents', icon: '/icons/member-claw.png' }, 
-              { name: 'Custom AI', icon: '/icons/member-custom-ai.png' },
-              { name: 'Human Teams', icon: '/icons/member-humans.png' }
-            ].map((member, i) => (
-              <div key={i} style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '16px 20px',
-                background: 'rgba(26, 26, 46, 0.6)',
+            <img 
+              src="/icons/columns-creative.png" 
+              alt="Backlog, Planned, In Progress, Done — illustrated by ClawDesk lobsters" 
+              style={{ 
+                width: '100%', 
                 borderRadius: '20px',
-                border: '1px solid var(--border)',
-                flex: '1 1 0',
-                maxWidth: '200px',
-              }}>
-                <img src={member.icon} alt="" style={{ width: '108px', height: '108px', borderRadius: '20px' }} />
-                <span style={{ fontSize: '14px', fontWeight: '500', textAlign: 'center' }}>{member.name}</span>
-              </div>
-            ))}
+              }} 
+            />
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, 1fr)',
+              gap: '8px',
+              marginTop: '16px',
+            }}>
+              {['Backlog', 'Planned', 'In Progress', 'Done'].map((label, i) => (
+                <span key={i} style={{
+                  fontSize: 'clamp(14px, 2vw, 18px)',
+                  fontWeight: '600',
+                  textAlign: 'center',
+                  color: 'var(--accent)',
+                  letterSpacing: '0.5px',
+                }}>{label}</span>
+              ))}
+            </div>
           </div>
-
-          <p style={{
-            fontSize: '14px',
-            color: 'var(--muted)',
-            fontStyle: 'italic',
-          }}>
-            Same permissions. Same board. Same respect.
-          </p>
         </section>
 
         {/* Features Grid */}

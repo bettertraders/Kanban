@@ -171,34 +171,41 @@ export default function LoginPage() {
           </p>
 
           <div style={{
-            position: 'relative',
-            maxWidth: '900px',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: '16px',
+            maxWidth: '960px',
             margin: '0 auto 32px auto',
           }}>
-            <img 
-              src="/icons/columns-creative.png" 
-              alt="Backlog, Planned, In Progress, Done — illustrated by ClawDesk lobsters" 
-              style={{ 
-                width: '100%', 
-                borderRadius: '20px',
-              }} 
-            />
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: '8px',
-              marginTop: '16px',
-            }}>
-              {['Backlog', 'Planned', 'In Progress', 'Done'].map((label, i) => (
-                <span key={i} style={{
+            {[
+              { label: 'Backlog', icon: '/icons/col-backlog.png' },
+              { label: 'Planned', icon: '/icons/col-planned.png' },
+              { label: 'In Progress', icon: '/icons/col-inprogress.png' },
+              { label: 'Done', icon: '/icons/col-done.png' },
+            ].map((col, i) => (
+              <div key={i} style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '12px',
+              }}>
+                <img 
+                  src={col.icon} 
+                  alt={col.label} 
+                  style={{ 
+                    width: '100%', 
+                    borderRadius: '16px',
+                    border: '1px solid var(--border)',
+                  }} 
+                />
+                <span style={{
                   fontSize: 'clamp(14px, 2vw, 18px)',
                   fontWeight: '600',
-                  textAlign: 'center',
                   color: 'var(--accent)',
                   letterSpacing: '0.5px',
-                }}>{label}</span>
-              ))}
-            </div>
+                }}>{col.label}</span>
+              </div>
+            ))}
           </div>
         </section>
 

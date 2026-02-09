@@ -67,6 +67,7 @@ export async function PATCH(
     if (rawUpdates.notes !== undefined) updates.notes = rawUpdates.notes;
     if (rawUpdates.column !== undefined) updates.column_name = rawUpdates.column;
     if (rawUpdates.column_name !== undefined) updates.column_name = rawUpdates.column_name;
+    if (rawUpdates.status !== undefined) updates.column_name = rawUpdates.status;
     if (rawUpdates.priority !== undefined) updates.priority = rawUpdates.priority;
     if (rawUpdates.assignedTo !== undefined) updates.assigned_to = rawUpdates.assignedTo;
     if (rawUpdates.assigned_to !== undefined) updates.assigned_to = rawUpdates.assigned_to;

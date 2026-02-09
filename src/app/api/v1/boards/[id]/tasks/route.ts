@@ -83,7 +83,9 @@ export async function POST(
       return NextResponse.json({ error: 'Board not found or access denied' }, { status: 404 });
     }
 
-    const { title, description, column, priority, assignedTo, dueDate, labels } = await request.json();
+    const body = await request.json();
+    const { title, description, priority, assignedTo, dueDate, labels } = body;
+    const column = body.column || body.column_name || body.status;
 
     if (!title) {
       return NextResponse.json({ error: 'title is required' }, { status: 400 });

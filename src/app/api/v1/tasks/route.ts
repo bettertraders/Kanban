@@ -43,7 +43,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    const { boardId, title, description, column, priority, assignedTo, dueDate, labels } = await request.json();
+    const body = await request.json();
+    const { boardId, title, description, priority, assignedTo, dueDate, labels } = body;
+    const column = body.column || body.column_name || body.status;
     
     if (!boardId || !title) {
       return NextResponse.json({ error: 'boardId and title are required' }, { status: 400 });

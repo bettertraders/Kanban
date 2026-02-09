@@ -484,7 +484,20 @@ export default function TradingDashboardPage() {
     return null;
   }, [portfolio]);
 
-  const tradeScore = useMemo(() => calculateTradeScore(marketDetail, pulse), [marketDetail, pulse]);
+  // Trade score: recalculate once per hour, not on every price tick
+  const tradeScoreRef = useRef<{ score: number; label: string; color: string; explanation: string } | null>(null);
+  const tradeScoreHourRef = useRef<string>('');
+  const tradeScore = useMemo(() => {
+    const now = new Date();
+    const hourKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${now.getHours()}`;
+    if (tradeScoreRef.current && tradeScoreHourRef.current === hourKey) {
+      return tradeScoreRef.current;
+    }
+    const result = calculateTradeScore(marketDetail, pulse);
+    tradeScoreRef.current = result;
+    tradeScoreHourRef.current = hourKey;
+    return result;
+  }, [marketDetail, pulse]);
 
   const pennyUpdate = useMemo(() => {
     const btcChange = btcCoin?.change24h ?? 0;

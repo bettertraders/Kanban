@@ -400,8 +400,8 @@ export default function MarketDashboard() {
                       return (
                         <div key={`${item.link}-${item.pubDate}`} style={{
                           display: 'flex', alignItems: 'start', gap: 8,
-                          paddingLeft: i === 0 ? 10 : 0,
-                          borderLeft: i === 0 ? '2px solid #f3c226' : '2px solid transparent',
+                          paddingLeft: 0,
+                          borderLeft: 'none',
                         }}>
                           <span style={{
                             fontSize: 10, padding: '2px 8px', borderRadius: 6, flexShrink: 0,

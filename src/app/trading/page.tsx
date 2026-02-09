@@ -134,6 +134,87 @@ function getBotQuote(pnlPct: number, _winRate: number, _activePositions: number,
   return { text: pick(roughDay), color: '#f05b6f' };
 }
 
+type PennyUpdateData = {
+  marketTrend: 'up' | 'down' | 'flat';
+  btcChange: number;
+  pnlToday: number;
+  activePositions: number;
+  engineOn: boolean;
+  riskLevel: RiskLevel | null;
+  dayOfTimeframe: number | null;
+  timeframeDays: number | null;
+  winRate: number;
+  totalTrades: number;
+};
+
+function generatePennyUpdate(data: PennyUpdateData): string {
+  const { marketTrend, btcChange, pnlToday, activePositions, engineOn, riskLevel, dayOfTimeframe, timeframeDays, winRate, totalTrades } = data;
+  const rl = riskLevel ? RISK_LEVELS[riskLevel].label.toLowerCase() : 'balanced';
+  const absChange = Math.abs(btcChange).toFixed(1);
+  const absPnl = Math.abs(pnlToday).toFixed(1);
+
+  // Seed on hour so message stays stable within the hour
+  const now = new Date();
+  const seed = now.getFullYear() * 1000000 + (now.getMonth() + 1) * 10000 + now.getDate() * 100 + now.getHours();
+  const pick = (arr: string[]) => arr[seed % arr.length];
+
+  if (!engineOn) {
+    return pick([
+      "Hey! I'm all set up and ready to go. Flip the bot engine on when you're ready — I'll take it from here 🤖",
+      "Standing by! Once you toggle the engine on, I'll start watching the market and finding good entries for you ✨",
+      "Ready and waiting! Hit that engine switch and let's make some moves together 🎯",
+    ]);
+  }
+
+  if (totalTrades === 0 || (dayOfTimeframe !== null && dayOfTimeframe <= 2)) {
+    const day = dayOfTimeframe ?? 1;
+    const tf = timeframeDays ? `${timeframeDays}-day` : '';
+    return pick([
+      `Day ${day} of your ${tf} challenge! Still early — building positions carefully. No rush 🌱`,
+      `Just getting started! I'm scanning the market and looking for the best entries. Patience pays off 🔍`,
+      `Early days! I'm being selective with entries — quality over quantity. We've got this 💪`,
+    ]);
+  }
+
+  if (winRate >= 65) {
+    const msg = pick([
+      `We're at a ${winRate.toFixed(0)}% win rate so far — that's solid! I'm keeping the same approach. If it ain't broke... 💪`,
+      `${winRate.toFixed(0)}% win rate and counting! The ${rl} strategy is clicking nicely. Steady as she goes 🎯`,
+    ]);
+    // Sometimes return win rate message, sometimes fall through to market-based
+    if (seed % 3 !== 0) return msg;
+  }
+
+  if (marketTrend === 'down' && pnlToday < -0.5) {
+    return pick([
+      `Markets pulled back ${absChange}% today — pretty normal for crypto. I'm holding steady on our positions and watching for a bounce. No panic! 💙`,
+      `Red day across the board. I've tightened stop losses just in case, but our ${rl} approach means we're built for days like this. Hang tight ☕`,
+    ]);
+  }
+
+  if (marketTrend === 'down' && pnlToday >= -0.5) {
+    return pick([
+      `Markets are down ${absChange}% but we're actually holding up well! The ${rl} strategy is doing its job 🛡️`,
+      `BTC dipped ${absChange}% but our positions are resilient. That's what smart risk management looks like 💎`,
+    ]);
+  }
+
+  if (marketTrend === 'up' && pnlToday > 0.5) {
+    return pick([
+      `Great day! BTC is pushing higher and our positions are riding the wave. Up ${absPnl}% today — let's see if this momentum holds 🚀`,
+      `Everything's green today. I'm watching for a good spot to take some profit. Solid day! ☀️`,
+      `Nice momentum! We're up ${absPnl}% with ${activePositions} active position${activePositions !== 1 ? 's' : ''}. Riding this wave carefully 🌊`,
+    ]);
+  }
+
+  // Flat / default
+  return pick([
+    "Quiet day in the markets. I'm scanning for setups but not forcing anything. Sometimes patience IS the strategy 🎯",
+    `Sideways action today. I've got ${activePositions} position${activePositions !== 1 ? 's' : ''} working — watching closely for any breakout signals 👀`,
+    "Not much happening in crypto today. I'm keeping our positions tight and waiting for the next move 🧘",
+  ]);
+}
+
 export default function TradingDashboardPage() {
   const [pulse, setPulse] = useState<CoinPulse[]>([]);
   const [bots, setBots] = useState<Bot[]>([]);
@@ -279,6 +360,23 @@ export default function TradingDashboardPage() {
     return null;
   }, [portfolio]);
 
+  const pennyUpdate = useMemo(() => {
+    const btcChange = btcCoin?.change24h ?? 0;
+    const marketTrend: 'up' | 'down' | 'flat' = btcChange > 1 ? 'up' : btcChange < -1 ? 'down' : 'flat';
+    return generatePennyUpdate({
+      marketTrend,
+      btcChange,
+      pnlToday: dailyPnlPct,
+      activePositions,
+      engineOn,
+      riskLevel,
+      dayOfTimeframe: dayProgress?.day ?? null,
+      timeframeDays: dayProgress?.total ?? null,
+      winRate,
+      totalTrades,
+    });
+  }, [btcCoin, dailyPnlPct, activePositions, engineOn, riskLevel, dayProgress, winRate, totalTrades]);
+
   const stepStatus = (done: boolean) => done ? '✓' : '⚠️';
 
   const handleTimeframeSelect = (tf: Timeframe) => {
@@ -355,6 +453,29 @@ export default function TradingDashboardPage() {
           </div>
         </header>
         <TradingNav activeTab="dashboard" />
+
+        {/* Penny's Update — copilot message */}
+        <section style={{ marginTop: '20px', marginBottom: '16px' }}>
+          <div style={{
+            background: 'rgba(123,125,255,0.05)',
+            borderLeft: '3px solid rgba(123,125,255,0.5)',
+            borderRadius: '12px',
+            padding: '14px 18px',
+            display: 'flex',
+            gap: '14px',
+            alignItems: 'flex-start',
+          }}>
+            <span style={{ fontSize: '24px', lineHeight: 1, flexShrink: 0, marginTop: '2px' }}>🐱</span>
+            <div>
+              <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', marginBottom: '4px', fontWeight: 600 }}>
+                Penny&apos;s Update
+              </div>
+              <div style={{ fontSize: '15px', lineHeight: 1.55, color: 'var(--text)', fontWeight: 500 }}>
+                {pennyUpdate}
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* 1. Market Summary (compact one-liner) */}
         <section style={{ marginTop: '24px', marginBottom: '16px' }}>

@@ -117,14 +117,13 @@ export default function MarketDashboard() {
 
   const loadNews = useCallback(async () => {
     try {
-      const res = await fetch('/api/trading/market');
+      const res = await fetch('/api/trading/news');
       if (res.ok) {
         const json = await res.json();
-        // News comes from the market API response if available
-        if (json?.news) {
-          setNewsItems(Array.isArray(json.news) ? json.news : []);
-          setNewsError(false);
-        }
+        setNewsItems(Array.isArray(json?.items) ? json.items : []);
+        setNewsError(false);
+      } else {
+        setNewsError(true);
       }
     } catch {
       setNewsError(true);
@@ -137,9 +136,6 @@ export default function MarketDashboard() {
       if (!res.ok) throw new Error('Failed to fetch');
       const json = await res.json();
       setData(json);
-      if (json?.news) {
-        setNewsItems(Array.isArray(json.news) ? json.news : []);
-      }
       setError('');
     } catch (e: any) {
       setError(e.message);
@@ -149,10 +145,10 @@ export default function MarketDashboard() {
   }, []);
 
   useEffect(() => {
-    load();
-    const iv = setInterval(() => { load(); }, 60_000);
+    load(); loadNews();
+    const iv = setInterval(() => { load(); loadNews(); }, 60_000);
     return () => clearInterval(iv);
-  }, [load]);
+  }, [load, loadNews]);
 
   return (
     <div style={{ minHeight: '100vh', color: '#e2e2ff' }}>

@@ -52,6 +52,20 @@ type MarketSentiment = {
   label?: string;
 };
 
+type MarketDetail = {
+  overview?: {
+    btc?: { price?: number; change24h?: number };
+    eth?: { price?: number; change24h?: number };
+    totalMarketCap?: number;
+    btcDominance?: number;
+    fearGreed?: { value?: number; label?: string };
+  };
+  movers?: {
+    gainers?: Array<{ change24h?: number }>;
+    losers?: Array<{ change24h?: number }>;
+  };
+};
+
 type RiskLevel = 'conservative' | 'moderate' | 'aggressive';
 type Timeframe = '10' | '30' | '60' | '90' | 'unlimited';
 
@@ -137,6 +151,7 @@ function getBotQuote(pnlPct: number, _winRate: number, _activePositions: number,
 type PennyUpdateData = {
   marketTrend: 'up' | 'down' | 'flat';
   btcChange: number;
+  btcPrice: number;
   pnlToday: number;
   activePositions: number;
   engineOn: boolean;
@@ -145,27 +160,60 @@ type PennyUpdateData = {
   timeframeDays: number | null;
   winRate: number;
   totalTrades: number;
+  fearGreed: number;
+  fearGreedLabel: string;
+  tradeScore: number;
 };
 
 function generatePennyUpdate(data: PennyUpdateData): string {
-  const { marketTrend, btcChange, pnlToday, activePositions, engineOn, riskLevel, dayOfTimeframe, timeframeDays, winRate, totalTrades } = data;
+  const { marketTrend, btcChange, btcPrice, pnlToday, activePositions, engineOn, riskLevel, dayOfTimeframe, timeframeDays, winRate, totalTrades, fearGreed, fearGreedLabel, tradeScore } = data;
   const rl = riskLevel ? RISK_LEVELS[riskLevel].label.toLowerCase() : 'balanced';
   const absChange = Math.abs(btcChange).toFixed(1);
   const absPnl = Math.abs(pnlToday).toFixed(1);
+  const btcK = btcPrice > 0 ? `$${(btcPrice / 1000).toFixed(0)}K` : '';
 
   // Seed on hour so message stays stable within the hour
   const now = new Date();
   const seed = now.getFullYear() * 1000000 + (now.getMonth() + 1) * 10000 + now.getDate() * 100 + now.getHours();
   const pick = (arr: string[]) => arr[seed % arr.length];
 
+  // Engine OFF — market-aware commentary
   if (!engineOn) {
+    if (marketTrend === 'up' && tradeScore >= 60) {
+      return pick([
+        `Market conditions are heating up — BTC is up ${absChange}% and the vibe is ${fearGreedLabel.toLowerCase()}. Might be a good time to start trading! 🔥`,
+        `Seeing some really strong setups forming. BTC pushing ${btcK} with solid momentum. If you're thinking about starting, now's not a bad time 🎯`,
+        `Things are looking good out there! BTC at ${btcK}, trade score at ${tradeScore}. Flip the engine on and let's ride this 🚀`,
+      ]);
+    }
+    if (marketTrend === 'down' && fearGreed < 30) {
+      return pick([
+        `Things are volatile right now — BTC dropped ${absChange}%. Smart to wait it out. I'll let you know when conditions improve ⏳`,
+        `Markets are shaky with extreme fear in the air. I'm watching closely though — fear often creates the best opportunities 👀`,
+        `Red across the board today. Not the best time to jump in, but I'm tracking support levels. Patience pays 🧘`,
+      ]);
+    }
+    if (marketTrend === 'down') {
+      return pick([
+        `BTC is testing support around ${btcK} — could be a great entry point soon. I'm watching closely 👀`,
+        `Markets pulled back ${absChange}% today. I'm monitoring for a bounce — these dips often set up nice entries 📉➡️📈`,
+      ]);
+    }
+    if (marketTrend === 'flat') {
+      return pick([
+        `Quiet day — BTC hovering around ${btcK}. I'm scanning for breakout setups. Toggle the engine on when you're ready 🔍`,
+        `Markets are consolidating. The Fear & Greed index sits at ${fearGreed} (${fearGreedLabel.toLowerCase()}). Could go either way from here 🤔`,
+        `Not much action today, but I'm still watching. Sometimes the best moves come after the quiet periods ⏳`,
+      ]);
+    }
+    // up but low score
     return pick([
-      "Hey! I'm all set up and ready to go. Flip the bot engine on when you're ready — I'll take it from here 🤖",
-      "Standing by! Once you toggle the engine on, I'll start watching the market and finding good entries for you ✨",
-      "Ready and waiting! Hit that engine switch and let's make some moves together 🎯",
+      `BTC is up ${absChange}% but conditions are mixed — trade score is only ${tradeScore}. I'd wait for stronger confirmation before jumping in 🎯`,
+      `Some green today! BTC at ${btcK}. Conditions are okay but not great. Ready to go when you are though! ✨`,
     ]);
   }
 
+  // Engine ON — trading-aware messages
   if (totalTrades === 0 || (dayOfTimeframe !== null && dayOfTimeframe <= 2)) {
     const day = dayOfTimeframe ?? 1;
     const tf = timeframeDays ? `${timeframeDays}-day` : '';
@@ -181,7 +229,6 @@ function generatePennyUpdate(data: PennyUpdateData): string {
       `We're at a ${winRate.toFixed(0)}% win rate so far — that's solid! I'm keeping the same approach. If it ain't broke... 💪`,
       `${winRate.toFixed(0)}% win rate and counting! The ${rl} strategy is clicking nicely. Steady as she goes 🎯`,
     ]);
-    // Sometimes return win rate message, sometimes fall through to market-based
     if (seed % 3 !== 0) return msg;
   }
 
@@ -207,13 +254,71 @@ function generatePennyUpdate(data: PennyUpdateData): string {
     ]);
   }
 
-  // Flat / default
   return pick([
     "Quiet day in the markets. I'm scanning for setups but not forcing anything. Sometimes patience IS the strategy 🎯",
     `Sideways action today. I've got ${activePositions} position${activePositions !== 1 ? 's' : ''} working — watching closely for any breakout signals 👀`,
     "Not much happening in crypto today. I'm keeping our positions tight and waiting for the next move 🧘",
   ]);
 }
+
+function calculateTradeScore(market: MarketDetail | null, pulse: CoinPulse[]): { score: number; label: string; color: string; explanation: string } {
+  if (!market?.overview) return { score: 50, label: 'Fair', color: '#f5b544', explanation: 'Waiting for market data...' };
+
+  let score = 0;
+  const parts: string[] = [];
+
+  // BTC trend (0-25 pts)
+  const btcChange = market.overview.btc?.change24h ?? 0;
+  if (btcChange > 3) { score += 25; parts.push('strong BTC momentum'); }
+  else if (btcChange > 1) { score += 20; parts.push('BTC trending up'); }
+  else if (btcChange > 0) { score += 15; parts.push('slight BTC uptrend'); }
+  else if (btcChange > -1) { score += 5; parts.push('BTC flat'); }
+  else { parts.push('BTC under pressure'); }
+
+  // Fear & Greed (0-25 pts) — balanced is best, extreme fear = contrarian opportunity
+  const fng = market.overview.fearGreed?.value ?? 50;
+  if (fng >= 40 && fng <= 60) { score += 25; parts.push('balanced sentiment'); }
+  else if (fng < 25) { score += 20; parts.push('contrarian opportunity'); }
+  else if (fng < 40) { score += 15; parts.push('cautious sentiment'); }
+  else if (fng <= 75) { score += 10; parts.push('greedy sentiment'); }
+  else { score += 5; parts.push('extreme greed — risky'); }
+
+  // Market breadth — gainers vs losers (0-25 pts)
+  const gainers = market.movers?.gainers?.length ?? 0;
+  const losers = market.movers?.losers?.length ?? 0;
+  // Use pulse data for broader breadth check
+  const upCoins = pulse.filter(c => c.change24h > 0).length;
+  const totalCoins = pulse.length || 1;
+  const breadthPct = upCoins / totalCoins;
+  if (breadthPct > 0.65) { score += 25; parts.push('broad market strength'); }
+  else if (breadthPct > 0.5) { score += 18; parts.push('more gainers than losers'); }
+  else if (breadthPct > 0.35) { score += 10; parts.push('mixed market'); }
+  else { score += 3; parts.push('mostly red'); }
+
+  // Volume proxy — use absolute change magnitude as volume indicator (0-25 pts)
+  const avgAbsChange = pulse.length > 0
+    ? pulse.reduce((s, c) => s + Math.abs(c.change24h), 0) / pulse.length
+    : 2;
+  if (avgAbsChange > 4) { score += 25; parts.push('high volatility'); }
+  else if (avgAbsChange > 2.5) { score += 20; parts.push('healthy activity'); }
+  else if (avgAbsChange > 1.5) { score += 15; parts.push('moderate activity'); }
+  else { score += 10; parts.push('low activity'); }
+
+  score = Math.min(100, Math.max(0, score));
+
+  let label: string, color: string;
+  if (score >= 80) { label = 'Excellent'; color = '#22c55e'; }
+  else if (score >= 60) { label = 'Good'; color = '#4ade80'; }
+  else if (score >= 40) { label = 'Fair'; color = '#eab308'; }
+  else if (score >= 20) { label = 'Poor'; color = '#f97316'; }
+  else { label = 'Wait'; color = '#ef4444'; }
+
+  // Build explanation from top 2 factors
+  const explanation = parts.slice(0, 2).join(', ');
+  const emoji = score >= 60 ? '📈' : score >= 40 ? '📊' : '⏳';
+  return { score, label, color, explanation: `${explanation.charAt(0).toUpperCase() + explanation.slice(1)} ${emoji}` };
+}
+
 
 export default function TradingDashboardPage() {
   const [pulse, setPulse] = useState<CoinPulse[]>([]);
@@ -222,6 +327,7 @@ export default function TradingDashboardPage() {
   const [boardId, setBoardId] = useState<number | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [sentiment, setSentiment] = useState<MarketSentiment | null>(null);
+  const [marketDetail, setMarketDetail] = useState<MarketDetail | null>(null);
 
   // Setup state (persisted to localStorage)
   const [riskLevel, setRiskLevel] = useState<RiskLevel | null>(null);
@@ -314,6 +420,24 @@ export default function TradingDashboardPage() {
     })();
   }, []);
 
+  // Fetch detailed market data (for trade score + Penny insights)
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/trading/market');
+        if (res.ok) {
+          const data = await res.json();
+          setMarketDetail(data);
+          // Also use fear & greed from this if sentiment endpoint failed
+          if (!sentiment && data?.overview?.fearGreed) {
+            setSentiment({ value: data.overview.fearGreed.value, label: data.overview.fearGreed.label });
+          }
+        }
+      } catch {}
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const paperBalance = Number(portfolio?.summary?.paper_balance ?? 0);
   const dailyPnl = Number(portfolio?.summary?.daily_pnl ?? 0);
   const dailyPnlPct = paperBalance > 0 ? (dailyPnl / (paperBalance - dailyPnl)) * 100 : 0;
@@ -360,12 +484,18 @@ export default function TradingDashboardPage() {
     return null;
   }, [portfolio]);
 
+  const tradeScore = useMemo(() => calculateTradeScore(marketDetail, pulse), [marketDetail, pulse]);
+
   const pennyUpdate = useMemo(() => {
     const btcChange = btcCoin?.change24h ?? 0;
+    const btcPrice = btcCoin?.price ?? 0;
     const marketTrend: 'up' | 'down' | 'flat' = btcChange > 1 ? 'up' : btcChange < -1 ? 'down' : 'flat';
+    const fng = marketDetail?.overview?.fearGreed?.value ?? 50;
+    const fngLabel = marketDetail?.overview?.fearGreed?.label ?? 'Neutral';
     return generatePennyUpdate({
       marketTrend,
       btcChange,
+      btcPrice,
       pnlToday: dailyPnlPct,
       activePositions,
       engineOn,
@@ -374,8 +504,11 @@ export default function TradingDashboardPage() {
       timeframeDays: dayProgress?.total ?? null,
       winRate,
       totalTrades,
+      fearGreed: fng,
+      fearGreedLabel: fngLabel,
+      tradeScore: tradeScore.score,
     });
-  }, [btcCoin, dailyPnlPct, activePositions, engineOn, riskLevel, dayProgress, winRate, totalTrades]);
+  }, [btcCoin, dailyPnlPct, activePositions, engineOn, riskLevel, dayProgress, winRate, totalTrades, marketDetail, tradeScore]);
 
   const stepStatus = (done: boolean) => done ? '✓' : '⚠️';
 
@@ -488,6 +621,51 @@ export default function TradingDashboardPage() {
             <Link href="/trading/market" style={{ fontSize: '12px', color: 'var(--accent)', textDecoration: 'none' }}>
               See full market →
             </Link>
+          </div>
+        </section>
+
+        {/* Trade Score */}
+        <section style={{ marginBottom: '16px' }}>
+          <div style={{
+            background: 'var(--panel)',
+            border: '1px solid var(--border)',
+            borderRadius: '14px',
+            padding: '14px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+          }}>
+            <div style={{
+              minWidth: '56px',
+              height: '56px',
+              borderRadius: '14px',
+              background: `${tradeScore.color}18`,
+              border: `2px solid ${tradeScore.color}`,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              ...(tradeScore.score >= 80 ? { boxShadow: `0 0 18px ${tradeScore.color}50` } : {}),
+            }}>
+              <span style={{ fontSize: '22px', fontWeight: 800, color: tradeScore.color, lineHeight: 1 }}>{tradeScore.score}</span>
+              <span style={{ fontSize: '8px', fontWeight: 700, color: tradeScore.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>/100</span>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>🎯 Trade Conditions</span>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: tradeScore.color,
+                  background: `${tradeScore.color}18`,
+                  padding: '2px 8px',
+                  borderRadius: '999px',
+                }}>
+                  {tradeScore.label}
+                </span>
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--muted)' }}>{tradeScore.explanation}</div>
+            </div>
           </div>
         </section>
 

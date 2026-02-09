@@ -598,12 +598,12 @@ export default function TradingDashboardPage() {
             gap: '14px',
             alignItems: 'flex-start',
           }}>
-            <img src="/icons/penny.png" alt="Penny" style={{ width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0 }} />
+            <img src="/icons/penny.png" alt="Penny" style={{ width: '72px', height: '72px', borderRadius: '50%', flexShrink: 0 }} />
             <div>
-              <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', marginBottom: '4px', fontWeight: 600 }}>
+              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', marginBottom: '6px', fontWeight: 600 }}>
                 Penny&apos;s Update
               </div>
-              <div style={{ fontSize: '15px', lineHeight: 1.55, color: 'var(--text)', fontWeight: 500 }}>
+              <div style={{ fontSize: '17px', lineHeight: 1.6, color: 'var(--text)', fontWeight: 500 }}>
                 {pennyUpdate}
               </div>
             </div>

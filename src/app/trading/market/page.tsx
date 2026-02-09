@@ -146,8 +146,8 @@ export default function MarketDashboard() {
   }, [load, loadTbo]);
 
   return (
-    <div style={{ minHeight: '100vh', background: '#141428', color: '#e2e2ff', padding: '20px 16px' }}>
-      <div style={{ maxWidth: 1400, margin: '0 auto' }}>
+    <div style={{ minHeight: '100vh', color: '#e2e2ff', padding: '32px clamp(20px, 4vw, 48px) 40px' }}>
+      <div style={{ maxWidth: 1400, margin: '0 auto', width: '100%' }}>
         <TradingNav activeTab={'market' as any} />
 
         {/* TBO toggle moved to board page */}
@@ -255,7 +255,7 @@ export default function MarketDashboard() {
         {error && !data && <div style={{ textAlign: 'center', padding: 60, color: '#ef4444' }}>Error: {error}</div>}
 
         {data && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+          <div className="market-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
 
             {/* ── Column 1: Overview ── */}
             <div>
@@ -336,6 +336,19 @@ export default function MarketDashboard() {
             </div>
           </div>
         )}
+
+        <style jsx global>{`
+          @media (max-width: 1024px) {
+            .market-grid {
+              grid-template-columns: repeat(2, 1fr) !important;
+            }
+          }
+          @media (max-width: 680px) {
+            .market-grid {
+              grid-template-columns: 1fr !important;
+            }
+          }
+        `}</style>
       </div>
     </div>
   );

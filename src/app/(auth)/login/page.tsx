@@ -183,22 +183,6 @@ export default function LoginPage() {
                 borderRadius: '20px',
               }} 
             />
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: '8px',
-              marginTop: '16px',
-            }}>
-              {['Backlog', 'Planned', 'In Progress', 'Done'].map((label, i) => (
-                <span key={i} style={{
-                  fontSize: 'clamp(14px, 2vw, 18px)',
-                  fontWeight: '600',
-                  textAlign: 'center',
-                  color: 'var(--accent)',
-                  letterSpacing: '0.5px',
-                }}>{label}</span>
-              ))}
-            </div>
           </div>
         </section>
 

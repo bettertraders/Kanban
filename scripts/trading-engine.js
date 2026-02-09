@@ -466,6 +466,25 @@ async function updateTradeAnalysis(tradeId, ind) {
   const reason = generateReason(ind);
   const analysis = `${reason}\n\n📊 RSI: ${ind.rsi?.toFixed(1)} | SMA20: $${ind.sma20?.toFixed(2)} | SMA50: $${ind.sma50?.toFixed(2)} | Vol: ${ind.volumeRatio?.toFixed(1)}x | Mom: ${ind.momentum?.toFixed(1)}%`;
 
+  // Calculate confidence score based on signal strength
+  let confidence = 50;
+  if (ind.rsi < 35 || ind.rsi > 65) confidence += 15;
+  if (ind.sma20 && ind.sma50 && ind.sma20 > ind.sma50) confidence += 15;
+  if (ind.volumeRatio > 1.2) confidence += 10;
+  if (ind.sma20 && Math.abs(ind.currentPrice - ind.sma20) / ind.sma20 < 0.02) confidence += 10;
+  confidence = Math.min(100, Math.max(0, confidence));
+
+  try {
+    await apiPatch('/api/trading/trades', {
+      trade_id: tradeId,
+      current_price: ind.currentPrice,
+      rsi_value: ind.rsi ? parseFloat(ind.rsi.toFixed(1)) : null,
+      confidence_score: confidence,
+      volume_assessment: ind.volumeRatio > 1.2 ? 'high' : ind.volumeRatio > 0.8 ? 'normal' : 'low',
+      tbo_signal: null,
+    });
+  } catch {}
+
   try {
     await apiPatch('/api/trading/trades', { trade_id: tradeId, notes: analysis });
   } catch {

@@ -278,7 +278,7 @@ function calculateTradeScore(market: MarketDetail | null, pulse: CoinPulse[]): {
       const desc = btcChg > 0 ? `BTC up ${btcChg.toFixed(1)}%, ${upCoins}/${pulse.length} coins green 📊` : `BTC down ${Math.abs(btcChg).toFixed(1)}%, ${upCoins}/${pulse.length} coins green 📊`;
       return { score: s, label: lbl, color: clr, explanation: desc };
     }
-    return { score: 50, label: 'Fair', color: '#f5b544', explanation: 'Market data updating shortly 📊' };
+    return { score: 50, label: 'Fair', color: '#f5b544', explanation: '' };
   }
 
   let score = 0;

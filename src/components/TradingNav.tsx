@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
 type TradingNavProps = {
-  activeTab: 'dashboard' | 'board' | 'bots' | 'leaderboard' | 'portfolio' | 'journal';
+  activeTab: 'dashboard' | 'board' | 'bots' | 'leaderboard' | 'portfolio' | 'journal' | 'market';
 };
 
 const tabs = [
   { key: 'dashboard', label: 'Dashboard', href: '/trading' },
+  { key: 'market', label: 'Market', href: '/trading/market' },
   { key: 'board', label: 'Board', href: '/trading' },
   { key: 'bots', label: 'Bots', href: '/bots' },
   { key: 'leaderboard', label: 'Leaderboard', href: '/leaderboard' },

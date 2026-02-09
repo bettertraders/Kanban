@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { TradingNav } from '@/components/TradingNav';
+import PriceTicker from '@/components/PriceTicker';
 // TboToggle moved to board page
 
 /* ── types ── */
@@ -207,7 +208,9 @@ export default function MarketDashboard() {
   }, [load, loadTbo, loadNews, loadBoardWatchlist]);
 
   return (
-    <div style={{ minHeight: '100vh', color: '#e2e2ff', padding: '32px clamp(20px, 4vw, 48px) 40px' }}>
+    <div style={{ minHeight: '100vh', color: '#e2e2ff' }}>
+      <PriceTicker />
+      <div style={{ padding: '32px clamp(20px, 4vw, 48px) 40px' }}>
       <div style={{ maxWidth: 1400, margin: '0 auto', width: '100%' }}>
         <header style={{ marginBottom: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -479,6 +482,7 @@ export default function MarketDashboard() {
             }
           }
         `}</style>
+      </div>
       </div>
     </div>
   );

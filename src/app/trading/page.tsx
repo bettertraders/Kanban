@@ -395,15 +395,13 @@ export default function TradingDashboardPage() {
     })();
   }, []);
 
-  // Save settings to both DB and localStorage
-  const settingsRef = useRef<string>('');
+  // Save settings to both DB and localStorage on any change
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    // Skip saving if all values are still defaults (initial render before load)
+    if (riskLevel === null && tradingAmount === null && !engineOn) return;
     const data = { riskLevel, tradingAmount, timeframe, timeframeStartDate, tboEnabled, engineOn };
-    const json = JSON.stringify(data);
-    if (json === settingsRef.current) return; // skip if unchanged
-    settingsRef.current = json;
-    localStorage.setItem('clawdesk-trading-setup', json);
+    localStorage.setItem('clawdesk-trading-setup', JSON.stringify(data));
     fetch('/api/trading/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

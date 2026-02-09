@@ -47,6 +47,11 @@ function getCachedPrice(pair: string): PriceSnapshot | null {
   return entry.data;
 }
 
+function getStalePrice(pair: string): PriceSnapshot | null {
+  const entry = priceCache.get(pair);
+  return entry ? entry.data : null;
+}
+
 function setCachedPrice(pair: string, data: PriceSnapshot) {
   priceCache.set(pair, { data, expiresAt: Date.now() + CACHE_TTL_MS });
 }
@@ -79,6 +84,11 @@ function extractPriceSnapshot(ticker: Ticker): PriceSnapshot {
 function isSymbolError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error || '');
   return /symbol|market|pair|BadSymbol|ExchangeError/i.test(message);
+}
+
+function isTimeoutError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error || '');
+  return /timeout|timed out|ETIMEDOUT|ECONNRESET|EAI_AGAIN/i.test(message);
 }
 
 async function fetchTickerWithFallback(pair: string): Promise<Ticker> {
@@ -114,10 +124,18 @@ export async function getCurrentPrice(pair: string): Promise<PriceSnapshot> {
   const cached = getCachedPrice(normalized);
   if (cached) return cached;
 
-  const ticker = await fetchTickerWithFallback(normalized);
-  const snapshot = extractPriceSnapshot(ticker);
-  setCachedPrice(normalized, snapshot);
-  return snapshot;
+  try {
+    const ticker = await fetchTickerWithFallback(normalized);
+    const snapshot = extractPriceSnapshot(ticker);
+    setCachedPrice(normalized, snapshot);
+    return snapshot;
+  } catch (error) {
+    if (isTimeoutError(error)) {
+      const stale = getStalePrice(normalized);
+      if (stale) return stale;
+    }
+    throw error;
+  }
 }
 
 export async function getOHLCV(pair: string, timeframe: string, limit: number): Promise<OhlcvCandle[]> {

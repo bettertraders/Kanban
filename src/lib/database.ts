@@ -59,6 +59,7 @@ export async function initializeDatabase() {
         owner_id INTEGER REFERENCES users(id),
         team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE,
         is_personal BOOLEAN DEFAULT false,
+        visibility VARCHAR(20) DEFAULT 'all',
         columns JSONB DEFAULT '["Backlog", "Planned", "In Progress", "Review", "Done"]',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -148,6 +149,13 @@ export async function initializeDatabase() {
         END IF;
       END $$;
 
+      -- Board visibility (admin-only trading boards)
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='boards' AND column_name='visibility') THEN
+          ALTER TABLE boards ADD COLUMN visibility VARCHAR(20) DEFAULT 'all';
+        END IF;
+      END $$;
+
       -- Trades table
       CREATE TABLE IF NOT EXISTS trades (
         id SERIAL PRIMARY KEY,
@@ -185,6 +193,18 @@ export async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_trades_board ON trades(board_id);
       CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status);
       CREATE INDEX IF NOT EXISTS idx_trades_coin ON trades(coin_pair);
+
+      -- Paper trading accounts
+      CREATE TABLE IF NOT EXISTS paper_accounts (
+        id SERIAL PRIMARY KEY,
+        board_id INTEGER REFERENCES boards(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id),
+        starting_balance DECIMAL(20,2) DEFAULT 10000,
+        current_balance DECIMAL(20,2) DEFAULT 10000,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(board_id, user_id)
+      );
 
       -- Trade comments table
       CREATE TABLE IF NOT EXISTS trade_comments (
@@ -534,13 +554,17 @@ export async function autoJoinTeams(userId: number, email: string) {
 export async function getBoardsForUser(userId: number) {
   const result = await pool.query(`
     SELECT * FROM (
-      SELECT DISTINCT ON (b.id) b.*, t.name as team_name, t.slug as team_slug
+      SELECT DISTINCT ON (b.id) b.*, t.name as team_name, t.slug as team_slug, tm.role as user_role
       FROM boards b
       LEFT JOIN teams t ON b.team_id = t.id
-      LEFT JOIN team_members tm ON t.id = tm.team_id
+      LEFT JOIN team_members tm ON t.id = tm.team_id AND tm.user_id = $1
       WHERE b.owner_id = $1 OR tm.user_id = $1
       ORDER BY b.id
     ) sub
+    WHERE visibility IS NULL
+       OR visibility <> 'admin_only'
+       OR user_role = 'admin'
+       OR owner_id = $1
     ORDER BY is_personal DESC, name
   `, [userId]);
   return result.rows;
@@ -548,22 +572,52 @@ export async function getBoardsForUser(userId: number) {
 
 export async function getBoard(boardId: number, userId: number) {
   const result = await pool.query(`
-    SELECT b.*, t.name as team_name, t.slug as team_slug
+    SELECT b.*, t.name as team_name, t.slug as team_slug, tm.role as user_role
     FROM boards b
     LEFT JOIN teams t ON b.team_id = t.id
-    LEFT JOIN team_members tm ON t.id = tm.team_id
+    LEFT JOIN team_members tm ON t.id = tm.team_id AND tm.user_id = $2
     WHERE b.id = $1 AND (b.owner_id = $2 OR tm.user_id = $2)
+      AND (b.visibility IS NULL OR b.visibility <> 'admin_only' OR tm.role = 'admin' OR b.owner_id = $2)
   `, [boardId, userId]);
   return result.rows[0];
 }
 
-export async function createBoard(name: string, ownerId: number, teamId?: number, description?: string) {
+export async function createBoard(
+  name: string,
+  ownerId: number,
+  teamId?: number,
+  description?: string,
+  options: {
+    boardType?: string;
+    columns?: string[];
+    visibility?: string;
+    startingBalance?: number;
+  } = {}
+) {
+  const boardType = options.boardType ?? 'task';
+  const columns = options.columns ?? (boardType === 'trading'
+    ? ['Watchlist', 'Analyzing', 'Active', 'Parked', 'Wins', 'Losses']
+    : ['Backlog', 'Planned', 'In Progress', 'Review', 'Done']);
+  const visibility = options.visibility ?? (boardType === 'trading' ? 'admin_only' : 'all');
+
   const result = await pool.query(
-    `INSERT INTO boards (name, description, owner_id, team_id, is_personal, columns) 
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [name, description, teamId ? null : ownerId, teamId, !teamId, JSON.stringify(['Backlog', 'Planned', 'In Progress', 'Review', 'Done'])]
+    `INSERT INTO boards (name, description, owner_id, team_id, is_personal, board_type, columns, visibility)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+    [name, description, teamId ? null : ownerId, teamId, !teamId, boardType, JSON.stringify(columns), visibility]
   );
-  return result.rows[0];
+  const board = result.rows[0];
+  if (boardType === 'trading') {
+    const startingBalance = Number.isFinite(options.startingBalance)
+      ? Number(options.startingBalance)
+      : 10000;
+    await pool.query(
+      `INSERT INTO paper_accounts (board_id, user_id, starting_balance, current_balance)
+       VALUES ($1, $2, $3, $3)
+       ON CONFLICT (board_id, user_id) DO NOTHING`,
+      [board.id, ownerId, startingBalance]
+    );
+  }
+  return board;
 }
 
 // Task functions
@@ -1103,6 +1157,11 @@ export async function enterTrade(tradeId: number, entryPrice: number | null, use
     throw new Error('ENTRY_PRICE_REQUIRED');
   }
 
+  const positionSize = parseNumeric(trade.position_size);
+  if (positionSize !== null && positionSize > 0) {
+    await updatePaperBalance(trade.board_id, userId, -positionSize);
+  }
+
   const updates: Record<string, unknown> = {
     entry_price: finalEntryPrice,
     entered_at: new Date().toISOString(),
@@ -1164,6 +1223,11 @@ export async function exitTrade(tradeId: number, exitPrice: number, lessonTag: s
   }
 
   const updated = await updateTrade(tradeId, updates);
+  const positionSize = parseNumeric(trade.position_size);
+  if (positionSize !== null && positionSize > 0) {
+    const balanceDelta = positionSize + (pnlDollar ?? 0);
+    await updatePaperBalance(trade.board_id, userId, balanceDelta, 10000, true);
+  }
   const user = await getUserById(userId);
   await logTradeActivity(
     tradeId,
@@ -1668,6 +1732,111 @@ export async function getBoardTradingStats(boardId: number) {
     [boardId]
   );
 
+  const holdTimeResult = await pool.query(
+    `
+      SELECT AVG(EXTRACT(EPOCH FROM (exited_at - entered_at))) as avg_hold_seconds
+      FROM trades
+      WHERE board_id = $1
+        AND exited_at IS NOT NULL
+        AND entered_at IS NOT NULL
+        AND (column_name IN ('Wins', 'Losses') OR status IN ('closed', 'won', 'lost'))
+    `,
+    [boardId]
+  );
+
+  const mostTradedResult = await pool.query(
+    `
+      SELECT coin_pair, COUNT(*)::int as total_trades
+      FROM trades
+      WHERE board_id = $1
+      GROUP BY coin_pair
+      ORDER BY total_trades DESC, coin_pair ASC
+      LIMIT 6
+    `,
+    [boardId]
+  );
+
+  const pnlByWeekdayResult = await pool.query(
+    `
+      SELECT EXTRACT(DOW FROM exited_at)::int as dow,
+             COALESCE(SUM(COALESCE(pnl_dollar, 0)), 0) as total_pnl,
+             COUNT(*)::int as total_trades
+      FROM trades
+      WHERE board_id = $1
+        AND exited_at IS NOT NULL
+        AND (column_name IN ('Wins', 'Losses') OR status IN ('closed', 'won', 'lost'))
+      GROUP BY EXTRACT(DOW FROM exited_at)
+      ORDER BY dow ASC
+    `,
+    [boardId]
+  );
+
+  const pnlByDayResult = await pool.query(
+    `
+      SELECT DATE(exited_at) as day,
+             COALESCE(SUM(COALESCE(pnl_dollar, 0)), 0) as total_pnl
+      FROM trades
+      WHERE board_id = $1
+        AND exited_at IS NOT NULL
+        AND (column_name IN ('Wins', 'Losses') OR status IN ('closed', 'won', 'lost'))
+      GROUP BY DATE(exited_at)
+      ORDER BY day ASC
+    `,
+    [boardId]
+  );
+
+  const streakResult = await pool.query(
+    `
+      SELECT exited_at, pnl_dollar, column_name, status
+      FROM trades
+      WHERE board_id = $1
+        AND exited_at IS NOT NULL
+        AND (column_name IN ('Wins', 'Losses') OR status IN ('closed', 'won', 'lost'))
+      ORDER BY exited_at ASC
+    `,
+    [boardId]
+  );
+
+  const streaks = (() => {
+    let longestWin = 0;
+    let longestLoss = 0;
+    let current = 0;
+    let currentType: 'win' | 'loss' | null = null;
+
+    streakResult.rows.forEach((row) => {
+      const pnl = parseNumeric(row.pnl_dollar);
+      const isWin = row.column_name === 'Wins' || (pnl !== null && pnl >= 0);
+      const type: 'win' | 'loss' = isWin ? 'win' : 'loss';
+      if (currentType === type) {
+        current += 1;
+      } else {
+        currentType = type;
+        current = 1;
+      }
+      if (type === 'win') longestWin = Math.max(longestWin, current);
+      if (type === 'loss') longestLoss = Math.max(longestLoss, current);
+    });
+
+    return {
+      current: currentType ? { type: currentType, count: current } : { type: null, count: 0 },
+      longest_win: longestWin,
+      longest_loss: longestLoss
+    };
+  })();
+
+  let cumulative = 0;
+  const pnlByDay = pnlByDayResult.rows.map((row) => {
+    const pnl = parseNumeric(row.total_pnl) || 0;
+    cumulative += pnl;
+    return { date: row.day, pnl, cumulative };
+  });
+
+  const avgHoldSeconds = parseNumeric(holdTimeResult.rows[0]?.avg_hold_seconds) || 0;
+  const avgHoldHours = avgHoldSeconds > 0 ? avgHoldSeconds / 3600 : 0;
+  const avgWin = parseNumeric(totals.avg_win) || 0;
+  const avgLoss = parseNumeric(totals.avg_loss) || 0;
+  const riskReward = avgLoss !== 0 ? Math.abs(avgWin / avgLoss) : 0;
+
   return {
     total_trades: Number(totals.total_trades || 0),
     active_trades: Number(totals.active_trades || 0),
@@ -1680,7 +1849,17 @@ export async function getBoardTradingStats(boardId: number) {
     best_trade: parseNumeric(totals.best_trade) || 0,
     worst_trade: parseNumeric(totals.worst_trade) || 0,
     by_coin: byCoin,
-    recent_trades: recentResult.rows
+    recent_trades: recentResult.rows,
+    avg_hold_hours: Math.round(avgHoldHours * 100) / 100,
+    risk_reward_ratio: Math.round(riskReward * 100) / 100,
+    streaks,
+    most_traded: mostTradedResult.rows,
+    pnl_by_weekday: pnlByWeekdayResult.rows.map((row) => ({
+      dow: Number(row.dow),
+      total_pnl: parseNumeric(row.total_pnl) || 0,
+      total_trades: Number(row.total_trades || 0)
+    })),
+    pnl_by_day: pnlByDay
   };
 }
 
@@ -1706,6 +1885,253 @@ export async function getEquityCurve(boardId: number) {
       coin_pair: row.coin_pair
     };
   });
+}
+
+export async function getPaperAccount(boardId: number, userId: number, startingBalance: number = 10000) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `
+        INSERT INTO paper_accounts (board_id, user_id, starting_balance, current_balance)
+        VALUES ($1, $2, $3, $3)
+        ON CONFLICT (board_id, user_id) DO NOTHING
+      `,
+      [boardId, userId, startingBalance]
+    );
+
+    const result = await client.query(
+      `SELECT * FROM paper_accounts WHERE board_id = $1 AND user_id = $2`,
+      [boardId, userId]
+    );
+    await client.query('COMMIT');
+    return result.rows[0];
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+export async function updatePaperBalance(
+  boardId: number,
+  userId: number,
+  amount: number,
+  startingBalance: number = 10000,
+  allowNegative: boolean = false
+) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `
+        INSERT INTO paper_accounts (board_id, user_id, starting_balance, current_balance)
+        VALUES ($1, $2, $3, $3)
+        ON CONFLICT (board_id, user_id) DO NOTHING
+      `,
+      [boardId, userId, startingBalance]
+    );
+
+    const currentResult = await client.query(
+      `SELECT current_balance FROM paper_accounts WHERE board_id = $1 AND user_id = $2 FOR UPDATE`,
+      [boardId, userId]
+    );
+    const currentBalance = parseFloat(currentResult.rows[0]?.current_balance ?? '0');
+    const nextBalance = currentBalance + amount;
+    if (nextBalance < 0 && !allowNegative) {
+      throw new Error('INSUFFICIENT_PAPER_BALANCE');
+    }
+
+    const updated = await client.query(
+      `UPDATE paper_accounts
+       SET current_balance = $1, updated_at = NOW()
+       WHERE board_id = $2 AND user_id = $3
+       RETURNING *`,
+      [nextBalance, boardId, userId]
+    );
+    await client.query('COMMIT');
+    return updated.rows[0];
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+export async function resetPaperBalance(boardId: number, userId: number) {
+  const result = await pool.query(
+    `UPDATE paper_accounts
+     SET current_balance = starting_balance, updated_at = NOW()
+     WHERE board_id = $1 AND user_id = $2
+     RETURNING *`,
+    [boardId, userId]
+  );
+  return result.rows[0];
+}
+
+export async function getPortfolioStats(userId: number) {
+  const summaryResult = await pool.query(
+    `
+      WITH accessible_boards AS (
+        SELECT b.id
+        FROM boards b
+        LEFT JOIN team_members tm ON b.team_id = tm.team_id AND tm.user_id = $1
+        WHERE (b.owner_id = $1 OR tm.user_id = $1)
+          AND b.board_type = 'trading'
+          AND (b.visibility IS NULL OR b.visibility <> 'admin_only' OR tm.role = 'admin' OR b.owner_id = $1)
+      )
+      SELECT
+        (SELECT COUNT(*) FROM accessible_boards)::int as board_count,
+        COUNT(*) FILTER (WHERE t.status = 'active' OR t.column_name = 'Active')::int as active_positions,
+        COALESCE(SUM(CASE WHEN t.status = 'active' OR t.column_name = 'Active' THEN COALESCE(t.position_size, 0) END), 0) as total_position_size,
+        COALESCE(SUM(CASE WHEN t.status IN ('closed', 'won', 'lost') OR t.column_name IN ('Wins', 'Losses') THEN COALESCE(t.pnl_dollar, 0) END), 0) as total_realized_pnl,
+        COALESCE(SUM(CASE WHEN t.status = 'active' OR t.column_name = 'Active' THEN
+          CASE
+            WHEN t.entry_price IS NOT NULL AND t.current_price IS NOT NULL AND t.position_size IS NOT NULL THEN
+              (CASE WHEN LOWER(COALESCE(t.direction, '')) = 'short'
+                THEN t.entry_price - t.current_price
+                ELSE t.current_price - t.entry_price
+              END) * t.position_size
+            ELSE 0
+          END
+        END), 0) as total_unrealized_pnl,
+        COUNT(*) FILTER (WHERE t.column_name = 'Wins')::int as wins,
+        COUNT(*) FILTER (WHERE t.column_name = 'Losses')::int as losses
+      FROM trades t
+      JOIN accessible_boards ab ON t.board_id = ab.id
+    `,
+    [userId]
+  );
+
+  const summaryRow = summaryResult.rows[0] || {};
+  const wins = Number(summaryRow.wins || 0);
+  const losses = Number(summaryRow.losses || 0);
+  const closedTrades = wins + losses;
+  const winRate = closedTrades > 0 ? (wins / closedTrades) * 100 : 0;
+
+  const byCoinResult = await pool.query(
+    `
+      WITH accessible_boards AS (
+        SELECT b.id
+        FROM boards b
+        LEFT JOIN team_members tm ON b.team_id = tm.team_id AND tm.user_id = $1
+        WHERE (b.owner_id = $1 OR tm.user_id = $1)
+          AND b.board_type = 'trading'
+          AND (b.visibility IS NULL OR b.visibility <> 'admin_only' OR tm.role = 'admin' OR b.owner_id = $1)
+      )
+      SELECT
+        t.coin_pair,
+        COUNT(*)::int as total_trades,
+        COUNT(*) FILTER (WHERE t.column_name = 'Wins')::int as wins,
+        COUNT(*) FILTER (WHERE t.column_name = 'Losses')::int as losses,
+        COALESCE(SUM(CASE WHEN t.column_name IN ('Wins', 'Losses') OR t.status IN ('closed', 'won', 'lost') THEN COALESCE(t.pnl_dollar, 0) END), 0) as total_pnl,
+        COALESCE(AVG(CASE WHEN t.column_name IN ('Wins', 'Losses') OR t.status IN ('closed', 'won', 'lost') THEN t.pnl_dollar END), 0) as avg_pnl
+      FROM trades t
+      JOIN accessible_boards ab ON t.board_id = ab.id
+      GROUP BY t.coin_pair
+      ORDER BY t.coin_pair
+    `,
+    [userId]
+  );
+
+  const byCoin = byCoinResult.rows.map((row) => {
+    const winsByCoin = Number(row.wins || 0);
+    const lossesByCoin = Number(row.losses || 0);
+    const closedByCoin = winsByCoin + lossesByCoin;
+    return {
+      coin_pair: row.coin_pair,
+      total_trades: Number(row.total_trades || 0),
+      wins: winsByCoin,
+      losses: lossesByCoin,
+      win_rate: closedByCoin > 0 ? (winsByCoin / closedByCoin) * 100 : 0,
+      total_pnl: parseNumeric(row.total_pnl) || 0,
+      avg_pnl: parseNumeric(row.avg_pnl) || 0
+    };
+  });
+
+  const byDirectionResult = await pool.query(
+    `
+      WITH accessible_boards AS (
+        SELECT b.id
+        FROM boards b
+        LEFT JOIN team_members tm ON b.team_id = tm.team_id AND tm.user_id = $1
+        WHERE (b.owner_id = $1 OR tm.user_id = $1)
+          AND b.board_type = 'trading'
+          AND (b.visibility IS NULL OR b.visibility <> 'admin_only' OR tm.role = 'admin' OR b.owner_id = $1)
+      )
+      SELECT
+        UPPER(COALESCE(t.direction, '')) as direction,
+        COUNT(*)::int as total_trades,
+        COUNT(*) FILTER (WHERE t.column_name = 'Wins')::int as wins,
+        COUNT(*) FILTER (WHERE t.column_name = 'Losses')::int as losses,
+        COALESCE(SUM(CASE WHEN t.column_name IN ('Wins', 'Losses') OR t.status IN ('closed', 'won', 'lost') THEN COALESCE(t.pnl_dollar, 0) END), 0) as total_pnl
+      FROM trades t
+      JOIN accessible_boards ab ON t.board_id = ab.id
+      GROUP BY UPPER(COALESCE(t.direction, ''))
+    `,
+    [userId]
+  );
+
+  const byDirection = byDirectionResult.rows.map((row) => {
+    const winsByDir = Number(row.wins || 0);
+    const lossesByDir = Number(row.losses || 0);
+    const closedByDir = winsByDir + lossesByDir;
+    return {
+      direction: row.direction || 'UNKNOWN',
+      total_trades: Number(row.total_trades || 0),
+      wins: winsByDir,
+      losses: lossesByDir,
+      win_rate: closedByDir > 0 ? (winsByDir / closedByDir) * 100 : 0,
+      total_pnl: parseNumeric(row.total_pnl) || 0
+    };
+  });
+
+  const equityCurveResult = await pool.query(
+    `
+      WITH accessible_boards AS (
+        SELECT b.id
+        FROM boards b
+        LEFT JOIN team_members tm ON b.team_id = tm.team_id AND tm.user_id = $1
+        WHERE (b.owner_id = $1 OR tm.user_id = $1)
+          AND b.board_type = 'trading'
+          AND (b.visibility IS NULL OR b.visibility <> 'admin_only' OR tm.role = 'admin' OR b.owner_id = $1)
+      )
+      SELECT exited_at, pnl_dollar, coin_pair
+      FROM trades t
+      JOIN accessible_boards ab ON t.board_id = ab.id
+      WHERE t.status IN ('closed', 'won', 'lost') AND exited_at IS NOT NULL
+      ORDER BY exited_at ASC
+    `,
+    [userId]
+  );
+
+  let cumulative = 0;
+  const equityCurve = equityCurveResult.rows.map((row) => {
+    const pnl = parseFloat(row.pnl_dollar || 0);
+    cumulative += Number.isFinite(pnl) ? pnl : 0;
+    return {
+      date: row.exited_at,
+      pnl: Number.isFinite(pnl) ? pnl : 0,
+      cumulative,
+      coin_pair: row.coin_pair
+    };
+  });
+
+  return {
+    summary: {
+      total_portfolio_value: parseNumeric(summaryRow.total_position_size) || 0,
+      total_realized_pnl: parseNumeric(summaryRow.total_realized_pnl) || 0,
+      total_unrealized_pnl: parseNumeric(summaryRow.total_unrealized_pnl) || 0,
+      win_rate: Math.round(winRate * 100) / 100,
+      active_positions: Number(summaryRow.active_positions || 0),
+      board_count: Number(summaryRow.board_count || 0)
+    },
+    byCoin,
+    byDirection,
+    equityCurve
+  };
 }
 
 export async function addPriceHistory(coinPair: string, price: number, volume: number | null, source: string = 'ccxt') {
@@ -1793,12 +2219,20 @@ export async function seedTradingBoard(userId: number) {
 
     // Create trading board
     const boardResult = await client.query(
-      `INSERT INTO boards (name, description, owner_id, is_personal, board_type, columns)
-       VALUES ($1, $2, $3, true, 'trading', $4) RETURNING *`,
+      `INSERT INTO boards (name, description, owner_id, is_personal, board_type, columns, visibility)
+       VALUES ($1, $2, $3, true, 'trading', $4, $5) RETURNING *`,
       ['Paper Trading', 'Paper trading board for practice', userId,
-       JSON.stringify(['Watchlist', 'Analyzing', 'Active', 'Parked', 'Wins', 'Losses'])]
+       JSON.stringify(['Watchlist', 'Analyzing', 'Active', 'Parked', 'Wins', 'Losses']),
+       'admin_only']
     );
     const board = boardResult.rows[0];
+
+    await client.query(
+      `INSERT INTO paper_accounts (board_id, user_id, starting_balance, current_balance)
+       VALUES ($1, $2, 10000, 10000)
+       ON CONFLICT (board_id, user_id) DO NOTHING`,
+      [board.id, userId]
+    );
 
     // Sample trades
     const trades = [

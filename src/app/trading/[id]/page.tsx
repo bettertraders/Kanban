@@ -73,8 +73,11 @@ interface Board {
   description?: string;
   team_name?: string;
   team_slug?: string;
+  team_id?: number | null;
   is_personal: boolean;
   board_type?: string;
+  visibility?: string;
+  user_role?: string;
 }
 
 interface Comment {
@@ -110,6 +113,25 @@ interface JournalEntry {
   mood?: string | null;
   created_at: string;
   created_by_name?: string | null;
+}
+
+interface PaperAccount {
+  id: number;
+  board_id: number;
+  user_id: number;
+  starting_balance: number | string;
+  current_balance: number | string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface TeamMember {
+  id: number;
+  email: string;
+  name?: string | null;
+  avatar_url?: string | null;
+  role: string;
+  joined_at: string;
 }
 
 const columns = [

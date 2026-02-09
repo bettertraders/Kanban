@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/api-auth';
 import { getBoard, getTrade, updateTradeSignals } from '@/lib/database';
 
+function canEditTrade(trade: any, board: any, userId: number) {
+  if (!trade || !board) return false;
+  if (trade.created_by === userId) return true;
+  if (board.owner_id === userId) return true;
+  if (board.user_role === 'admin') return true;
+  return false;
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -28,10 +36,23 @@ export async function POST(
       return NextResponse.json({ error: 'No signal fields provided' }, { status: 400 });
     }
 
+    if (signals.confidence_score !== undefined && typeof signals.confidence_score !== 'number') {
+      return NextResponse.json({ error: 'confidence_score must be a number' }, { status: 400 });
+    }
+    if (signals.rsi_value !== undefined && typeof signals.rsi_value !== 'number') {
+      return NextResponse.json({ error: 'rsi_value must be a number' }, { status: 400 });
+    }
+    if (signals.current_price !== undefined && typeof signals.current_price !== 'number') {
+      return NextResponse.json({ error: 'current_price must be a number' }, { status: 400 });
+    }
+
     const trade = await getTrade(tradeId);
     if (!trade) return NextResponse.json({ error: 'Trade not found' }, { status: 404 });
     const board = await getBoard(trade.board_id, user.id);
     if (!board) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    if (!canEditTrade(trade, board, user.id)) {
+      return NextResponse.json({ error: 'Only admins or the trade creator can update signals' }, { status: 403 });
+    }
 
     const updatedTrade = await updateTradeSignals(tradeId, signals, user.id);
     if (!updatedTrade) return NextResponse.json({ error: 'Trade not found' }, { status: 404 });

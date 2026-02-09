@@ -84,7 +84,7 @@ export async function PATCH(
       }, { status: 403 });
     }
 
-    const { name, description, columns, board_type, team_id } = await request.json();
+    const { name, description, columns, board_type, team_id, visibility } = await request.json();
 
     const updates: string[] = [];
     const values: unknown[] = [];
@@ -109,6 +109,10 @@ export async function PATCH(
     if (board_type !== undefined) {
       updates.push(`board_type = $${paramIdx++}`);
       values.push(board_type);
+    }
+    if (visibility !== undefined) {
+      updates.push(`visibility = $${paramIdx++}`);
+      values.push(visibility);
     }
     if (team_id !== undefined) {
       updates.push(`team_id = $${paramIdx++}`);

@@ -223,6 +223,7 @@ export default function TradingDashboardPage() {
   const [includeCoins, setIncludeCoins] = useState<string[]>([]);
   const [excludeCoins, setExcludeCoins] = useState<string[]>([]);
   const [rebalanceOn, setRebalanceOn] = useState(true);
+  const [riskLevel, setRiskLevel] = useState(5);
   const [creating, setCreating] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
@@ -431,7 +432,67 @@ export default function TradingDashboardPage() {
       </header>
       <TradingNav activeTab="dashboard" />
 
-      {/* TBO toggle moved to board page */}
+      {/* Portfolio Rebalancer */}
+      <section style={{ marginTop: '24px', marginBottom: '24px' }}>
+        <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'var(--muted)', marginBottom: '12px' }}>
+          Portfolio Rebalancer
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '16px' }}>
+          {[
+            { label: 'Portfolio Value', value: formatCurrency(Number(portfolio?.summary?.total_portfolio_value ?? 0)) },
+            { label: 'Realized P&L', value: formatCurrency(Number(portfolio?.summary?.total_realized_pnl ?? 0)) },
+            { label: 'Unrealized P&L', value: formatCurrency(Number(portfolio?.summary?.total_unrealized_pnl ?? 0)) },
+            { label: 'Win Rate', value: `${Number(portfolio?.summary?.win_rate ?? 0).toFixed(2)}%` },
+          ].map((stat) => (
+            <div key={stat.label} style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '18px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>{stat.label}</div>
+              <div style={{ marginTop: '10px', fontSize: '20px', fontWeight: 700 }}>{stat.value}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '18px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', marginBottom: '12px' }}>
+              Allocation Breakdown
+            </div>
+            {allocationData.length > 0 ? (
+              <PieChart data={allocationData} size={200} centerLabel={`${allocationData.length} assets`} />
+            ) : (
+              <div style={{ fontSize: '12px', color: 'var(--muted)' }}>No allocation data yet. Start trading to see your breakdown.</div>
+            )}
+          </div>
+          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '18px', display: 'grid', gap: '12px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)' }}>
+              Rebalancer Controls
+            </div>
+            <div>
+              <label style={{ fontSize: '12px', color: 'var(--muted)' }}>Risk Level</label>
+              <input type="range" min={1} max={10} value={riskLevel} onChange={(e) => setRiskLevel(Number(e.target.value))} style={{ width: '100%' }} />
+              <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Target risk: {riskLevel}/10</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 600 }}>Auto-Rebalance</div>
+                <div style={{ fontSize: '11px', color: 'var(--muted)' }}>Auto-adjust allocations</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRebalanceOn(prev => !prev)}
+                style={{ width: '48px', height: '26px', borderRadius: '999px', border: `1px solid ${rebalanceOn ? 'var(--accent)' : 'var(--border)'}`, background: rebalanceOn ? 'var(--accent)' : 'var(--panel-2)', position: 'relative', cursor: 'pointer' }}
+              >
+                <span style={{ position: 'absolute', top: '3px', left: rebalanceOn ? '26px' : '4px', width: '18px', height: '18px', borderRadius: '999px', background: '#0d0d1f', transition: 'left 160ms ease' }} />
+              </button>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button style={primaryBtnStyle}>Run Rebalance</button>
+              <button style={secondaryBtnStyle}>Adjust Targets</button>
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--muted)' }}>
+              Automation hooks coming soon. Connect a bot to apply live allocations.
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section
         style={{
@@ -1125,6 +1186,17 @@ const primaryBtnStyle: React.CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
+};
+
+const secondaryBtnStyle: React.CSSProperties = {
+  background: 'transparent',
+  color: 'var(--text)',
+  border: '1px solid var(--border)',
+  padding: '10px 18px',
+  borderRadius: '999px',
+  fontWeight: 600,
+  cursor: 'pointer',
+  fontSize: '13px',
 };
 
 const pillStyle: React.CSSProperties = {

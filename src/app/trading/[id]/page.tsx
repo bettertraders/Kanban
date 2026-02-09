@@ -333,6 +333,11 @@ export default function TradingBoardPage() {
   const [autoTradeSubstyle, setAutoTradeSubstyle] = useState('Momentum');
   const [autoTradeBalance, setAutoTradeBalance] = useState(100);
   const [autoTradeCreating, setAutoTradeCreating] = useState(false);
+  const [watchlistSidebarOpen, setWatchlistSidebarOpen] = useState(true);
+  const [tradeAmountInput, setTradeAmountInput] = useState('100');
+  const [tradeRisk, setTradeRisk] = useState<{ label: string; description: string; allocation: string } | null>(null);
+  const [tradeCreating, setTradeCreating] = useState(false);
+  const [startTradeOpen, setStartTradeOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [alertBadgeCount, setAlertBadgeCount] = useState(0);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
@@ -1008,6 +1013,47 @@ export default function TradingBoardPage() {
     }
   };
 
+  const RISK_OPTIONS = [
+    { label: 'Conservative', description: 'Slow & steady. Lower risk, smaller moves.', allocation: '70% stables · 30% positions' },
+    { label: 'Balanced', description: 'Mix of safety and growth.', allocation: '50% stables · 50% positions' },
+    { label: 'Aggressive', description: 'High risk, high reward. Bigger swings.', allocation: '20% stables · 80% positions' },
+  ];
+
+  const tradeAmountReady = !isNaN(Number(tradeAmountInput)) && Number(tradeAmountInput) > 0;
+
+  const handleStartTradeConfirm = async () => {
+    if (!boardId || !tradeRisk || !tradeAmountReady) return;
+    setTradeCreating(true);
+    try {
+      const res = await fetch('/api/v1/bots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `${tradeRisk.label} Auto Bot`,
+          board_id: Number(boardId),
+          strategy_style: 'Swing Trading',
+          strategy_substyle: 'Momentum',
+          strategy_config: { startingBalance: Number(tradeAmountInput), riskLevel: tradeRisk.label === 'Conservative' ? 3 : tradeRisk.label === 'Balanced' ? 5 : 8 },
+          auto_trade: true,
+          rebalancer_enabled: false,
+          rebalancer_config: {}
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const botId = data?.bot?.id;
+        if (botId) {
+          await fetch(`/api/v1/bots/${botId}/start`, { method: 'POST' });
+        }
+        await fetchBoardBots();
+        setStartTradeOpen(false);
+        pushToast('🚀 Trade started!', 'success');
+      }
+    } finally {
+      setTradeCreating(false);
+    }
+  };
+
   if (boardLoading && !board) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -1098,7 +1144,7 @@ export default function TradingBoardPage() {
             )}
           </button>
           <button
-            onClick={() => setAutoTradeOpen(true)}
+            onClick={() => setStartTradeOpen(true)}
             style={{
               background: 'linear-gradient(135deg, #7b7dff, #9a9cff)',
               color: '#0d0d1f',
@@ -1125,7 +1171,7 @@ export default function TradingBoardPage() {
             onClick={() => setNewTradeOpen(true)}
             style={{ ...primaryBtnStyle, padding: '8px 14px', fontSize: '12px' }}
           >
-            + Add Trade
+            + Add to Watchlist
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', borderRadius: '999px', background: 'var(--panel-2)', border: '1px solid var(--border)', fontSize: '12px', color: 'var(--muted)' }}>
             Live prices via SSE · Press ? for shortcuts
@@ -1138,54 +1184,6 @@ export default function TradingBoardPage() {
       <div style={{ margin: '16px 0' }}>
         <TboToggle />
       </div>
-
-      {watchlistCoins.length > 0 && (
-        <section style={{ marginBottom: '22px' }}>
-          <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'var(--muted)', marginBottom: '10px' }}>
-            ⭐ Watchlist
-          </div>
-          <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '4px' }}>
-            {watchlistCoins.map((coin) => {
-              const pair = normalizePair(coin.coin_pair);
-              const live = priceMap[pair];
-              const signal = signalBadge(coin.tbo_signal);
-              return (
-                <div
-                  key={coin.id}
-                  onClick={() => setChartPair(toApiPair(pair))}
-                  style={{
-                    flex: '0 0 auto',
-                    minWidth: '150px',
-                    padding: '12px 14px',
-                    borderRadius: '12px',
-                    background: 'rgba(20, 20, 40, 0.6)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    cursor: 'pointer',
-                    transition: 'border-color 0.2s',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
-                >
-                  <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px' }}>{pair}</div>
-                  <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '4px' }}>
-                    {live ? formatCurrency(live.price) : '—'}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px' }}>
-                    {live && (
-                      <span style={{ color: live.change24h >= 0 ? '#4ade80' : '#f05b6f', fontWeight: 600 }}>
-                        {live.change24h >= 0 ? '+' : ''}{live.change24h.toFixed(2)}%
-                      </span>
-                    )}
-                    <span style={{ padding: '1px 6px', borderRadius: '999px', background: signal.bg, color: signal.color, fontSize: '10px', fontWeight: 600 }}>
-                      {signal.label}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
 
       <section style={{ marginBottom: '22px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '10px' }}>
@@ -1492,8 +1490,105 @@ export default function TradingBoardPage() {
         )}
       </section>
 
-      <div className="trading-columns" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(220px, 1fr))', gap: '16px', alignItems: 'start', overflowX: 'auto', paddingBottom: '16px' }}>
-        {columns.map((col) => {
+      <div style={{ display: 'flex', gap: '16px', alignItems: 'start', paddingBottom: '16px' }}>
+        {/* Collapsible Watchlist Sidebar */}
+        <div style={{ flex: watchlistSidebarOpen ? '0 0 260px' : '0 0 42px', transition: 'flex 0.2s ease', minHeight: '420px' }}>
+          <button
+            onClick={() => setWatchlistSidebarOpen(prev => !prev)}
+            style={{
+              background: 'var(--panel)',
+              border: '1px solid var(--border)',
+              borderRadius: watchlistSidebarOpen ? '18px 18px 0 0' : '18px',
+              padding: '10px 14px',
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              color: '#6f7db8',
+              fontWeight: 600,
+              fontSize: '14px',
+            }}
+          >
+            <span style={{ transform: watchlistSidebarOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', display: 'inline-block' }}>▶</span>
+            {watchlistSidebarOpen && <>⭐ Watchlist <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '999px', background: 'var(--panel-2)', border: '1px solid var(--border)', color: 'var(--muted)', fontWeight: 400 }}>{trades.filter(t => t.column_name === 'Watchlist').length}</span></>}
+          </button>
+          {watchlistSidebarOpen && (
+            <div
+              onDragOver={(e) => handleDragOver(e, 'Watchlist')}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, 'Watchlist')}
+              style={{
+                background: 'var(--panel)',
+                border: '1px solid var(--border)',
+                borderTop: 'none',
+                borderRadius: '0 0 18px 18px',
+                padding: '14px',
+                minHeight: '360px',
+                overflowY: 'auto',
+                maxHeight: '70vh',
+              }}
+            >
+              {(() => {
+                const colTrades = trades.filter(t => t.column_name === 'Watchlist');
+                return colTrades.length === 0 ? (
+                  <div style={{ fontSize: '12px', color: 'var(--muted)', padding: '6px 4px', textAlign: 'center' }}>
+                    No coins on watchlist yet. Click &apos;Add to Watchlist&apos; to add one.
+                  </div>
+                ) : colTrades.map((trade) => {
+                  const pair = normalizePair(trade.coin_pair);
+                  const live = priceMap[pair];
+                  const signal = signalBadge(trade.tbo_signal);
+                  return (
+                    <div
+                      key={trade.id}
+                      draggable
+                      onDragStart={() => handleDragStart(trade.id)}
+                      onClick={() => setChartPair(toApiPair(pair))}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '12px',
+                        background: 'rgba(20, 20, 40, 0.6)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        cursor: 'pointer',
+                        marginBottom: '8px',
+                        transition: 'border-color 0.2s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <div style={{ fontWeight: 700, fontSize: '13px' }}>{pair}</div>
+                        <button
+                          type="button"
+                          onClick={(event) => { event.stopPropagation(); setActionMenu({ trade, x: event.clientX, y: event.clientY }); }}
+                          style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '12px' }}
+                        >⋯</button>
+                      </div>
+                      <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '4px' }}>
+                        {live ? formatCurrency(live.price) : '—'}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
+                        {live && (
+                          <span style={{ color: live.change24h >= 0 ? '#4ade80' : '#f05b6f', fontWeight: 600 }}>
+                            {live.change24h >= 0 ? '+' : ''}{live.change24h.toFixed(2)}%
+                          </span>
+                        )}
+                        <span style={{ padding: '1px 6px', borderRadius: '999px', background: signal.bg, color: signal.color, fontSize: '10px', fontWeight: 600 }}>
+                          {signal.label}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          )}
+        </div>
+
+        {/* Main Kanban Columns (excluding Watchlist) */}
+        <div className="trading-columns" style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(5, minmax(200px, 1fr))', gap: '16px', alignItems: 'start', overflowX: 'auto' }}>
+        {columns.filter(col => col.name !== 'Watchlist').map((col) => {
           const colTrades = trades.filter(t => t.column_name === col.name);
           const totals = columnTotals[col.name] || { count: 0, pnl: 0 };
           const pnlColor = totals.pnl >= 0 ? '#4ade80' : '#f05b6f';
@@ -1685,6 +1780,7 @@ export default function TradingBoardPage() {
             </section>
           );
         })}
+        </div>
       </div>
 
       {actionMenu && (
@@ -1847,6 +1943,61 @@ export default function TradingBoardPage() {
             >
               {autoTradeCreating ? 'Launching...' : 'Start Bot'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {startTradeOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={(event) => { if (event.target === event.currentTarget) setStartTradeOpen(false); }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(5, 7, 18, 0.65)', backdropFilter: 'blur(10px)', display: 'grid', placeItems: 'center', zIndex: 80, padding: '20px', animation: 'fadeIn 180ms ease-out' }}
+        >
+          <div style={{ width: 'min(520px, 92vw)', background: 'var(--panel)', borderRadius: '20px', border: '1px solid var(--border)', padding: '24px', boxShadow: '0 18px 50px rgba(0,0,0,0.35)', display: 'grid', gap: '18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'var(--muted)' }}>Start a Trade</div>
+                <div style={{ fontSize: '20px', fontWeight: 700 }}>Set your plan</div>
+              </div>
+              <button type="button" onClick={() => setStartTradeOpen(false)} style={{ borderRadius: '999px', border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)', width: '32px', height: '32px', cursor: 'pointer', fontSize: '18px' }} aria-label="Close">×</button>
+            </div>
+            <div style={{ display: 'grid', gap: '10px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600 }}>How much do you want to trade?</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px', color: 'var(--muted)' }}>$</span>
+                <input type="text" inputMode="decimal" value={tradeAmountInput} onChange={(e) => setTradeAmountInput(e.target.value)} style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--border)', color: 'var(--text)', textAlign: 'center', fontSize: '28px', fontWeight: 700, padding: '6px 12px', width: '180px' }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                {['50', '100', '250', '500', '1000'].map((v) => (
+                  <button key={v} type="button" onClick={() => setTradeAmountInput(v)} style={{ padding: '6px 14px', borderRadius: '999px', border: `1px solid ${tradeAmountInput === v ? 'var(--accent)' : 'var(--border)'}`, background: 'var(--panel-2)', color: tradeAmountInput === v ? 'var(--accent)' : 'var(--text)', cursor: 'pointer', fontSize: '12px' }}>${v}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{ display: 'grid', gap: '12px', opacity: tradeAmountReady ? 1 : 0.6 }}>
+              <div style={{ fontSize: '13px', fontWeight: 600 }}>Choose your risk level</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
+                {RISK_OPTIONS.map((option) => {
+                  const active = tradeRisk?.label === option.label;
+                  return (
+                    <button key={option.label} type="button" disabled={!tradeAmountReady} onClick={() => setTradeRisk(option)} style={{ textAlign: 'left', background: 'var(--panel-2)', border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`, borderRadius: '16px', padding: '12px', color: 'var(--text)', cursor: tradeAmountReady ? 'pointer' : 'not-allowed', boxShadow: active ? '0 0 18px rgba(123,125,255,0.35)' : 'none', transition: 'all 160ms ease' }}>
+                      <div style={{ fontWeight: 700, fontSize: '13px' }}>{option.label}</div>
+                      <div style={{ marginTop: '6px', fontSize: '11px', color: 'var(--muted)' }}>{option.description}</div>
+                      <div style={{ marginTop: '8px', fontSize: '10px', color: 'var(--muted)' }}>{option.allocation}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', display: 'grid', gap: '8px' }}>
+              <div style={{ fontWeight: 600, fontSize: '13px' }}>Confirm</div>
+              <div style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                {tradeRisk ? `${tradeRisk.label} · $${tradeAmountInput} · ${tradeRisk.allocation}` : 'Select amount and risk level above'}
+              </div>
+              <button type="button" onClick={handleStartTradeConfirm} disabled={!tradeAmountReady || !tradeRisk || tradeCreating} style={{ ...primaryBtnStyle, width: '100%', justifyContent: 'center', padding: '14px 18px', opacity: !tradeAmountReady || !tradeRisk ? 0.6 : 1, cursor: !tradeAmountReady || !tradeRisk ? 'not-allowed' : 'pointer' }}>
+                {tradeCreating ? 'Launching…' : "Let's Go"}
+              </button>
+            </div>
           </div>
         </div>
       )}

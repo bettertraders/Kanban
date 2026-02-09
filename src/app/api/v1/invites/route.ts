@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       inviteUrl,
     });
 
-    return NextResponse.json({ invite, emailSent: emailResult.success, emailError: emailResult.error || null });
+    return NextResponse.json({ invite, emailSent: emailResult.success });
   } catch (error: any) {
     console.error('Error creating invite:', error);
     const message = error?.message || 'Failed to create invite';

@@ -438,7 +438,7 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail,
 
       if (res.ok) {
         const data = await res.json();
-        setBoards([...boards, data.board]);
+        setBoards(prev => [...prev, data.board]);
         setShowNewBoardModal(false);
         setBoardName('');
         setSharingMode('personal');
@@ -466,6 +466,53 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail,
       if (exists) return prev.filter(m => m.id !== user.id);
       return [...prev, user];
     });
+  };
+
+  const sendDraftInvite = async () => {
+    if (!createInviteEmail.trim()) {
+      pushToast('Email is required', 'warning');
+      return;
+    }
+    if (!emailRegex.test(createInviteEmail.trim())) {
+      pushToast('Enter a valid email address', 'warning');
+      return;
+    }
+    if (sharingMode !== 'shared') {
+      pushToast('Switch to shared to send invites', 'warning');
+      return;
+    }
+
+    let boardId = draftBoardId;
+    if (!boardId) {
+      const created = await createSharedBoard();
+      if (!created) return;
+      boardId = created.boardId;
+    }
+
+    setCreateInviteSending(true);
+    try {
+      const res = await fetch('/api/v1/invites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ board_id: boardId, email: createInviteEmail.trim() })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.emailSent) {
+          pushToast(`Invite sent to ${createInviteEmail.trim()}!`, 'success');
+        } else {
+          pushToast(`Invite created, but email failed for ${createInviteEmail.trim()}.`, 'warning');
+        }
+        setCreateInviteEmail('');
+      } else {
+        const data = await res.json().catch(() => ({}));
+        pushToast(data.error || 'Failed to send invite', 'error');
+      }
+    } catch {
+      pushToast('Failed to send invite', 'error');
+    } finally {
+      setCreateInviteSending(false);
+    }
   };
 
   const openSettings = async (board: Board) => {
@@ -498,6 +545,7 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail,
     setSettingsSelectedMembers([]);
     setSettingsMemberSearch('');
     setSettingsAddMode(false);
+    setSettingsInvites([]);
   };
 
   const toggleSettingsMember = (user: VisibleUser) => {
@@ -506,6 +554,42 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail,
       if (exists) return prev.filter(m => m.id !== user.id);
       return [...prev, user];
     });
+  };
+
+  const loadSettingsInvites = async (boardId: number) => {
+    setSettingsInvitesLoading(true);
+    try {
+      const res = await fetch(`/api/v1/invites/board/${boardId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSettingsInvites(Array.isArray(data?.invites) ? data.invites : []);
+      }
+    } catch {
+    } finally {
+      setSettingsInvitesLoading(false);
+    }
+  };
+
+  const cancelSettingsInvite = async (inviteId: number) => {
+    if (!settingsBoard) return;
+    setSettingsInviteCancelling(inviteId);
+    try {
+      const res = await fetch(`/api/v1/invites/board/${settingsBoard.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invite_id: inviteId })
+      });
+      if (res.ok) {
+        setSettingsInvites(prev => prev.filter(i => i.id !== inviteId));
+        pushToast('Invite cancelled', 'info');
+      } else {
+        pushToast('Failed to cancel invite', 'error');
+      }
+    } catch {
+      pushToast('Failed to cancel invite', 'error');
+    } finally {
+      setSettingsInviteCancelling(null);
+    }
   };
 
   const saveSettings = async () => {
@@ -605,10 +689,30 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail,
   }, [showNewBoardModal, sharingMode]);
 
   useEffect(() => {
+    if (!showNewBoardModal) {
+      setBoardName('');
+      setSharingMode('personal');
+      setSelectedMembers([]);
+      setMemberSearch('');
+      setDraftBoardId(null);
+      setDraftTeamId(null);
+      setCreateInviteEmail('');
+    }
+  }, [showNewBoardModal]);
+
+  useEffect(() => {
     if (showSettingsModal && settingsAddMode) {
       void loadVisibleUsers();
     }
   }, [showSettingsModal, settingsAddMode]);
+
+  useEffect(() => {
+    if (showSettingsModal && settingsBoard && !settingsBoard.is_personal) {
+      void loadSettingsInvites(settingsBoard.id);
+    } else {
+      setSettingsInvites([]);
+    }
+  }, [showSettingsModal, settingsBoard]);
 
   return (
     <div style={{ padding: '32px clamp(20px, 4vw, 48px) 40px', maxWidth: '1200px', margin: '0 auto' }}>
@@ -661,75 +765,6 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail,
             minWidth: 0,
           }}
         >
-          <Link
-            href="/portfolio"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 14px',
-              borderRadius: '999px',
-              background: 'var(--panel-2)',
-              border: '1px solid var(--border)',
-              color: 'var(--text)',
-              textDecoration: 'none',
-              fontSize: '13px',
-              fontWeight: 600,
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-              transition: 'border-color 0.2s, box-shadow 0.2s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 0 8px rgba(123,125,255,0.3)'; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
-          >
-            📊 Portfolio
-          </Link>
-          <Link
-            href="/bots"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 14px',
-              borderRadius: '999px',
-              background: 'var(--panel-2)',
-              border: '1px solid var(--border)',
-              color: 'var(--text)',
-              textDecoration: 'none',
-              fontSize: '13px',
-              fontWeight: 600,
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-              transition: 'border-color 0.2s, box-shadow 0.2s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 0 8px rgba(123,125,255,0.3)'; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
-          >
-            🤖 Bots
-          </Link>
-          <Link
-            href="/leaderboard"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 14px',
-              borderRadius: '999px',
-              background: 'var(--panel-2)',
-              border: '1px solid var(--border)',
-              color: 'var(--text)',
-              textDecoration: 'none',
-              fontSize: '13px',
-              fontWeight: 600,
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-              transition: 'border-color 0.2s, box-shadow 0.2s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 0 8px rgba(123,125,255,0.3)'; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
-          >
-            🏆 Leaderboard
-          </Link>
           {boards.map((board) => {
             const boardStat = stats.perBoardStats.find(b => b.boardId === board.id);
             const taskCount = boardStat?.total ?? 0;
@@ -954,6 +989,7 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail,
                     placeholder="My Board"
                     value={boardName}
                     onChange={(e) => setBoardName(e.target.value)}
+                    disabled={!!draftBoardId}
                   />
                 </div>
                 <div>
@@ -966,6 +1002,7 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail,
                         value="personal"
                         checked={sharingMode === 'personal'}
                         onChange={() => setSharingMode('personal')}
+                        disabled={!!draftBoardId}
                       />
                       Just me (personal)
                     </label>
@@ -976,6 +1013,7 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail,
                         value="shared"
                         checked={sharingMode === 'shared'}
                         onChange={() => setSharingMode('shared')}
+                        disabled={!!draftBoardId}
                       />
                       Shared with others
                     </label>
@@ -1024,13 +1062,38 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail,
                       </div>
                       <div style={{ display: 'grid', gap: '6px' }}>
                         <label style={{ fontSize: '11px', color: 'var(--muted)' }}>Invite by email</label>
-                        <input
-                          type="text"
-                          disabled
-                          title="Coming soon"
-                          placeholder="Coming soon"
-                          style={{ ...inputStyle, opacity: 0.6, cursor: 'not-allowed' }}
-                        />
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <input
+                            type="email"
+                            placeholder="name@company.com"
+                            value={createInviteEmail}
+                            onChange={(e) => setCreateInviteEmail(e.target.value)}
+                            style={inputStyle}
+                          />
+                          <button
+                            type="button"
+                            onClick={sendDraftInvite}
+                            disabled={createInviteSending}
+                            style={{
+                              background: 'transparent',
+                              color: 'var(--text)',
+                              border: '1px solid var(--border)',
+                              padding: '8px 14px',
+                              borderRadius: '999px',
+                              fontWeight: 600,
+                              cursor: createInviteSending ? 'not-allowed' : 'pointer',
+                              fontSize: '12px',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {createInviteSending ? 'Sending...' : 'Send Invite'}
+                          </button>
+                        </div>
+                        {draftBoardId && (
+                          <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                            Board created — send invites, then click Done.
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1039,7 +1102,7 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail,
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '18px' }}>
                 <button type="button" onClick={() => setShowNewBoardModal(false)} style={secondaryBtnStyle}>Cancel</button>
                 <button type="submit" style={primaryBtnStyle} disabled={creatingBoard}>
-                  {creatingBoard ? 'Creating...' : 'Create Board'}
+                  {creatingBoard ? 'Creating...' : (draftBoardId ? 'Done' : 'Create Board')}
                 </button>
               </div>
             </form>
@@ -1155,6 +1218,36 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail,
                 </div>
               </div>
               {!settingsBoard.is_personal && (
+                <div>
+                  <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Pending Invites</label>
+                  <div style={{ border: '1px solid var(--border)', borderRadius: '14px', padding: '12px', background: 'var(--panel-2)', display: 'grid', gap: '8px' }}>
+                    {settingsInvitesLoading && (
+                      <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Loading invites...</span>
+                    )}
+                    {!settingsInvitesLoading && settingsInvites.length === 0 && (
+                      <span style={{ fontSize: '12px', color: 'var(--muted)' }}>No pending invites.</span>
+                    )}
+                    {settingsInvites.map((invite) => (
+                      <div key={invite.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', fontSize: '13px' }}>
+                        <div style={{ display: 'grid', gap: '2px' }}>
+                          <span>{invite.email}</span>
+                          <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                            Sent {new Date(invite.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => cancelSettingsInvite(invite.id)}
+                          disabled={settingsInviteCancelling === invite.id}
+                          style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', cursor: 'pointer' }}
+                        >
+                          {settingsInviteCancelling === invite.id ? 'Cancelling...' : 'Cancel'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {!settingsBoard.is_personal && (
                 <div style={{ borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
                   <button
                     onClick={deleteBoard}
@@ -1175,6 +1268,17 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail,
           </div>
         </div>
       )}
+
+      <ToastStack
+        toasts={toasts}
+        onDismiss={(id) => {
+          if (toastTimersRef.current[id]) {
+            clearTimeout(toastTimersRef.current[id]);
+            delete toastTimersRef.current[id];
+          }
+          setToasts(prev => prev.filter(t => t.id !== id));
+        }}
+      />
     </div>
   );
 }

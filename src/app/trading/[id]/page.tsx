@@ -8,7 +8,6 @@ import { ToastStack, type ToastItem } from '@/components/ToastStack';
 import { AlertsPanel } from '@/components/AlertsPanel';
 import { TradingNav } from '@/components/TradingNav';
 import { TboToggle } from '@/components/TboToggle';
-import { StartTradeModal } from '@/components/StartTradeModal';
 import PriceTicker from '@/components/PriceTicker';
 
 interface Trade {
@@ -335,10 +334,7 @@ export default function TradingBoardPage() {
   const [autoTradeBalance, setAutoTradeBalance] = useState(100);
   const [autoTradeCreating, setAutoTradeCreating] = useState(false);
   const [watchlistSidebarOpen, setWatchlistSidebarOpen] = useState(true);
-  const [tradeAmountInput, setTradeAmountInput] = useState('100');
-  const [tradeRisk, setTradeRisk] = useState<{ label: string; description: string; allocation: string } | null>(null);
-  const [tradeCreating, setTradeCreating] = useState(false);
-  const [startTradeOpen, setStartTradeOpen] = useState(false);
+  // Start a Trade removed — trades configured from dashboard
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [alertBadgeCount, setAlertBadgeCount] = useState(0);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
@@ -569,7 +565,6 @@ export default function TradingBoardPage() {
       source.onopen = () => {
         retry = 0;
         setPriceStreamConnected(true);
-        pushToast('Prices stream connected', 'success');
       };
       source.onmessage = (event) => {
         try {
@@ -629,7 +624,6 @@ export default function TradingBoardPage() {
       source.onopen = () => {
         retry = 0;
         setTradeStreamConnected(true);
-        pushToast('Trades stream connected', 'success');
       };
       source.onmessage = (event) => {
         try {
@@ -1014,46 +1008,7 @@ export default function TradingBoardPage() {
     }
   };
 
-  const RISK_OPTIONS = [
-    { label: 'Conservative', description: 'Slow & steady. Lower risk, smaller moves.', allocation: '70% stables · 30% positions' },
-    { label: 'Balanced', description: 'Mix of safety and growth.', allocation: '50% stables · 50% positions' },
-    { label: 'Aggressive', description: 'High risk, high reward. Bigger swings.', allocation: '20% stables · 80% positions' },
-  ];
-
-  const tradeAmountReady = !isNaN(Number(tradeAmountInput)) && Number(tradeAmountInput) > 0;
-
-  const handleStartTradeConfirm = async () => {
-    if (!boardId || !tradeRisk || !tradeAmountReady) return;
-    setTradeCreating(true);
-    try {
-      const res = await fetch('/api/v1/bots', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: `${tradeRisk.label} Auto Bot`,
-          board_id: Number(boardId),
-          strategy_style: 'Swing Trading',
-          strategy_substyle: 'Momentum',
-          strategy_config: { startingBalance: Number(tradeAmountInput), riskLevel: tradeRisk.label === 'Conservative' ? 3 : tradeRisk.label === 'Balanced' ? 5 : 8 },
-          auto_trade: true,
-          rebalancer_enabled: false,
-          rebalancer_config: {}
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const botId = data?.bot?.id;
-        if (botId) {
-          await fetch(`/api/v1/bots/${botId}/start`, { method: 'POST' });
-        }
-        await fetchBoardBots();
-        setStartTradeOpen(false);
-        pushToast('🚀 Trade started!', 'success');
-      }
-    } finally {
-      setTradeCreating(false);
-    }
-  };
+  // Start a Trade logic removed — configured from dashboard
 
   if (boardLoading && !board) {
     return (
@@ -1081,6 +1036,9 @@ export default function TradingBoardPage() {
         </div>
       </header>
       <TradingNav activeTab="board" />
+
+      {/* Dashboard settings status bar */}
+      <DashboardStatusBar />
 
       {/* Board action bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
@@ -1148,30 +1106,7 @@ export default function TradingBoardPage() {
               </span>
             )}
           </button>
-          <button
-            onClick={() => setStartTradeOpen(true)}
-            style={{
-              background: 'linear-gradient(135deg, #7b7dff, #9a9cff)',
-              color: '#0d0d1f',
-              border: 'none',
-              padding: '10px 18px',
-              borderRadius: '999px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              fontSize: '13px',
-              animation: 'pulse-glow 3s ease-in-out infinite',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-          >
-            <span style={{ display: 'inline-flex', width: '16px', height: '16px' }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 3l14 9-14 9 4-9-4-9z" />
-              </svg>
-            </span>
-            Start a Trade
-          </button>
+          {/* Start a Trade button removed — configure from Dashboard */}
           <button
             onClick={() => setNewTradeOpen(true)}
             style={{ ...primaryBtnStyle, padding: '8px 14px', fontSize: '12px' }}
@@ -1951,18 +1886,7 @@ export default function TradingBoardPage() {
         </div>
       )}
 
-      {startTradeOpen && (
-        <StartTradeModal
-          boardId={Number(boardId)}
-          existingBotCount={boardBots.length}
-          onClose={() => setStartTradeOpen(false)}
-          onSuccess={async () => {
-            setStartTradeOpen(false);
-            pushToast('🚀 Trade started!', 'success');
-            await fetchBoardBots();
-          }}
-        />
-      )}
+      {/* StartTradeModal removed — trades configured from dashboard */}
 
       {newTradeOpen && (
         <NewTradeModal
@@ -2777,4 +2701,52 @@ function NewTradeModal({
     </div>
   );
 
+}
+
+function DashboardStatusBar() {
+  const [settings, setSettings] = useState<{ riskLevel: string | null; tradingAmount: number | null; tboEnabled: boolean; engineOn: boolean } | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const saved = JSON.parse(localStorage.getItem('clawdesk-trading-setup') || '{}');
+      setSettings({
+        riskLevel: saved.riskLevel || null,
+        tradingAmount: saved.tradingAmount || null,
+        tboEnabled: !!saved.tboEnabled,
+        engineOn: !!saved.engineOn,
+      });
+    } catch {
+      setSettings(null);
+    }
+  }, []);
+
+  if (!settings) return null;
+
+  const riskLabel = settings.riskLevel ? settings.riskLevel.charAt(0).toUpperCase() + settings.riskLevel.slice(1) : 'Not Set';
+  const amountLabel = settings.tradingAmount ? `$${settings.tradingAmount.toLocaleString()}` : 'Not Set';
+  const tboLabel = settings.tboEnabled ? 'TBO ON' : 'TBO OFF';
+  const engineLabel = settings.engineOn ? 'Engine Active' : 'Engine Off';
+  const engineColor = settings.engineOn ? '#4ade80' : 'var(--muted)';
+
+  return (
+    <div style={{
+      padding: '6px 16px',
+      fontSize: '11px',
+      color: 'var(--muted)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      marginBottom: '8px',
+      letterSpacing: '0.04em',
+    }}>
+      <span>{riskLabel}</span>
+      <span style={{ opacity: 0.4 }}>·</span>
+      <span>{amountLabel}</span>
+      <span style={{ opacity: 0.4 }}>·</span>
+      <span>{tboLabel}</span>
+      <span style={{ opacity: 0.4 }}>·</span>
+      <span style={{ color: engineColor }}>{engineLabel}</span>
+    </div>
+  );
 }

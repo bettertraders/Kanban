@@ -262,7 +262,24 @@ function generatePennyUpdate(data: PennyUpdateData): string {
 }
 
 function calculateTradeScore(market: MarketDetail | null, pulse: CoinPulse[]): { score: number; label: string; color: string; explanation: string } {
-  if (!market?.overview) return { score: 50, label: 'Fair', color: '#f5b544', explanation: 'Waiting for market data...' };
+  if (!market?.overview) {
+    // No CoinGecko data — calculate basic score from pulse (CCXT ticker) if available
+    if (pulse.length > 0) {
+      const upCoins = pulse.filter(c => c.change24h > 0).length;
+      const breadth = upCoins / pulse.length;
+      const btc = pulse.find(c => c.pair?.includes('BTC'));
+      const btcChg = btc?.change24h ?? 0;
+      let s = 50;
+      if (btcChg > 1) s += 15; else if (btcChg < -1) s -= 10;
+      if (breadth > 0.5) s += 10; else s -= 5;
+      s = Math.min(100, Math.max(0, s));
+      const lbl = s >= 60 ? 'Good' : s >= 40 ? 'Fair' : 'Poor';
+      const clr = s >= 60 ? '#4ade80' : s >= 40 ? '#eab308' : '#f97316';
+      const desc = btcChg > 0 ? `BTC up ${btcChg.toFixed(1)}%, ${upCoins}/${pulse.length} coins green 📊` : `BTC down ${Math.abs(btcChg).toFixed(1)}%, ${upCoins}/${pulse.length} coins green 📊`;
+      return { score: s, label: lbl, color: clr, explanation: desc };
+    }
+    return { score: 50, label: 'Fair', color: '#f5b544', explanation: 'Market data updating shortly 📊' };
+  }
 
   let score = 0;
   const parts: string[] = [];

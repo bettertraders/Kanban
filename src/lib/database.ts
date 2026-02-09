@@ -2646,8 +2646,7 @@ export async function getPortfolioStats(userId: number) {
             COALESCE(SUM(starting_balance), 0) as starting_balance
      FROM paper_accounts pa
      JOIN boards b ON pa.board_id = b.id
-     LEFT JOIN team_members tm ON b.team_id = tm.team_id AND tm.user_id = $1
-     WHERE (b.owner_id = $1 OR tm.user_id = $1)
+     WHERE pa.user_id = $1
        AND b.board_type = 'trading'`,
     [userId]
   );

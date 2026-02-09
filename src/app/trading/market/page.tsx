@@ -30,6 +30,12 @@ const NEWS_SOURCES: Record<string, { label: string; color: string }> = {
   'Yahoo Finance': { label: 'Yahoo Finance', color: '#8b5cf6' },
 };
 
+type WatchlistTask = {
+  id: number;
+  coin_pair: string;
+  tbo_signal?: string | null;
+};
+
 type MarketData = {
   overview: {
     btc: Coin; eth: Coin;
@@ -121,6 +127,8 @@ export default function MarketDashboard() {
   const [tboLoading, setTboLoading] = useState(false);
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [newsError, setNewsError] = useState(false);
+  const [boardWatchlist, setBoardWatchlist] = useState<WatchlistTask[]>([]);
+  const [boardWatchlistPrices, setBoardWatchlistPrices] = useState<Record<string, { price: number; change24h: number }>>({});
 
   const loadTbo = useCallback(async () => {
     try {
@@ -171,11 +179,32 @@ export default function MarketDashboard() {
     }
   }, []);
 
+  const loadBoardWatchlist = useCallback(async () => {
+    try {
+      const res = await fetch('/api/v1/boards/15/trades');
+      if (res.ok) {
+        const json = await res.json();
+        const trades = (json.trades || []) as Array<{ id: number; coin_pair: string; column_name: string; tbo_signal?: string | null }>;
+        const wl = trades.filter((t) => t.column_name === 'Watchlist');
+        setBoardWatchlist(wl);
+        // fetch prices for watchlist coins
+        if (wl.length) {
+          const pairs = wl.map((t) => t.coin_pair.replace(/\//g, '-')).join(',');
+          const priceRes = await fetch(`/api/v1/prices?pairs=${encodeURIComponent(pairs)}`);
+          if (priceRes.ok) {
+            const priceJson = await priceRes.json();
+            setBoardWatchlistPrices(priceJson.prices || {});
+          }
+        }
+      }
+    } catch {}
+  }, []);
+
   useEffect(() => {
-    load(); loadTbo(); loadNews();
-    const iv = setInterval(() => { load(); loadTbo(); loadNews(); }, 60_000);
+    load(); loadTbo(); loadNews(); loadBoardWatchlist();
+    const iv = setInterval(() => { load(); loadTbo(); loadNews(); loadBoardWatchlist(); }, 60_000);
     return () => clearInterval(iv);
-  }, [load, loadTbo, loadNews]);
+  }, [load, loadTbo, loadNews, loadBoardWatchlist]);
 
   return (
     <div style={{ minHeight: '100vh', color: '#e2e2ff', padding: '32px clamp(20px, 4vw, 48px) 40px' }}>
@@ -255,30 +284,32 @@ export default function MarketDashboard() {
           </div>
         )}
 
-        {/* ── Watchlist: Top 5 ── */}
-        {data?.watchlist && data.watchlist.length > 0 && (
+        {/* ── Watchlist from Board 15 ── */}
+        {boardWatchlist.length > 0 && (
           <div style={{ ...card, marginBottom: 20 }}>
-            <div style={sectionTitle}>⭐ Watchlist — Top 5</div>
+            <div style={sectionTitle}>⭐ Watchlist</div>
             <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 4 }}>
-              {data.watchlist.map(coin => (
-                <div key={coin.id} style={{
-                  flex: '0 0 auto', minWidth: 150, padding: '12px 14px', borderRadius: 10,
-                  background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <img src={coin.image} alt="" width={24} height={24} style={{ borderRadius: 99 }} />
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 14, color: '#fff' }}>{coin.symbol}</div>
-                      <div style={{ fontSize: 11, color: '#888' }}>{coin.name}</div>
+              {boardWatchlist.map(task => {
+                const pair = task.coin_pair.replace(/-/g, '/').toUpperCase();
+                const priceKey = pair;
+                const live = boardWatchlistPrices[priceKey] || boardWatchlistPrices[task.coin_pair.replace(/\//g, '-').toUpperCase()];
+                return (
+                  <div key={task.id} style={{
+                    flex: '0 0 auto', minWidth: 150, padding: '12px 14px', borderRadius: 10,
+                    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+                  }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: '#fff', marginBottom: 8 }}>{pair}</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 4 }}>
+                      {live ? fmt(live.price) : '—'}
                     </div>
+                    {live && (
+                      <div style={{ fontSize: 12, color: pctColor(live.change24h), fontWeight: 600 }}>
+                        24h {pct(live.change24h)}
+                      </div>
+                    )}
                   </div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 4 }}>{fmt(coin.price)}</div>
-                  <div style={{ display: 'flex', gap: 10, fontSize: 12 }}>
-                    <span style={{ color: pctColor(coin.change24h), fontWeight: 600 }}>24h {pct(coin.change24h)}</span>
-                    <span style={{ color: pctColor(coin.change7d) }}>7d {pct(coin.change7d)}</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -324,6 +355,55 @@ export default function MarketDashboard() {
 
               <div style={card}>
                 <FearGreedGauge value={data.overview.fearGreed.value} label={data.overview.fearGreed.label} />
+              </div>
+
+              <div style={card}>
+                <div style={sectionTitle}>🧠 Market Sentiment</div>
+                {(() => {
+                  const gainersCount = data.movers.gainers.length;
+                  const losersCount = data.movers.losers.length;
+                  const btcChange = data.overview.btc?.change24h ?? 0;
+                  const fgValue = data.overview.fearGreed.value;
+
+                  // Compute sentiment score: 0-100
+                  // BTC trend (40%), Fear & Greed (40%), gainers vs losers ratio (20%)
+                  const btcScore = Math.max(0, Math.min(100, 50 + btcChange * 5));
+                  const glRatio = gainersCount + losersCount > 0 ? (gainersCount / (gainersCount + losersCount)) * 100 : 50;
+                  const sentimentScore = Math.round(btcScore * 0.4 + fgValue * 0.4 + glRatio * 0.2);
+
+                  const label = sentimentScore >= 70 ? 'Bullish' : sentimentScore >= 55 ? 'Slightly Bullish' : sentimentScore >= 45 ? 'Neutral' : sentimentScore >= 30 ? 'Slightly Bearish' : 'Bearish';
+                  const color = sentimentScore >= 70 ? '#22c55e' : sentimentScore >= 55 ? '#4ade80' : sentimentScore >= 45 ? '#eab308' : sentimentScore >= 30 ? '#f97316' : '#ef4444';
+                  const emoji = sentimentScore >= 70 ? '🐂' : sentimentScore >= 55 ? '📈' : sentimentScore >= 45 ? '😐' : sentimentScore >= 30 ? '📉' : '🐻';
+
+                  return (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                        <div style={{ fontSize: 28 }}>{emoji}</div>
+                        <div>
+                          <div style={{ fontSize: 18, fontWeight: 700, color }}>{label}</div>
+                          <div style={{ fontSize: 12, color: '#888' }}>Sentiment Score: {sentimentScore}/100</div>
+                        </div>
+                      </div>
+                      <div style={{ height: 8, borderRadius: 99, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginBottom: 10 }}>
+                        <div style={{ height: '100%', width: `${sentimentScore}%`, background: `linear-gradient(90deg, #ef4444, #eab308, #22c55e)`, borderRadius: 99 }} />
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, fontSize: 11, color: '#888' }}>
+                        <div>
+                          <div>BTC 24h</div>
+                          <div style={{ fontWeight: 600, color: pctColor(btcChange) }}>{pct(btcChange)}</div>
+                        </div>
+                        <div>
+                          <div>Fear & Greed</div>
+                          <div style={{ fontWeight: 600, color: '#e2e2ff' }}>{fgValue}</div>
+                        </div>
+                        <div>
+                          <div>Gainers/Losers</div>
+                          <div style={{ fontWeight: 600, color: '#e2e2ff' }}>{gainersCount}/{losersCount}</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               <div style={card}>

@@ -9,6 +9,7 @@ import { ToastStack, type ToastItem } from '@/components/ToastStack';
 import { AlertsPanel } from '@/components/AlertsPanel';
 import { TradingNav } from '@/components/TradingNav';
 import { TboToggle } from '@/components/TboToggle';
+import { StartTradeModal } from '@/components/StartTradeModal';
 
 interface Trade {
   id: number;
@@ -1948,58 +1949,16 @@ export default function TradingBoardPage() {
       )}
 
       {startTradeOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onClick={(event) => { if (event.target === event.currentTarget) setStartTradeOpen(false); }}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(5, 7, 18, 0.65)', backdropFilter: 'blur(10px)', display: 'grid', placeItems: 'center', zIndex: 80, padding: '20px', animation: 'fadeIn 180ms ease-out' }}
-        >
-          <div style={{ width: 'min(520px, 92vw)', background: 'var(--panel)', borderRadius: '20px', border: '1px solid var(--border)', padding: '24px', boxShadow: '0 18px 50px rgba(0,0,0,0.35)', display: 'grid', gap: '18px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'var(--muted)' }}>Start a Trade</div>
-                <div style={{ fontSize: '20px', fontWeight: 700 }}>Set your plan</div>
-              </div>
-              <button type="button" onClick={() => setStartTradeOpen(false)} style={{ borderRadius: '999px', border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)', width: '32px', height: '32px', cursor: 'pointer', fontSize: '18px' }} aria-label="Close">×</button>
-            </div>
-            <div style={{ display: 'grid', gap: '10px' }}>
-              <div style={{ fontSize: '13px', fontWeight: 600 }}>How much do you want to trade?</div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '20px', color: 'var(--muted)' }}>$</span>
-                <input type="text" inputMode="decimal" value={tradeAmountInput} onChange={(e) => setTradeAmountInput(e.target.value)} style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--border)', color: 'var(--text)', textAlign: 'center', fontSize: '28px', fontWeight: 700, padding: '6px 12px', width: '180px' }} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                {['50', '100', '250', '500', '1000'].map((v) => (
-                  <button key={v} type="button" onClick={() => setTradeAmountInput(v)} style={{ padding: '6px 14px', borderRadius: '999px', border: `1px solid ${tradeAmountInput === v ? 'var(--accent)' : 'var(--border)'}`, background: 'var(--panel-2)', color: tradeAmountInput === v ? 'var(--accent)' : 'var(--text)', cursor: 'pointer', fontSize: '12px' }}>${v}</button>
-                ))}
-              </div>
-            </div>
-            <div style={{ display: 'grid', gap: '12px', opacity: tradeAmountReady ? 1 : 0.6 }}>
-              <div style={{ fontSize: '13px', fontWeight: 600 }}>Choose your risk level</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
-                {RISK_OPTIONS.map((option) => {
-                  const active = tradeRisk?.label === option.label;
-                  return (
-                    <button key={option.label} type="button" disabled={!tradeAmountReady} onClick={() => setTradeRisk(option)} style={{ textAlign: 'left', background: 'var(--panel-2)', border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`, borderRadius: '16px', padding: '12px', color: 'var(--text)', cursor: tradeAmountReady ? 'pointer' : 'not-allowed', boxShadow: active ? '0 0 18px rgba(123,125,255,0.35)' : 'none', transition: 'all 160ms ease' }}>
-                      <div style={{ fontWeight: 700, fontSize: '13px' }}>{option.label}</div>
-                      <div style={{ marginTop: '6px', fontSize: '11px', color: 'var(--muted)' }}>{option.description}</div>
-                      <div style={{ marginTop: '8px', fontSize: '10px', color: 'var(--muted)' }}>{option.allocation}</div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', display: 'grid', gap: '8px' }}>
-              <div style={{ fontWeight: 600, fontSize: '13px' }}>Confirm</div>
-              <div style={{ fontSize: '12px', color: 'var(--muted)' }}>
-                {tradeRisk ? `${tradeRisk.label} · $${tradeAmountInput} · ${tradeRisk.allocation}` : 'Select amount and risk level above'}
-              </div>
-              <button type="button" onClick={handleStartTradeConfirm} disabled={!tradeAmountReady || !tradeRisk || tradeCreating} style={{ ...primaryBtnStyle, width: '100%', justifyContent: 'center', padding: '14px 18px', opacity: !tradeAmountReady || !tradeRisk ? 0.6 : 1, cursor: !tradeAmountReady || !tradeRisk ? 'not-allowed' : 'pointer' }}>
-                {tradeCreating ? 'Launching…' : "Let's Go"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <StartTradeModal
+          boardId={Number(boardId)}
+          existingBotCount={boardBots.length}
+          onClose={() => setStartTradeOpen(false)}
+          onSuccess={async () => {
+            setStartTradeOpen(false);
+            pushToast('🚀 Trade started!', 'success');
+            await fetchBoardBots();
+          }}
+        />
       )}
 
       {newTradeOpen && (

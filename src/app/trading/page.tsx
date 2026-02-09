@@ -5,6 +5,7 @@ import { TradingNav } from '@/components/TradingNav';
 // TboToggle moved to board page
 import { ToastStack, type ToastItem } from '@/components/ToastStack';
 import { PieChart } from '@/components/PieChart';
+import { StartTradeModal } from '@/components/StartTradeModal';
 
 type CoinPulse = {
   pair: string;
@@ -307,7 +308,7 @@ export default function TradingDashboardPage() {
         <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'var(--muted)', marginBottom: '12px' }}>
           Portfolio Rebalancer
         </div>
-        <div style={{ display: 'flex', gap: '14px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '10px', marginBottom: '16px' }}>
           {[
             { label: 'Portfolio Value', value: formatCurrency(Number(portfolio?.summary?.total_portfolio_value ?? 0)) },
             { label: 'Realized P&L', value: formatCurrency(Number(portfolio?.summary?.total_realized_pnl ?? 0)) },
@@ -315,9 +316,9 @@ export default function TradingDashboardPage() {
             { label: 'Win Rate', value: `${Number(portfolio?.summary?.win_rate ?? 0).toFixed(2)}%` },
             { label: 'Active Positions', value: String(portfolio?.summary?.active_positions ?? 0) },
           ].map((stat) => (
-            <div key={stat.label} style={{ flex: '1 1 0', minWidth: 0, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '18px' }}>
-              <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.14em', whiteSpace: 'nowrap' }}>{stat.label}</div>
-              <div style={{ marginTop: '10px', fontSize: '20px', fontWeight: 700 }}>{stat.value}</div>
+            <div key={stat.label} style={{ flex: '1 1 0', minWidth: 0, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '14px 12px' }}>
+              <div style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stat.label}</div>
+              <div style={{ marginTop: '8px', fontSize: '18px', fontWeight: 700 }}>{stat.value}</div>
             </div>
           ))}
         </div>
@@ -453,296 +454,17 @@ export default function TradingDashboardPage() {
       `}</style>
 
       {modalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(5, 7, 18, 0.65)',
-            backdropFilter: 'blur(10px)',
-            display: 'grid',
-            placeItems: 'center',
-            zIndex: 80,
-            padding: '20px',
-            animation: 'fadeIn 180ms ease-out',
+        <StartTradeModal
+          boardId={boardId}
+          existingBotCount={bots.length}
+          paperBalance={paperBalance}
+          onClose={() => setModalOpen(false)}
+          onSuccess={async () => {
+            setModalOpen(false);
+            pushToast('Trading started! 🚀', 'success');
+            await loadDashboard();
           }}
-        >
-          <div
-            style={{
-              width: 'min(520px, 92vw)',
-              background: 'var(--panel)',
-              borderRadius: '20px',
-              border: '1px solid var(--border)',
-              padding: '24px',
-              boxShadow: '0 18px 50px rgba(0,0,0,0.35)',
-              display: 'grid',
-              gap: '18px',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'var(--muted)' }}>
-                  Start a Trade
-                </div>
-                <div style={{ fontSize: '20px', fontWeight: 700 }}>Set your plan</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setModalOpen(false)}
-                style={{
-                  borderRadius: '999px',
-                  border: '1px solid var(--border)',
-                  background: 'var(--panel-2)',
-                  color: 'var(--text)',
-                  width: '32px',
-                  height: '32px',
-                  cursor: 'pointer',
-                  fontSize: '18px',
-                }}
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </div>
-
-            <div style={{ display: 'grid', gap: '10px' }}>
-              <div style={{ fontSize: '13px', fontWeight: 600 }}>How much do you want to trade?</div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '20px', color: 'var(--muted)' }}>$</span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={amountInput}
-                  onChange={(event) => setAmountInput(event.target.value)}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    borderBottom: '1px solid var(--border)',
-                    color: 'var(--text)',
-                    textAlign: 'center',
-                    fontSize: '28px',
-                    fontWeight: 700,
-                    padding: '6px 12px',
-                    width: '180px',
-                  }}
-                />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                {['50', '100', '250', '500', '1000', 'Custom'].map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => value === 'Custom' ? setAmountInput('') : setAmountInput(value)}
-                    style={{
-                      ...pillStyle,
-                      borderColor: amountInput === value ? 'var(--accent)' : 'var(--border)',
-                      color: amountInput === value ? 'var(--accent)' : 'var(--text)',
-                    }}
-                  >
-                    ${value}
-                  </button>
-                ))}
-              </div>
-              <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--muted)' }}>Paper Balance: {formatCurrency(paperBalance)}</div>
-            </div>
-
-            <div style={{ display: 'grid', gap: '12px', opacity: amountReady ? 1 : 0.6 }}>
-              <div style={{ fontSize: '13px', fontWeight: 600 }}>Choose your risk level</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
-                {RISK_OPTIONS.map((option) => {
-                  const active = selectedRisk?.label === option.label;
-                  return (
-                    <button
-                      key={option.label}
-                      type="button"
-                      disabled={!amountReady}
-                      onClick={() => setSelectedRisk(option)}
-                      style={{
-                        textAlign: 'left',
-                        background: 'var(--panel-2)',
-                        border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
-                        borderRadius: '16px',
-                        padding: '12px',
-                        color: 'var(--text)',
-                        cursor: amountReady ? 'pointer' : 'not-allowed',
-                        boxShadow: active ? '0 0 18px rgba(123,125,255,0.35)' : 'none',
-                        transform: active ? 'scale(1.02)' : 'scale(1)',
-                        transition: 'transform 160ms ease, box-shadow 160ms ease, border 160ms ease',
-                      }}
-                    >
-                      <div style={{ fontWeight: 700, fontSize: '13px' }}>{option.label}</div>
-                      <div style={{ marginTop: '6px', fontSize: '11px', color: 'var(--muted)' }}>{option.description}</div>
-                      <div style={{ marginTop: '8px', fontSize: '10px', color: 'var(--muted)' }}>{option.allocation}</div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', display: 'grid', gap: '8px' }}>
-              <div style={{ fontWeight: 600, fontSize: '13px' }}>Confirm</div>
-              <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{selectedSummary}</div>
-              <div style={{ fontSize: '12px', color: 'var(--muted)' }}>
-                Penny will select coins, set strategies, and manage your portfolio.
-              </div>
-              <button
-                type="button"
-                onClick={handleConfirm}
-                disabled={!amountReady || !selectedRisk || creating}
-                style={{
-                  ...primaryBtnStyle,
-                  width: '100%',
-                  justifyContent: 'center',
-                  padding: '14px 18px',
-                  opacity: !amountReady || !selectedRisk ? 0.6 : 1,
-                  cursor: !amountReady || !selectedRisk ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {creating ? 'Launching…' : "Let's Go"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setAdvancedOpen(prev => !prev)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--accent)',
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                }}
-              >
-                Advanced Options →
-              </button>
-            </div>
-
-            {advancedOpen && (
-              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '14px', display: 'grid', gap: '12px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)' }}>
-                  Advanced Options
-                </div>
-                <div style={{ display: 'grid', gap: '6px' }}>
-                  <label style={{ fontSize: '12px', color: 'var(--muted)' }}>Number of bots</label>
-                  <input
-                    type="range"
-                    min={1}
-                    max={10}
-                    value={botCount}
-                    onChange={(event) => setBotCount(Number(event.target.value))}
-                    style={{ width: '100%' }}
-                  />
-                  <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{botCount} bots</div>
-                </div>
-                <div style={{ display: 'grid', gap: '6px' }}>
-                  <label style={{ fontSize: '12px', color: 'var(--muted)' }}>Trading style</label>
-                  <select
-                    value={style}
-                    onChange={(event) => setStyle(event.target.value as (typeof STYLE_OPTIONS)[number])}
-                    style={{
-                      background: 'var(--panel-2)',
-                      color: 'var(--text)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '12px',
-                      padding: '8px 10px',
-                    }}
-                  >
-                    {STYLE_OPTIONS.map((option) => (
-                      <option key={option} value={option}>{option}</option>
-                    ))}
-                  </select>
-                </div>
-                <div style={{ display: 'grid', gap: '6px' }}>
-                  <label style={{ fontSize: '12px', color: 'var(--muted)' }}>Sub-style</label>
-                  <select
-                    value={substyle}
-                    onChange={(event) => setSubstyle(event.target.value)}
-                    style={{
-                      background: 'var(--panel-2)',
-                      color: 'var(--text)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '12px',
-                      padding: '8px 10px',
-                    }}
-                  >
-                    {SUBSTYLE_MAP[style].map((option) => (
-                      <option key={option} value={option}>{option}</option>
-                    ))}
-                  </select>
-                </div>
-                <div style={{ display: 'grid', gap: '6px' }}>
-                  <label style={{ fontSize: '12px', color: 'var(--muted)' }}>Include coins</label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {WATCHLIST.map((coin) => (
-                      <button
-                        key={`include-${coin}`}
-                        type="button"
-                        onClick={() => handleToggleCoin(coin, 'include')}
-                        style={{
-                          ...pillStyle,
-                          borderColor: includeCoins.includes(coin) ? 'var(--accent)' : 'var(--border)',
-                          color: includeCoins.includes(coin) ? 'var(--accent)' : 'var(--text)',
-                        }}
-                      >
-                        {coin}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div style={{ display: 'grid', gap: '6px' }}>
-                  <label style={{ fontSize: '12px', color: 'var(--muted)' }}>Exclude coins</label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {WATCHLIST.map((coin) => (
-                      <button
-                        key={`exclude-${coin}`}
-                        type="button"
-                        onClick={() => handleToggleCoin(coin, 'exclude')}
-                        style={{
-                          ...pillStyle,
-                          borderColor: excludeCoins.includes(coin) ? 'var(--red)' : 'var(--border)',
-                          color: excludeCoins.includes(coin) ? 'var(--red)' : 'var(--text)',
-                        }}
-                      >
-                        {coin}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ fontSize: '12px', fontWeight: 600 }}>Rebalance</div>
-                    <div style={{ fontSize: '11px', color: 'var(--muted)' }}>Auto-adjust allocations</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setRebalanceOn(prev => !prev)}
-                    style={{
-                      width: '48px',
-                      height: '26px',
-                      borderRadius: '999px',
-                      border: `1px solid ${rebalanceOn ? 'var(--accent)' : 'var(--border)'}`,
-                      background: rebalanceOn ? 'var(--accent)' : 'var(--panel-2)',
-                      position: 'relative',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <span
-                      style={{
-                        position: 'absolute',
-                        top: '3px',
-                        left: rebalanceOn ? '26px' : '4px',
-                        width: '18px',
-                        height: '18px',
-                        borderRadius: '999px',
-                        background: '#0d0d1f',
-                        transition: 'left 160ms ease',
-                      }}
-                    />
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        />
       )}
 
       <ToastStack

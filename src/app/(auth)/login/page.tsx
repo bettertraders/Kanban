@@ -260,7 +260,6 @@ export default function LoginPage() {
                 (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
                 (e.currentTarget as HTMLElement).style.boxShadow = 'none';
               }}>
-                <img src={feature.icon} alt="" style={{ width: '80px', height: '80px', borderRadius: '16px', marginBottom: '20px', display: 'block', margin: '0 auto 20px auto' }} />
                 <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '12px' }}>
                   {feature.title}
                 </h3>

@@ -248,6 +248,7 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail 
   const [showNewBoardModal, setShowNewBoardModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
+  const [newBoardType, setNewBoardType] = useState<'task' | 'trading'>('task');
 
   const canManage = ['michael@thebettertraders.com', 'penny@thebettertraders.com'].includes(userEmail);
 
@@ -257,7 +258,13 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail 
     const formData = new FormData(form);
     const body: Record<string, unknown> = { name: formData.get('name'), description: formData.get('description') };
     const teamId = formData.get('teamId');
+    const boardType = formData.get('boardType');
+    const startingBalance = formData.get('startingBalance');
     if (teamId && teamId !== 'personal') body.teamId = parseInt(teamId as string);
+    if (boardType) body.board_type = String(boardType);
+    if (startingBalance !== null && startingBalance !== undefined && String(startingBalance).trim()) {
+      body.starting_balance = Number(startingBalance);
+    }
     try {
       const res = await fetch('/api/v1/boards', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (res.ok) { const data = await res.json(); setBoards([...boards, data.board]); setShowNewBoardModal(false); }
@@ -335,6 +342,29 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail 
         msOverflowStyle: 'none',
       }}>
         <style>{`nav::-webkit-scrollbar { display: none; }`}</style>
+        <Link
+          href="/portfolio"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 14px',
+            borderRadius: '999px',
+            background: 'var(--panel-2)',
+            border: '1px solid var(--border)',
+            color: 'var(--text)',
+            textDecoration: 'none',
+            fontSize: '13px',
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+            transition: 'border-color 0.2s, box-shadow 0.2s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 0 8px rgba(123,125,255,0.3)'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+        >
+          📊 Portfolio
+        </Link>
         {boards.map((board) => {
           const boardStat = stats.perBoardStats.find(b => b.boardId === board.id);
           const taskCount = boardStat?.total ?? 0;
@@ -507,6 +537,24 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail 
                     {teams.filter(t => t.user_role === 'admin').map(t => (<option key={t.id} value={t.id}>Team: {t.name}</option>))}
                   </select>
                 </div>
+                <div>
+                  <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Board Type</label>
+                  <select
+                    name="boardType"
+                    style={inputStyle}
+                    value={newBoardType}
+                    onChange={(e) => setNewBoardType(e.target.value as 'task' | 'trading')}
+                  >
+                    <option value="task">Task Board</option>
+                    <option value="trading">Trading Board</option>
+                  </select>
+                </div>
+                {newBoardType === 'trading' && (
+                  <div>
+                    <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Starting Balance</label>
+                    <input name="startingBalance" type="number" min="0" step="0.01" defaultValue="10000" style={inputStyle} />
+                  </div>
+                )}
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '18px' }}>
                 <button type="button" onClick={() => setShowNewBoardModal(false)} style={secondaryBtnStyle}>Cancel</button>

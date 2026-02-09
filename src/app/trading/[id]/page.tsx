@@ -278,6 +278,12 @@ export default function TradingBoardPage() {
   const [botScansExpanded, setBotScansExpanded] = useState(true);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [alertBadgeCount, setAlertBadgeCount] = useState(0);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [isTeamAdmin, setIsTeamAdmin] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<Array<{ id: number; name: string; email: string; role?: string }>>([]);
+  const [showBoardSettings, setShowBoardSettings] = useState(false);
+  const [paperAccount, setPaperAccount] = useState<{ starting_balance: number; current_balance: number } | null>(null);
+  const [paperLoading, setPaperLoading] = useState(false);
 
   const priceMapRef = useRef<Record<string, { price: number; volume24h: number; change24h: number }>>({});
   const tradesRef = useRef<Trade[]>([]);

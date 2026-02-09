@@ -91,10 +91,16 @@ export async function PATCH(
     let paramIdx = 1;
 
     if (name !== undefined) {
+      if (typeof name !== 'string' || !name.trim()) {
+        return NextResponse.json({ error: 'name must be a non-empty string' }, { status: 400 });
+      }
       updates.push(`name = $${paramIdx++}`);
-      values.push(name);
+      values.push(name.trim());
     }
     if (description !== undefined) {
+      if (description !== null && typeof description !== 'string') {
+        return NextResponse.json({ error: 'description must be a string' }, { status: 400 });
+      }
       updates.push(`description = $${paramIdx++}`);
       values.push(description);
     }
@@ -107,16 +113,25 @@ export async function PATCH(
     }
 
     if (board_type !== undefined) {
+      if (!['task', 'trading'].includes(String(board_type))) {
+        return NextResponse.json({ error: 'board_type must be task or trading' }, { status: 400 });
+      }
       updates.push(`board_type = $${paramIdx++}`);
       values.push(board_type);
     }
     if (visibility !== undefined) {
+      if (!['all', 'admin_only'].includes(String(visibility))) {
+        return NextResponse.json({ error: 'visibility must be all or admin_only' }, { status: 400 });
+      }
       updates.push(`visibility = $${paramIdx++}`);
       values.push(visibility);
     }
     if (team_id !== undefined) {
+      if (!Number.isFinite(Number(team_id))) {
+        return NextResponse.json({ error: 'team_id must be a number' }, { status: 400 });
+      }
       updates.push(`team_id = $${paramIdx++}`);
-      values.push(team_id);
+      values.push(Number(team_id));
       updates.push(`is_personal = false`);
     }
 

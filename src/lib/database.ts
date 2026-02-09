@@ -206,6 +206,57 @@ export async function initializeDatabase() {
         UNIQUE(board_id, user_id)
       );
 
+      -- Trading bots
+      CREATE TABLE IF NOT EXISTS trading_bots (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        board_id INTEGER REFERENCES boards(id),
+        user_id INTEGER REFERENCES users(id),
+        strategy_style VARCHAR(50) NOT NULL,
+        strategy_substyle VARCHAR(50) NOT NULL,
+        strategy_config JSONB DEFAULT '{}',
+        status VARCHAR(20) DEFAULT 'stopped',
+        auto_trade BOOLEAN DEFAULT false,
+        tbo_enabled BOOLEAN DEFAULT false,
+        rebalancer_enabled BOOLEAN DEFAULT false,
+        rebalancer_config JSONB DEFAULT '{}',
+        performance JSONB DEFAULT '{}',
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      -- Bot executions
+      CREATE TABLE IF NOT EXISTS bot_executions (
+        id SERIAL PRIMARY KEY,
+        bot_id INTEGER REFERENCES trading_bots(id) ON DELETE CASCADE,
+        action VARCHAR(50) NOT NULL,
+        details JSONB DEFAULT '{}',
+        executed_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      -- Portfolio snapshots
+      CREATE TABLE IF NOT EXISTS portfolio_snapshots (
+        id SERIAL PRIMARY KEY,
+        bot_id INTEGER REFERENCES trading_bots(id) ON DELETE CASCADE,
+        allocations JSONB NOT NULL,
+        total_value DECIMAL(20,8),
+        snapshot_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      -- Bot leaderboard
+      CREATE TABLE IF NOT EXISTS bot_leaderboard (
+        id SERIAL PRIMARY KEY,
+        bot_id INTEGER REFERENCES trading_bots(id) ON DELETE CASCADE,
+        period VARCHAR(20) NOT NULL,
+        total_return DECIMAL(10,4),
+        win_rate DECIMAL(5,2),
+        total_trades INTEGER,
+        sharpe_ratio DECIMAL(6,3),
+        max_drawdown DECIMAL(10,4),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(bot_id, period)
+      );
+
       -- Trade comments table
       CREATE TABLE IF NOT EXISTS trade_comments (
         id SERIAL PRIMARY KEY,
@@ -508,6 +559,14 @@ export async function isTeamMember(teamId: number, userId: number) {
     [teamId, userId]
   );
   return result.rows[0];
+}
+
+export async function isAdminUser(userId: number) {
+  const result = await pool.query(
+    "SELECT 1 FROM team_members WHERE user_id = $1 AND role = 'admin' LIMIT 1",
+    [userId]
+  );
+  return result.rows.length > 0;
 }
 
 // Auto-join teams based on email domain
@@ -955,6 +1014,229 @@ export async function getFile(fileId: number) {
 export async function deleteFile(fileId: number) {
   const result = await pool.query('DELETE FROM task_files WHERE id = $1 RETURNING *', [fileId]);
   return result.rows[0];
+}
+
+// ============================================
+// Bot functions
+// ============================================
+
+export async function createBot(data: {
+  name: string;
+  board_id: number;
+  user_id: number;
+  strategy_style: string;
+  strategy_substyle: string;
+  strategy_config?: any;
+  auto_trade?: boolean;
+  rebalancer_enabled?: boolean;
+  rebalancer_config?: any;
+}): Promise<any> {
+  const result = await pool.query(
+    `INSERT INTO trading_bots
+      (name, board_id, user_id, strategy_style, strategy_substyle, strategy_config, auto_trade, rebalancer_enabled, rebalancer_config)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     RETURNING *`,
+    [
+      data.name,
+      data.board_id,
+      data.user_id,
+      data.strategy_style,
+      data.strategy_substyle,
+      JSON.stringify(data.strategy_config ?? {}),
+      data.auto_trade ?? false,
+      data.rebalancer_enabled ?? false,
+      JSON.stringify(data.rebalancer_config ?? {})
+    ]
+  );
+  return result.rows[0];
+}
+
+export async function getBot(id: number): Promise<any> {
+  const result = await pool.query('SELECT * FROM trading_bots WHERE id = $1', [id]);
+  return result.rows[0];
+}
+
+export async function getBotsByUser(userId: number): Promise<any[]> {
+  const result = await pool.query(
+    'SELECT * FROM trading_bots WHERE user_id = $1 ORDER BY created_at DESC',
+    [userId]
+  );
+  return result.rows;
+}
+
+export async function getBotsByBoard(boardId: number): Promise<any[]> {
+  const result = await pool.query(
+    'SELECT * FROM trading_bots WHERE board_id = $1 ORDER BY created_at DESC',
+    [boardId]
+  );
+  return result.rows;
+}
+
+export async function updateBot(
+  id: number,
+  data: Partial<{
+    name: string;
+    strategy_config: any;
+    status: string;
+    auto_trade: boolean;
+    tbo_enabled: boolean;
+    rebalancer_enabled: boolean;
+    rebalancer_config: any;
+    performance: any;
+  }>
+): Promise<any> {
+  const allowedFields = [
+    'name',
+    'strategy_config',
+    'status',
+    'auto_trade',
+    'tbo_enabled',
+    'rebalancer_enabled',
+    'rebalancer_config',
+    'performance'
+  ];
+
+  const setClause: string[] = [];
+  const values: unknown[] = [];
+  let paramIndex = 1;
+
+  for (const [key, value] of Object.entries(data)) {
+    if (!allowedFields.includes(key)) continue;
+    setClause.push(`${key} = $${paramIndex}`);
+    if (['strategy_config', 'rebalancer_config', 'performance'].includes(key)) {
+      values.push(JSON.stringify(value ?? {}));
+    } else {
+      values.push(value);
+    }
+    paramIndex++;
+  }
+
+  if (!setClause.length) return null;
+  setClause.push('updated_at = NOW()');
+  values.push(id);
+
+  const result = await pool.query(
+    `UPDATE trading_bots SET ${setClause.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
+    values
+  );
+  return result.rows[0];
+}
+
+export async function deleteBot(id: number): Promise<void> {
+  await pool.query('DELETE FROM trading_bots WHERE id = $1', [id]);
+}
+
+export async function startBot(id: number): Promise<any> {
+  return updateBot(id, { status: 'running' });
+}
+
+export async function stopBot(id: number): Promise<any> {
+  return updateBot(id, { status: 'stopped' });
+}
+
+export async function pauseBot(id: number): Promise<any> {
+  return updateBot(id, { status: 'paused' });
+}
+
+export async function logBotExecution(botId: number, action: string, details?: any): Promise<any> {
+  const result = await pool.query(
+    `INSERT INTO bot_executions (bot_id, action, details)
+     VALUES ($1, $2, $3) RETURNING *`,
+    [botId, action, JSON.stringify(details ?? {})]
+  );
+  return result.rows[0];
+}
+
+export async function getBotExecutions(botId: number, limit: number = 50): Promise<any[]> {
+  const result = await pool.query(
+    `SELECT * FROM bot_executions WHERE bot_id = $1 ORDER BY executed_at DESC LIMIT $2`,
+    [botId, limit]
+  );
+  return result.rows;
+}
+
+export async function savePortfolioSnapshot(botId: number, allocations: any, totalValue: number): Promise<any> {
+  const result = await pool.query(
+    `INSERT INTO portfolio_snapshots (bot_id, allocations, total_value)
+     VALUES ($1, $2, $3) RETURNING *`,
+    [botId, JSON.stringify(allocations), totalValue]
+  );
+  return result.rows[0];
+}
+
+export async function getPortfolioSnapshots(botId: number, limit: number = 50): Promise<any[]> {
+  const result = await pool.query(
+    `SELECT * FROM portfolio_snapshots WHERE bot_id = $1 ORDER BY snapshot_at DESC LIMIT $2`,
+    [botId, limit]
+  );
+  return result.rows;
+}
+
+export async function getLatestPortfolioSnapshot(botId: number): Promise<any> {
+  const result = await pool.query(
+    `SELECT * FROM portfolio_snapshots WHERE bot_id = $1 ORDER BY snapshot_at DESC LIMIT 1`,
+    [botId]
+  );
+  return result.rows[0];
+}
+
+export async function updateLeaderboard(
+  botId: number,
+  period: string,
+  stats: {
+    total_return: number;
+    win_rate: number;
+    total_trades: number;
+    sharpe_ratio?: number;
+    max_drawdown?: number;
+  }
+): Promise<any> {
+  const result = await pool.query(
+    `
+      INSERT INTO bot_leaderboard
+        (bot_id, period, total_return, win_rate, total_trades, sharpe_ratio, max_drawdown)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      ON CONFLICT (bot_id, period) DO UPDATE SET
+        total_return = EXCLUDED.total_return,
+        win_rate = EXCLUDED.win_rate,
+        total_trades = EXCLUDED.total_trades,
+        sharpe_ratio = EXCLUDED.sharpe_ratio,
+        max_drawdown = EXCLUDED.max_drawdown,
+        updated_at = NOW()
+      RETURNING *
+    `,
+    [
+      botId,
+      period,
+      stats.total_return,
+      stats.win_rate,
+      stats.total_trades,
+      stats.sharpe_ratio ?? null,
+      stats.max_drawdown ?? null
+    ]
+  );
+  return result.rows[0];
+}
+
+export async function getLeaderboard(period?: string): Promise<any[]> {
+  const values: unknown[] = [];
+  let where = '';
+  if (period) {
+    where = 'WHERE bl.period = $1';
+    values.push(period);
+  }
+
+  const result = await pool.query(
+    `
+      SELECT bl.*, tb.name, tb.strategy_style, tb.strategy_substyle, tb.status, tb.auto_trade
+      FROM bot_leaderboard bl
+      JOIN trading_bots tb ON tb.id = bl.bot_id
+      ${where}
+      ORDER BY bl.total_return DESC NULLS LAST, bl.win_rate DESC NULLS LAST
+    `,
+    values
+  );
+  return result.rows;
 }
 
 // ============================================

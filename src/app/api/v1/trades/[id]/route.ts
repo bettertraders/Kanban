@@ -20,6 +20,21 @@ function isValidDirection(value: unknown) {
   return normalized === 'LONG' || normalized === 'SHORT';
 }
 
+function normalizeDirection(value: unknown) {
+  if (value === undefined || value === null || value === '') return null;
+  const normalized = String(value).toUpperCase();
+  return normalized === 'LONG' || normalized === 'SHORT' ? normalized : null;
+}
+
+function normalizePair(pair: string) {
+  return pair.replace(/-/g, '/').toUpperCase();
+}
+
+function isValidNumber(value: unknown) {
+  if (value === undefined || value === null || value === '') return true;
+  return Number.isFinite(Number(value));
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -66,6 +81,21 @@ export async function PATCH(
     }
     if (!isValidDirection(body.direction)) {
       return NextResponse.json({ error: 'direction must be LONG or SHORT' }, { status: 400 });
+    }
+    const numericFields = ['entry_price', 'current_price', 'exit_price', 'stop_loss', 'take_profit', 'position_size', 'rsi_value', 'confidence_score', 'pnl_dollar', 'pnl_percent'];
+    for (const field of numericFields) {
+      if (!isValidNumber(body?.[field])) {
+        return NextResponse.json({ error: `${field} must be a number` }, { status: 400 });
+      }
+    }
+    if (body.coin_pair !== undefined) {
+      body.coin_pair = normalizePair(String(body.coin_pair));
+    }
+    if (body.direction !== undefined) {
+      const normalized = normalizeDirection(body.direction);
+      if (normalized) {
+        body.direction = normalized.toLowerCase();
+      }
     }
 
     const updated = await updateTrade(parseInt(id), body);

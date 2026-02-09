@@ -54,6 +54,10 @@ export function StartTradeModal({ boardId, existingBotCount = 0, paperBalance = 
   const [amountInput, setAmountInput] = useState('500');
   const [selectedRisk, setSelectedRisk] = useState<RiskOption | null>(RISK_OPTIONS[1]);
   const [creating, setCreating] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [strategyOverride, setStrategyOverride] = useState('');
+  const [stopLoss, setStopLoss] = useState('');
+  const [takeProfit, setTakeProfit] = useState('');
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -76,13 +80,15 @@ export function StartTradeModal({ boardId, existingBotCount = 0, paperBalance = 
     try {
       const botNumber = existingBotCount + 1;
       const name = `Penny's ${selectedRisk.label} Bot #${botNumber}`;
-      const body = {
+      const body: Record<string, unknown> = {
         name,
-        strategy: selectedRisk.strategy,
+        strategy: strategyOverride || selectedRisk.strategy,
         risk_level: selectedRisk.level,
         auto_trade: true,
         board_id: boardId,
       };
+      if (stopLoss) body.stop_loss_pct = Number(stopLoss);
+      if (takeProfit) body.take_profit_pct = Number(takeProfit);
       const res = await fetch('/api/v1/bots', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -267,6 +273,99 @@ export function StartTradeModal({ boardId, existingBotCount = 0, paperBalance = 
           >
             {creating ? 'Launching…' : "Let's Go"}
           </button>
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--muted)',
+              fontSize: '12px',
+              cursor: 'pointer',
+              padding: '8px 0 0',
+              textAlign: 'center',
+              width: '100%',
+              textDecoration: 'underline',
+              textUnderlineOffset: '3px',
+            }}
+          >
+            {showAdvanced ? 'Hide Advanced' : 'Advanced'}
+          </button>
+          {showAdvanced && (
+            <div style={{
+              marginTop: '8px',
+              padding: '14px',
+              background: 'var(--panel-2)',
+              borderRadius: '12px',
+              border: '1px solid var(--border)',
+              display: 'grid',
+              gap: '10px',
+            }}>
+              <div style={{ fontSize: '12px', fontWeight: 600 }}>Advanced Settings</div>
+              <div style={{ display: 'grid', gap: '8px' }}>
+                <label style={{ fontSize: '11px', color: 'var(--muted)', display: 'grid', gap: '4px' }}>
+                  Strategy Override
+                  <select
+                    value={strategyOverride}
+                    onChange={(e) => setStrategyOverride(e.target.value)}
+                    style={{
+                      background: 'var(--panel)',
+                      color: 'var(--text)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '8px',
+                      padding: '8px',
+                      fontSize: '12px',
+                    }}
+                  >
+                    <option value="">Auto (based on risk level)</option>
+                    <option value="swing_mean_reversion">Swing — Mean Reversion</option>
+                    <option value="swing_momentum">Swing — Momentum</option>
+                    <option value="swing_breakout">Swing — Breakout</option>
+                    <option value="day_momentum">Day — Momentum</option>
+                    <option value="day_mean_reversion">Day — Mean Reversion</option>
+                    <option value="scalper_momentum">Scalper — Momentum</option>
+                    <option value="scalper_grid">Scalper — Grid</option>
+                  </select>
+                </label>
+                <label style={{ fontSize: '11px', color: 'var(--muted)', display: 'grid', gap: '4px' }}>
+                  Stop Loss %
+                  <input
+                    type="number"
+                    value={stopLoss}
+                    onChange={(e) => setStopLoss(e.target.value)}
+                    placeholder="e.g. 5"
+                    style={{
+                      background: 'var(--panel)',
+                      color: 'var(--text)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '8px',
+                      padding: '8px',
+                      fontSize: '12px',
+                      width: '100%',
+                    }}
+                  />
+                </label>
+                <label style={{ fontSize: '11px', color: 'var(--muted)', display: 'grid', gap: '4px' }}>
+                  Take Profit %
+                  <input
+                    type="number"
+                    value={takeProfit}
+                    onChange={(e) => setTakeProfit(e.target.value)}
+                    placeholder="e.g. 15"
+                    style={{
+                      background: 'var(--panel)',
+                      color: 'var(--text)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '8px',
+                      padding: '8px',
+                      fontSize: '12px',
+                      width: '100%',
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

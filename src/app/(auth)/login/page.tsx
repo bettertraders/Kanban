@@ -340,14 +340,12 @@ export default function LoginPage() {
         position: 'relative',
         zIndex: 2,
       }}>
-        <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '16px' }}>
-          Built with 🦞 by ClawDesk — Where humans and AI agents ship as equals
+        <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '8px' }}>
+          © 2026 ClawDesk. All rights reserved.
         </p>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', flexWrap: 'wrap' }}>
-          <a href="#" style={{ color: 'var(--muted)', textDecoration: 'none', fontSize: '14px' }}>About</a>
-          <a href="#" style={{ color: 'var(--muted)', textDecoration: 'none', fontSize: '14px' }}>API Docs</a>
-          <a href="#" style={{ color: 'var(--muted)', textDecoration: 'none', fontSize: '14px' }}>GitHub</a>
-        </div>
+        <p style={{ color: 'var(--muted)', fontSize: '13px', opacity: 0.7 }}>
+          A product of The Better Traders Inc.
+        </p>
       </footer>
 
       <style jsx>{`

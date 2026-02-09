@@ -14,13 +14,16 @@ async function fetchMarketData() {
   const now = Date.now();
   if (cache && now - cache.ts < CACHE_TTL) return cache.data;
 
-  const [markets, trending, global, fng] = await Promise.all([
+  const [markets, trending, global, fng, watchlistRaw] = await Promise.all([
     fetchJSON(
       'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&sparkline=false&price_change_percentage=24h,7d'
     ),
     fetchJSON('https://api.coingecko.com/api/v3/search/trending'),
     fetchJSON('https://api.coingecko.com/api/v3/global'),
     fetchJSON('https://api.alternative.me/fng/?limit=1').catch(() => ({ data: [{ value: '50', value_classification: 'Neutral' }] })),
+    fetchJSON(
+      'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=5&sparkline=false&price_change_percentage=24h,7d'
+    ).catch(() => []),
   ]);
 
   // BTC & ETH
@@ -78,6 +81,7 @@ async function fetchMarketData() {
       topVolume: topVolume.map(coinSummary),
       topMarketCap: topMcap.map(coinSummary),
     },
+    watchlist: (watchlistRaw || []).map(coinSummary).filter(Boolean),
     updatedAt: new Date().toISOString(),
   };
 

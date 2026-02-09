@@ -11,6 +11,12 @@ type Coin = {
   marketCap: number; volume: number;
 };
 type TrendingCoin = { name: string; symbol: string; thumb: string; marketCapRank: number; priceBtc: number };
+type TboStatus = {
+  enabled: boolean;
+  signalsToday: number;
+  lastSignal: { time: string; ticker: string; signal: string; interval: string } | null;
+  activeTimeframes: string[];
+};
 type MarketData = {
   overview: {
     btc: Coin; eth: Coin;
@@ -19,6 +25,7 @@ type MarketData = {
   };
   movers: { gainers: Coin[]; losers: Coin[]; volatile: Coin[] };
   discovery: { trending: TrendingCoin[]; topVolume: Coin[]; topMarketCap: Coin[] };
+  watchlist: Coin[];
   updatedAt: string;
   stale?: boolean;
 };
@@ -97,6 +104,27 @@ export default function MarketDashboard() {
   const [data, setData] = useState<MarketData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [tbo, setTbo] = useState<TboStatus | null>(null);
+  const [tboLoading, setTboLoading] = useState(false);
+
+  const loadTbo = useCallback(async () => {
+    try {
+      const res = await fetch('/api/trading/tbo/status');
+      if (res.ok) setTbo(await res.json());
+    } catch {}
+  }, []);
+
+  const toggleTbo = useCallback(async () => {
+    if (!tbo || tboLoading) return;
+    setTboLoading(true);
+    try {
+      const res = await fetch('/api/trading/tbo/toggle', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !tbo.enabled }),
+      });
+      if (res.ok) await loadTbo();
+    } finally { setTboLoading(false); }
+  }, [tbo, tboLoading, loadTbo]);
 
   const load = useCallback(async () => {
     try {
@@ -112,10 +140,10 @@ export default function MarketDashboard() {
   }, []);
 
   useEffect(() => {
-    load();
-    const iv = setInterval(load, 60_000);
+    load(); loadTbo();
+    const iv = setInterval(() => { load(); loadTbo(); }, 60_000);
     return () => clearInterval(iv);
-  }, [load]);
+  }, [load, loadTbo]);
 
   return (
     <div style={{ minHeight: '100vh', background: '#141428', color: '#e2e2ff', padding: '20px 16px' }}>
@@ -149,6 +177,81 @@ export default function MarketDashboard() {
             </button>
           </div>
         </div>
+
+        {/* ── TBO PRO Toggle ── */}
+        {tbo && (
+          <div style={{
+            ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            flexWrap: 'wrap', gap: 12,
+            boxShadow: tbo.enabled ? '0 0 20px rgba(34,197,94,0.15)' : 'none',
+            borderColor: tbo.enabled ? 'rgba(34,197,94,0.3)' : 'rgba(123,125,255,0.15)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <button onClick={toggleTbo} disabled={tboLoading} style={{
+                width: 52, height: 28, borderRadius: 14, border: 'none', cursor: 'pointer',
+                background: tbo.enabled ? '#22c55e' : 'rgba(255,255,255,0.12)',
+                position: 'relative', transition: 'background 0.2s',
+              }}>
+                <div style={{
+                  width: 22, height: 22, borderRadius: 11, background: '#fff',
+                  position: 'absolute', top: 3,
+                  left: tbo.enabled ? 27 : 3, transition: 'left 0.2s',
+                }} />
+              </button>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: tbo.enabled ? '#22c55e' : '#888' }}>
+                  TBO PRO {tbo.enabled ? '— Active' : '— Paused'}
+                </div>
+                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+                  {tbo.enabled ? (
+                    <>
+                      {tbo.signalsToday} signal{tbo.signalsToday !== 1 ? 's' : ''} today
+                      {tbo.lastSignal && <> · Last: {tbo.lastSignal.ticker} {tbo.lastSignal.signal} ({timeAgo(tbo.lastSignal.time)})</>}
+                    </>
+                  ) : 'Signal processing paused'}
+                </div>
+              </div>
+            </div>
+            {tbo.enabled && tbo.activeTimeframes.length > 0 && (
+              <div style={{ display: 'flex', gap: 6 }}>
+                {tbo.activeTimeframes.map(tf => (
+                  <span key={tf} style={{
+                    fontSize: 11, padding: '2px 8px', borderRadius: 6,
+                    background: 'rgba(34,197,94,0.12)', color: '#22c55e', fontWeight: 600,
+                  }}>{tf}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Watchlist: Top 5 ── */}
+        {data?.watchlist && data.watchlist.length > 0 && (
+          <div style={{ ...card, marginBottom: 20 }}>
+            <div style={sectionTitle}>⭐ Watchlist — Top 5</div>
+            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 4 }}>
+              {data.watchlist.map(coin => (
+                <div key={coin.id} style={{
+                  flex: '0 0 auto', minWidth: 150, padding: '12px 14px', borderRadius: 10,
+                  background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <img src={coin.image} alt="" width={24} height={24} style={{ borderRadius: 99 }} />
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: '#fff' }}>{coin.symbol}</div>
+                      <div style={{ fontSize: 11, color: '#888' }}>{coin.name}</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 4 }}>{fmt(coin.price)}</div>
+                  <div style={{ display: 'flex', gap: 10, fontSize: 12 }}>
+                    <span style={{ color: pctColor(coin.change24h), fontWeight: 600 }}>24h {pct(coin.change24h)}</span>
+                    <span style={{ color: pctColor(coin.change7d) }}>7d {pct(coin.change7d)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {loading && !data && <div style={{ textAlign: 'center', padding: 60, color: '#888' }}>Loading market data…</div>}
         {error && !data && <div style={{ textAlign: 'center', padding: 60, color: '#ef4444' }}>Error: {error}</div>}

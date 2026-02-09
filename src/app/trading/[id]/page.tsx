@@ -1092,7 +1092,17 @@ export default function TradingBoardPage() {
           </button>
           <button
             onClick={() => setAutoTradeOpen(true)}
-            style={{ ...secondaryBtnStyle, padding: '8px 14px', fontSize: '12px' }}
+            style={{
+              background: 'linear-gradient(135deg, #7b7dff, #9a9cff)',
+              color: '#0d0d1f',
+              border: 'none',
+              padding: '10px 18px',
+              borderRadius: '999px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontSize: '13px',
+              animation: 'pulse-glow 3s ease-in-out infinite',
+            }}
           >
             ⚡️ Auto-Trade
           </button>
@@ -1821,6 +1831,10 @@ export default function TradingBoardPage() {
           0% { opacity: 0.6; }
           50% { opacity: 1; }
           100% { opacity: 0.6; }
+        }
+        @keyframes pulse-glow {
+          0%, 100% { box-shadow: 0 0 20px rgba(123,125,255,0.25); }
+          50% { box-shadow: 0 0 35px rgba(123,125,255,0.5); }
         }
         select option {
           background: #1a1a2e;

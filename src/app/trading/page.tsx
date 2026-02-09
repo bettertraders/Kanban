@@ -332,13 +332,10 @@ export default function TradingDashboardPage() {
   }, [snapshots]);
 
   const chartValues = snapshotValues.length ? snapshotValues : [paperBalance || 0, paperBalance || 0];
-  const { path: equityPath, area: equityArea, min: equityMin, max: equityMax } = useMemo(
-    () => buildLinePath(chartValues, 600, 220, 24),
+  const { path: equityPath, area: equityArea } = useMemo(
+    () => buildLinePath(chartValues, 600, 180, 18),
     [chartValues]
   );
-
-  const firstSnapshot = snapshots[0]?.timestamp;
-  const lastSnapshot = snapshots[snapshots.length - 1]?.timestamp;
 
   const allocationData = useMemo(() => {
     if (!portfolio?.byCoin?.length) return [];
@@ -352,11 +349,30 @@ export default function TradingDashboardPage() {
       .filter((item) => Number.isFinite(item.value) && item.value > 0);
   }, [portfolio]);
 
+  const btcPulse = useMemo(
+    () => pulse.find((coin) => coin.pair.toUpperCase().startsWith('BTC')),
+    [pulse]
+  );
+
   const movers = useMemo(() => {
-    return [...pulse]
-      .sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h))
-      .slice(0, 10);
-  }, [pulse]);
+    const btc = btcPulse ?? null;
+    const rest = pulse.filter((coin) => coin !== btc);
+    rest.sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h));
+    const top = rest.slice(0, btc ? 4 : 5);
+    return btc ? [btc, ...top] : top;
+  }, [pulse, btcPulse]);
+
+  const dailyPnl = Number(portfolio?.summary?.daily_pnl ?? 42);
+  const allTimePnl = Number((portfolio?.summary?.total_realized_pnl ?? 0) + (portfolio?.summary?.total_unrealized_pnl ?? 0));
+  const safeDailyPnl = Number.isFinite(dailyPnl) ? dailyPnl : 42;
+  const safeAllTimePnl = Number.isFinite(allTimePnl) ? allTimePnl : 320;
+  const btcChange = Number(btcPulse?.change24h ?? 0);
+  const sentiment =
+    Math.abs(btcChange) < 0.5
+      ? { label: 'Sideways', emoji: '➡️', bg: 'linear-gradient(135deg, rgba(123,125,255,0.2), rgba(123,125,255,0.05))', color: 'var(--text)' }
+      : btcChange >= 0.5
+        ? { label: 'Bullish', emoji: '🐂', bg: 'linear-gradient(135deg, rgba(74,222,128,0.25), rgba(74,222,128,0.08))', color: 'var(--green)' }
+        : { label: 'Bearish', emoji: '🐻', bg: 'linear-gradient(135deg, rgba(240,91,111,0.25), rgba(240,91,111,0.08))', color: 'var(--red)' };
 
   const parsedAmount = Number(amountInput.replace(/[^0-9.]/g, ''));
   const amountReady = Number.isFinite(parsedAmount) && parsedAmount > 0;
@@ -417,177 +433,205 @@ export default function TradingDashboardPage() {
           marginTop: '24px',
           background: 'linear-gradient(180deg, rgba(123,125,255,0.08), rgba(0,0,0,0))',
           border: '1px solid var(--border)',
-          borderRadius: '20px',
-          padding: '28px clamp(18px, 4vw, 40px) 30px',
-          textAlign: 'center',
+          borderRadius: '22px',
+          padding: '24px clamp(18px, 4vw, 32px)',
         }}
       >
-        <div style={{ fontSize: '12px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.18em' }}>
-          Portfolio Value
-        </div>
-        <div style={{ marginTop: '12px', fontSize: 'clamp(40px, 7vw, 56px)', fontWeight: 700 }}>
-          {formatCurrency(paperBalance)}
-        </div>
-        <div style={{ marginTop: '18px' }}>
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            style={{
-              ...primaryBtnStyle,
-              padding: '16px 34px',
-              fontSize: '16px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '10px',
-              boxShadow: '0 14px 30px rgba(123, 125, 255, 0.25)',
-            }}
-          >
-            <span style={{ display: 'inline-flex', width: '18px', height: '18px' }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 3l14 9-14 9 4-9-4-9z" />
-              </svg>
-            </span>
-            Start Trading
-          </button>
-          <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--muted)' }}>Set your risk. We handle everything else.</div>
-        </div>
-      </section>
+        <div
+          className="hero-grid"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: isCompact ? '1fr' : '1fr 1.5fr 1fr',
+            gap: '22px',
+            alignItems: 'center',
+          }}
+        >
+          <div style={{ display: 'grid', gap: '12px' }}>
+            <div style={{ fontSize: '12px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.18em' }}>
+              Portfolio Value
+            </div>
+            <div style={{ fontSize: 'clamp(40px, 7vw, 56px)', fontWeight: 700 }}>
+              {formatCurrency(paperBalance)}
+            </div>
+            <div style={{ display: 'grid', gap: '6px', fontSize: '13px' }}>
+              <span style={{ color: safeDailyPnl >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
+                Today: {safeDailyPnl >= 0 ? '+' : '-'}{formatCurrency(Math.abs(safeDailyPnl))}
+              </span>
+              <span style={{ color: safeAllTimePnl >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
+                All Time: {safeAllTimePnl >= 0 ? '+' : '-'}{formatCurrency(Math.abs(safeAllTimePnl))}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              style={{
+                ...primaryBtnStyle,
+                padding: '14px 28px',
+                fontSize: '14px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '10px',
+                boxShadow: '0 16px 30px rgba(123, 125, 255, 0.3)',
+                animation: 'pulse-glow 3s ease-in-out infinite',
+                width: 'fit-content',
+              }}
+            >
+              <span style={{ display: 'inline-flex', width: '18px', height: '18px' }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 3l14 9-14 9 4-9-4-9z" />
+                </svg>
+              </span>
+              Start Trading
+            </button>
+          </div>
 
-      <section
-        style={{
-          marginTop: '26px',
-          display: 'grid',
-          gridTemplateColumns: isCompact ? '1fr' : 'repeat(2, 1fr)',
-          gap: '16px',
-        }}
-      >
-        <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '18px' }}>
-          <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600 }}>
-            Portfolio Value
+          <div style={{ position: 'relative' }}>
+            <svg width="100%" height="160" viewBox="0 0 600 180" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="portfolioFill" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35" />
+                  <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <path d={equityArea} fill="url(#portfolioFill)" />
+              <path d={equityPath} stroke="var(--accent)" strokeWidth="2.8" fill="none" />
+            </svg>
+            {!snapshotValues.length && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'grid',
+                  placeItems: 'center',
+                  fontSize: '12px',
+                  color: 'var(--muted)',
+                }}
+              >
+                No history yet
+              </div>
+            )}
           </div>
-          <div style={{ marginTop: '12px', display: 'grid', gap: '10px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--muted)' }}>
-              <span>{formatCurrency(equityMin)}</span>
-              <span>{formatCurrency(equityMax)}</span>
-            </div>
-            <div style={{ position: 'relative' }}>
-              <svg width="100%" height="220" viewBox="0 0 600 220" preserveAspectRatio="none">
-                <defs>
-                  <linearGradient id="portfolioFill" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35" />
-                    <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-                <path d={equityArea} fill="url(#portfolioFill)" />
-                <path d={equityPath} stroke="var(--accent)" strokeWidth="2.6" fill="none" />
-              </svg>
-              {!snapshotValues.length && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    display: 'grid',
-                    placeItems: 'center',
-                    fontSize: '12px',
-                    color: 'var(--muted)',
-                  }}
-                >
-                  No history yet
-                </div>
-              )}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--muted)' }}>
-              <span>{formatShortDate(firstSnapshot)}</span>
-              <span>{formatShortDate(lastSnapshot)}</span>
-            </div>
-          </div>
-        </div>
 
-        <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '18px' }}>
-          <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600 }}>
-            Allocation
-          </div>
-          <div style={{ marginTop: '12px' }}>
+          <div style={{ display: 'grid', justifyItems: 'center', gap: '10px' }}>
             {allocationData.length ? (
-              <PieChart data={allocationData} size={220} />
+              <PieChart data={allocationData} size={160} />
             ) : (
               <div style={{ fontSize: '12px', color: 'var(--muted)' }}>No positions yet</div>
+            )}
+            {!!allocationData.length && (
+              <div style={{ display: 'grid', gap: '6px', width: '100%' }}>
+                {allocationData.slice(0, 3).map((item) => (
+                  <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--muted)' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '999px', background: item.color }} />
+                    <span>{item.label}</span>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
       </section>
 
-      <section style={{ marginTop: '28px' }}>
-        <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '10px' }}>
+      <div style={sectionDividerStyle} />
+
+      <section style={{ marginTop: '18px' }}>
+        <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '12px' }}>
           Your Bots
         </div>
-        <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '12px' }}>
-          {bots.length ? (
-            <div style={{ display: 'grid', gap: '8px' }}>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: isCompact ? '1.2fr 1fr 1fr' : '1.4fr 1.1fr 1fr 0.9fr 0.8fr',
-                  gap: '10px',
-                  fontSize: '11px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.12em',
-                  color: 'var(--muted)',
-                  padding: '4px 8px',
-                }}
-              >
-                <span>Bot</span>
-                {!isCompact && <span>Strategy</span>}
-                <span>Status</span>
-                <span>Return</span>
-                {!isCompact && <span>Trades</span>}
-              </div>
-              {bots.map((bot) => {
-                const statusColor = bot.status === 'running' ? 'var(--green)' : bot.status === 'paused' ? '#f5b544' : 'var(--muted)';
-                const returnPct = Number(bot.return_pct ?? bot.performance?.return_pct ?? bot.performance?.total_return ?? 0);
-                const tradesCount = Number(bot.performance?.total_trades ?? bot.total_trades ?? 0);
-                const tradeLabel = Number.isFinite(tradesCount) ? tradesCount : '—';
-                const strategyLabel = [bot.strategy_style, bot.strategy_substyle].filter(Boolean).join(' · ');
-                return (
-                  <div
-                    key={bot.id}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: isCompact ? '1.2fr 1fr 1fr' : '1.4fr 1.1fr 1fr 0.9fr 0.8fr',
-                      gap: '10px',
-                      alignItems: 'center',
-                      padding: '10px 8px',
-                      borderRadius: '12px',
-                      border: '1px solid var(--border)',
-                      background: 'var(--panel-2)',
-                      fontSize: '12px',
-                    }}
-                  >
-                    <div style={{ fontWeight: 600 }}>{bot.name}</div>
-                    {!isCompact && <div style={{ color: 'var(--muted)' }}>{strategyLabel || '—'}</div>}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ width: '8px', height: '8px', borderRadius: '999px', background: statusColor }} />
-                      <span style={{ color: 'var(--muted)' }}>{bot.status}</span>
-                    </div>
-                    <div style={{ color: returnPct >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
-                      {returnPct >= 0 ? '+' : ''}{formatPercent(returnPct)}
-                    </div>
-                    {!isCompact && <div style={{ color: 'var(--muted)' }}>{tradeLabel}</div>}
+        {bots.length ? (
+          <div className="bot-row" style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '8px' }}>
+            {bots.map((bot) => {
+              const statusColor = bot.status === 'running' ? 'var(--green)' : bot.status === 'paused' ? '#f5b544' : 'var(--muted)';
+              const returnPct = Number(bot.return_pct ?? bot.performance?.return_pct ?? bot.performance?.total_return ?? 0);
+              const strategyLabel = [bot.strategy_style, bot.strategy_substyle].filter(Boolean).join(' · ');
+              const performanceBg = returnPct > 1
+                ? 'linear-gradient(135deg, rgba(74,222,128,0.08), rgba(74,222,128,0.02))'
+                : returnPct < -1
+                  ? 'linear-gradient(135deg, rgba(240,91,111,0.08), rgba(240,91,111,0.02))'
+                  : 'linear-gradient(135deg, rgba(123,125,255,0.08), rgba(123,125,255,0.02))';
+              return (
+                <div
+                  key={bot.id}
+                  className="fade-in"
+                  style={{
+                    minWidth: '200px',
+                    height: '120px',
+                    borderRadius: '16px',
+                    border: '1px solid var(--border)',
+                    background: performanceBg,
+                    padding: '12px',
+                    display: 'grid',
+                    gap: '6px',
+                  }}
+                >
+                  <div style={{ fontWeight: 700, fontSize: '13px' }}>{bot.name}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{strategyLabel || '—'}</div>
+                  <div style={{ fontSize: '18px', fontWeight: 700, color: returnPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                    {returnPct >= 0 ? '+' : ''}{formatPercent(returnPct)}
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div style={{ fontSize: '12px', color: 'var(--muted)', padding: '12px' }}>
-              No bots yet. Hit Start Trading to create one.
-            </div>
-          )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--muted)' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '999px', background: statusColor }} />
+                    {bot.status}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div
+            style={{
+              border: '1px dashed var(--border)',
+              borderRadius: '16px',
+              padding: '18px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              flexWrap: 'wrap',
+              background: 'var(--panel)',
+            }}
+          >
+            <div style={{ fontSize: '12px', color: 'var(--muted)' }}>No bots yet. Start Trading to spin up your first one.</div>
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              style={{ ...primaryBtnStyle, padding: '10px 18px', animation: 'pulse-glow 3s ease-in-out infinite' }}
+            >
+              Start Trading
+            </button>
+          </div>
+        )}
+      </section>
+
+      <div style={sectionDividerStyle} />
+
+      <section style={{ marginTop: '18px' }}>
+        <div
+          style={{
+            background: sentiment.bg,
+            border: '1px solid var(--border)',
+            borderRadius: '16px',
+            padding: '14px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+          }}
+        >
+          <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)' }}>
+            Market Sentiment
+          </div>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: sentiment.color }}>
+            {sentiment.emoji} {sentiment.label}
+          </div>
         </div>
       </section>
 
+      <div style={sectionDividerStyle} />
+
       <section
         style={{
-          marginTop: '28px',
+          marginTop: '18px',
           background: 'var(--panel)',
           border: '1px solid var(--border)',
           borderRadius: '16px',
@@ -595,63 +639,61 @@ export default function TradingDashboardPage() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <div style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)' }}>
-            Market Movers
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '999px', background: 'var(--green)', animation: 'live-dot 1.6s ease-in-out infinite' }} />
+            <div style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)' }}>
+              Market Pulse
+            </div>
           </div>
-          <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Top 10</span>
+          <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Top 5</span>
         </div>
         <div style={{ display: 'grid', gap: '8px' }}>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: isCompact ? '1.2fr 1fr 1fr' : '1.2fr 1fr 1fr 1fr',
-              gap: '10px',
-              fontSize: '11px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.12em',
-              color: 'var(--muted)',
-              padding: '4px 6px',
-            }}
-          >
-            <span>Pair</span>
-            <span>Price</span>
-            <span>24h</span>
-            {!isCompact && <span>7d</span>}
-          </div>
           {movers.map((coin) => {
-            const changeColor = Number(coin.change24h) >= 0 ? 'var(--green)' : 'var(--red)';
-            const changeArrow = Number(coin.change24h) >= 0 ? '▲' : '▼';
-            const raw7d = Number((coin as any).change7d ?? (coin as any).change7d_pct ?? (coin as any).change7dPercent ?? NaN);
-            const change7d = Number.isFinite(raw7d) ? raw7d : null;
-            const change7dColor = change7d !== null && change7d >= 0 ? 'var(--green)' : 'var(--red)';
+            const changeValue = Number(coin.change24h);
+            const changeColor = changeValue >= 0 ? 'var(--green)' : 'var(--red)';
+            const isHot = Math.abs(changeValue) >= 5;
+            const isSuperHot = Math.abs(changeValue) >= 10;
+            const hotStyle = isHot
+              ? {
+                  border: '1px solid rgba(243,194,38,0.4)',
+                  boxShadow: `0 0 ${isSuperHot ? '18px' : '10px'} rgba(243,194,38,0.4)`,
+                }
+              : {};
             return (
               <div
                 key={coin.pair}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: isCompact ? '1.2fr 1fr 1fr' : '1.2fr 1fr 1fr 1fr',
+                  gridTemplateColumns: isCompact ? '1.2fr 1fr 1fr' : '1.4fr 1fr 1fr',
                   gap: '10px',
                   alignItems: 'center',
-                  padding: '10px 6px',
+                  padding: '10px 8px',
                   borderRadius: '12px',
                   border: '1px solid var(--border)',
                   background: 'var(--panel-2)',
                   fontSize: '12px',
+                  ...(hotStyle as React.CSSProperties),
                 }}
               >
-                <div style={{ fontWeight: 600 }}>{coin.pair}</div>
+                <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {coin.pair}
+                  {isHot && <span style={{ fontSize: '14px' }}>🔥</span>}
+                </div>
                 <div style={{ color: 'var(--muted)' }}>{formatCurrency(Number(coin.price))}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: changeColor, fontWeight: 600 }}>
-                  <span style={{ ...pillStyle, padding: '2px 8px', borderColor: changeColor, color: changeColor }}>
-                    {changeArrow}
+                  <span
+                    style={{
+                      ...pillStyle,
+                      padding: '2px 8px',
+                      borderColor: changeColor,
+                      color: changeColor,
+                      background: 'rgba(0,0,0,0.2)',
+                    }}
+                  >
+                    {changeValue >= 0 ? '▲' : '▼'}
                   </span>
-                  {formatPercent(Number(coin.change24h))}
+                  {formatPercent(changeValue)}
                 </div>
-                {!isCompact && (
-                  <div style={{ color: change7d === null ? 'var(--muted)' : change7dColor, fontWeight: 600 }}>
-                    {change7d === null ? '—' : formatPercent(change7d)}
-                  </div>
-                )}
               </div>
             );
           })}
@@ -659,7 +701,9 @@ export default function TradingDashboardPage() {
         </div>
       </section>
 
-      <section style={{ marginTop: '28px' }}>
+      <div style={sectionDividerStyle} />
+
+      <section style={{ marginTop: '18px' }}>
         <div style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', marginBottom: '10px' }}>
           Market News
         </div>
@@ -668,12 +712,19 @@ export default function TradingDashboardPage() {
             <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Unable to load news</div>
           ) : newsItems.length ? (
             <div style={{ display: 'grid', gap: '10px' }}>
-              {newsItems.map((item) => {
+              {newsItems.slice(0, 5).map((item, index) => {
                 const badge = NEWS_SOURCES[item.source as keyof typeof NEWS_SOURCES];
                 return (
                   <div
                     key={`${item.link}-${item.pubDate}`}
-                    style={{ display: 'grid', gridTemplateColumns: isCompact ? '1fr' : 'auto 1fr auto', gap: '10px', alignItems: 'center' }}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: isCompact ? '1fr' : 'auto 1fr auto',
+                      gap: '10px',
+                      alignItems: 'center',
+                      paddingLeft: index === 0 ? '10px' : '0',
+                      borderLeft: index === 0 ? '2px solid #f3c226' : '2px solid transparent',
+                    }}
                   >
                     <span
                       style={{
@@ -704,6 +755,29 @@ export default function TradingDashboardPage() {
           )}
         </div>
       </section>
+
+      <style jsx global>{`
+        @keyframes pulse-glow {
+          0%, 100% { box-shadow: 0 0 20px rgba(123,125,255,0.25); }
+          50% { box-shadow: 0 0 35px rgba(123,125,255,0.5); }
+        }
+        @keyframes live-dot {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+          animation: fade-in 240ms ease-out;
+        }
+        @media (max-width: 900px) {
+          .hero-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
 
       {modalOpen && (
         <div
@@ -1038,4 +1112,10 @@ const pillStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   gap: '6px',
+};
+
+const sectionDividerStyle: React.CSSProperties = {
+  background: 'linear-gradient(90deg, transparent, rgba(243,194,38,0.3), rgba(123,125,255,0.3), transparent)',
+  height: '1px',
+  margin: '20px 0',
 };

@@ -409,16 +409,52 @@ async function ensureBot() {
   return bot;
 }
 
+function generateReason(ind) {
+  const reasons = [];
+  const price = ind.currentPrice;
+  
+  // RSI analysis
+  if (ind.rsi < 30) reasons.push('RSI oversold — strong buy zone');
+  else if (ind.rsi < 40) reasons.push('RSI approaching oversold — watching for bounce');
+  else if (ind.rsi > 70) reasons.push('RSI overbought — may pull back');
+  else if (ind.rsi > 60) reasons.push('RSI elevated — momentum building');
+  else reasons.push('RSI neutral');
+
+  // SMA relationship
+  if (ind.sma20 && ind.sma50) {
+    if (ind.sma20 > ind.sma50) reasons.push('SMA20 above SMA50 (bullish trend)');
+    else {
+      const gap = ((ind.sma50 - ind.sma20) / ind.sma50 * 100).toFixed(1);
+      if (gap < 2) reasons.push(`SMA20 closing in on SMA50 — crossover forming (${gap}% gap)`);
+      else reasons.push('SMA20 below SMA50 (bearish macro)');
+    }
+  }
+
+  // Price vs SMA20
+  if (ind.sma20) {
+    const dist = ((price - ind.sma20) / ind.sma20 * 100);
+    if (Math.abs(dist) < 2) reasons.push('Price near SMA20 — bounce zone');
+    else if (dist > 0) reasons.push(`Price ${dist.toFixed(1)}% above SMA20`);
+    else reasons.push(`Price ${Math.abs(dist).toFixed(1)}% below SMA20`);
+  }
+
+  // Volume
+  if (ind.volumeRatio > 1.5) reasons.push('High volume — strong interest');
+  else if (ind.volumeRatio > 1.0) reasons.push('Volume above average');
+  else if (ind.volumeRatio < 0.5) reasons.push('Low volume — thin market');
+
+  // Entry target
+  if (ind.sma20 && ind.rsi > 40) {
+    const target = ind.sma20 * 0.98;
+    reasons.push(`Entry target: ~$${target.toFixed(target > 100 ? 0 : 2)}`);
+  }
+
+  return reasons.slice(0, 3).join('. ') + '.';
+}
+
 async function updateTradeAnalysis(tradeId, ind) {
-  const analysis = [
-    `Price: $${ind.currentPrice?.toFixed(2)}`,
-    `RSI(14): ${ind.rsi?.toFixed(1) ?? 'N/A'}`,
-    `SMA20: $${ind.sma20?.toFixed(2) ?? 'N/A'}`,
-    `SMA50: $${ind.sma50?.toFixed(2) ?? 'N/A'}`,
-    `Volume: ${ind.volumeRatio?.toFixed(2) ?? 'N/A'}x avg`,
-    `Momentum: ${ind.momentum?.toFixed(2) ?? 'N/A'}%`,
-    `Updated: ${new Date().toISOString()}`,
-  ].join(' | ');
+  const reason = generateReason(ind);
+  const analysis = `${reason}\n\n📊 RSI: ${ind.rsi?.toFixed(1)} | SMA20: $${ind.sma20?.toFixed(2)} | SMA50: $${ind.sma50?.toFixed(2)} | Vol: ${ind.volumeRatio?.toFixed(1)}x | Mom: ${ind.momentum?.toFixed(1)}%`;
 
   try {
     await apiPatch('/api/trading/trades', { trade_id: tradeId, notes: analysis });

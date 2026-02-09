@@ -382,6 +382,17 @@ export async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_tbo_signals_ticker ON tbo_signals(ticker);
       CREATE INDEX IF NOT EXISTS idx_tbo_signals_signal ON tbo_signals(signal);
       CREATE INDEX IF NOT EXISTS idx_tbo_signals_received ON tbo_signals(received_at);
+
+      -- TBO config (key/value settings store)
+      CREATE TABLE IF NOT EXISTS tbo_config (
+        key VARCHAR(100) PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Seed TBO enabled default
+      INSERT INTO tbo_config (key, value) VALUES ('enabled', 'false')
+        ON CONFLICT (key) DO NOTHING;
     `);
     console.log('Database schema initialized');
   } finally {

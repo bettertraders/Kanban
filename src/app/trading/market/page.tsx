@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { TradingNav } from '@/components/TradingNav';
+import { TboToggle } from '@/components/TboToggle';
 
 /* ── types ── */
 type Coin = {
@@ -119,7 +120,11 @@ export default function MarketDashboard() {
   return (
     <div style={{ minHeight: '100vh', background: '#141428', color: '#e2e2ff', padding: '20px 16px' }}>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-        <TradingNav activeTab={'dashboard' as any} />
+        <TradingNav activeTab={'market' as any} />
+
+        <div style={{ margin: '16px 0' }}>
+          <TboToggle />
+        </div>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>

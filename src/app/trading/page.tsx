@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TradingNav } from '@/components/TradingNav';
+import { TboToggle } from '@/components/TboToggle';
 import { ToastStack, type ToastItem } from '@/components/ToastStack';
 import { PieChart } from '@/components/PieChart';
 
@@ -427,6 +428,10 @@ export default function TradingDashboardPage() {
         </div>
       </header>
       <TradingNav activeTab="dashboard" />
+
+      <div style={{ margin: '16px 0' }}>
+        <TboToggle />
+      </div>
 
       <section
         style={{

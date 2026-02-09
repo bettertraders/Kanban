@@ -47,17 +47,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid time format' }, { status: 400 });
     }
 
-    // Store signal
+    // Check if TBO is enabled
+    const configRes = await pool.query(
+      `SELECT value FROM tbo_config WHERE key = 'enabled'`
+    );
+    const tboEnabled = configRes.rows[0]?.value === 'true';
+
+    // Store signal (always store, but mark processed based on enabled state)
     const result = await pool.query(
-      `INSERT INTO tbo_signals (ticker, exchange, interval, signal, price, volume, signal_time)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-      [ticker, exchange, interval, signal, priceNum, volumeNum, signalTime]
+      `INSERT INTO tbo_signals (ticker, exchange, interval, signal, price, volume, signal_time, processed)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+      [ticker, exchange, interval, signal, priceNum, volumeNum, signalTime, false]
     );
 
     const signalId = result.rows[0].id;
-    console.log(`[TBO] ${signal} ${ticker} @ ${price} (${interval}) — id: ${signalId}`);
+    const activeLabel = tboEnabled ? 'ACTIVE' : 'INACTIVE';
+    console.log(`[TBO] [${activeLabel}] ${signal} ${ticker} @ ${price} (${interval}) — id: ${signalId}`);
 
-    return NextResponse.json({ received: true, signalId });
+    return NextResponse.json({ received: true, signalId, active: tboEnabled });
   } catch (error) {
     console.error('[TBO] Webhook error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

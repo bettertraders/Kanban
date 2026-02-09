@@ -307,7 +307,7 @@ export default function TradingDashboardPage() {
         <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'var(--muted)', marginBottom: '12px' }}>
           Portfolio Rebalancer
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', gap: '14px', marginBottom: '16px' }}>
           {[
             { label: 'Portfolio Value', value: formatCurrency(Number(portfolio?.summary?.total_portfolio_value ?? 0)) },
             { label: 'Realized P&L', value: formatCurrency(Number(portfolio?.summary?.total_realized_pnl ?? 0)) },
@@ -315,8 +315,8 @@ export default function TradingDashboardPage() {
             { label: 'Win Rate', value: `${Number(portfolio?.summary?.win_rate ?? 0).toFixed(2)}%` },
             { label: 'Active Positions', value: String(portfolio?.summary?.active_positions ?? 0) },
           ].map((stat) => (
-            <div key={stat.label} style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '18px' }}>
-              <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>{stat.label}</div>
+            <div key={stat.label} style={{ flex: '1 1 0', minWidth: 0, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '18px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.14em', whiteSpace: 'nowrap' }}>{stat.label}</div>
               <div style={{ marginTop: '10px', fontSize: '20px', fontWeight: 700 }}>{stat.value}</div>
             </div>
           ))}

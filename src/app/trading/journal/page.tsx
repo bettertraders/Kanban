@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { TradingNav } from '@/components/TradingNav';
+import PriceTicker from '@/components/PriceTicker';
 
 type JournalEntry = {
   id: number;
@@ -41,6 +42,8 @@ export default function TradingJournalPage() {
   }, []);
 
   return (
+    <>
+    <PriceTicker />
     <div style={{ padding: '32px clamp(20px, 4vw, 48px) 40px', maxWidth: '1400px', margin: '0 auto' }}>
       <header style={{ marginBottom: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -83,5 +86,6 @@ export default function TradingJournalPage() {
         </div>
       </section>
     </div>
+    </>
   );
 }

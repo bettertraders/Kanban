@@ -6,6 +6,7 @@ import { PieChart } from '@/components/PieChart';
 import { RiskSlider } from '@/components/RiskSlider';
 import { TradingNav } from '@/components/TradingNav';
 import { getTargetAllocation } from '@/lib/rebalancer';
+import PriceTicker from '@/components/PriceTicker';
 
 type Bot = {
   id: number;
@@ -225,6 +226,8 @@ export default function BotsPage() {
   const allocation = getTargetAllocation(riskLevel);
 
   return (
+    <>
+    <PriceTicker />
     <div style={{ padding: '32px clamp(20px, 4vw, 48px) 40px', maxWidth: '1400px', margin: '0 auto' }}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -459,5 +462,6 @@ export default function BotsPage() {
         </div>
       )}
     </div>
+    </>
   );
 }

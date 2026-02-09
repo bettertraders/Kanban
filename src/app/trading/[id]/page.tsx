@@ -9,6 +9,7 @@ import { AlertsPanel } from '@/components/AlertsPanel';
 import { TradingNav } from '@/components/TradingNav';
 import { TboToggle } from '@/components/TboToggle';
 import { StartTradeModal } from '@/components/StartTradeModal';
+import PriceTicker from '@/components/PriceTicker';
 
 interface Trade {
   id: number;
@@ -1065,6 +1066,8 @@ export default function TradingBoardPage() {
   if (!board) return null;
 
   return (
+    <>
+    <PriceTicker />
     <div style={{ padding: '32px clamp(20px, 4vw, 48px) 40px', maxWidth: '1720px', margin: '0 auto' }}>
       <header style={{ marginBottom: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -2771,5 +2774,7 @@ function NewTradeModal({
         </div>
       </div>
     </div>
+    </>
   );
+
 }

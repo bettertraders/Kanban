@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { TradingNav } from '@/components/TradingNav';
+import PriceTicker from '@/components/PriceTicker';
 
 type LeaderboardEntry = {
   bot_id: number;
@@ -57,6 +58,8 @@ export default function LeaderboardPage() {
   const podium = entries.slice(0, 3);
 
   return (
+    <>
+    <PriceTicker />
     <div style={{ padding: '32px clamp(20px, 4vw, 48px) 40px', maxWidth: '1400px', margin: '0 auto' }}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -156,5 +159,6 @@ export default function LeaderboardPage() {
         )}
       </section>
     </div>
+    </>
   );
 }

@@ -213,6 +213,36 @@ export async function initializeDatabase() {
 
       CREATE INDEX IF NOT EXISTS idx_trade_activity_trade ON trade_activity(trade_id);
 
+      -- Trade alerts
+      CREATE TABLE IF NOT EXISTS trade_alerts (
+        id SERIAL PRIMARY KEY,
+        board_id INTEGER REFERENCES boards(id) ON DELETE CASCADE,
+        trade_id INTEGER REFERENCES trades(id) ON DELETE SET NULL,
+        alert_type VARCHAR(50) NOT NULL,
+        condition_value DECIMAL(20,8),
+        condition_operator VARCHAR(10),
+        message TEXT,
+        triggered BOOLEAN DEFAULT false,
+        triggered_at TIMESTAMP,
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_trade_alerts_board ON trade_alerts(board_id);
+
+      -- Trade journal
+      CREATE TABLE IF NOT EXISTS trade_journal (
+        id SERIAL PRIMARY KEY,
+        trade_id INTEGER REFERENCES trades(id) ON DELETE CASCADE,
+        entry_type VARCHAR(20) NOT NULL,
+        content TEXT NOT NULL,
+        mood VARCHAR(20),
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_trade_journal_trade ON trade_journal(trade_id);
+
       -- Price cache
       CREATE TABLE IF NOT EXISTS price_history (
         id SERIAL PRIMARY KEY,
@@ -1009,11 +1039,41 @@ export async function getTradeActivity(tradeId: number) {
   return result.rows;
 }
 
+export async function getBotActivityForBoard(boardId: number, limit: number = 20) {
+  const result = await pool.query(
+    `
+      SELECT ta.*, t.coin_pair, t.confidence_score
+      FROM trade_activity ta
+      JOIN trades t ON ta.trade_id = t.id
+      WHERE t.board_id = $1 AND ta.actor_type = 'bot'
+      ORDER BY ta.created_at DESC
+      LIMIT $2
+    `,
+    [boardId, limit]
+  );
+  return result.rows;
+}
+
 function parseNumeric(value: unknown): number | null {
   if (value === null || value === undefined) return null;
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
   const parsed = parseFloat(String(value));
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizePair(pair: string) {
+  return pair.replace(/-/g, '/').toUpperCase();
+}
+
+function formatJournalNumber(value: number) {
+  const abs = Math.abs(value);
+  const decimals = abs >= 100 ? 2 : abs >= 1 ? 4 : 6;
+  return value.toFixed(decimals);
+}
+
+function formatJournalCurrency(value: number | null) {
+  if (value === null || !Number.isFinite(value)) return '—';
+  return `$${value.toFixed(2)}`;
 }
 
 function computePnl(
@@ -1064,6 +1124,13 @@ export async function enterTrade(tradeId: number, entryPrice: number | null, use
     user?.name || 'Unknown',
     { entry_price: finalEntryPrice, direction: trade.direction, position_size: trade.position_size }
   );
+  await addJournalEntry(
+    tradeId,
+    'note',
+    `Entered at $${formatJournalNumber(finalEntryPrice)}`,
+    null,
+    userId
+  );
   return updated;
 }
 
@@ -1107,6 +1174,14 @@ export async function exitTrade(tradeId: number, exitPrice: number, lessonTag: s
     user?.name || 'Unknown',
     { exit_price: exitPrice, pnl_dollar: pnlDollar, pnl_percent: pnlPercent, lesson_tag: lessonTag || null }
   );
+  const pnlText = `${formatJournalCurrency(pnlDollar)} (${pnlPercent !== null ? pnlPercent.toFixed(2) : '—'}%)`;
+  await addJournalEntry(
+    tradeId,
+    'note',
+    `Exited at $${formatJournalNumber(exitPrice)}, P&L: ${pnlText}`,
+    null,
+    userId
+  );
   return updated;
 }
 
@@ -1132,6 +1207,13 @@ export async function parkTrade(tradeId: number, pauseReason: string, userId: nu
     'user',
     user?.name || 'Unknown',
     { pause_reason: pauseReason }
+  );
+  await addJournalEntry(
+    tradeId,
+    'note',
+    `Parked: ${pauseReason}`,
+    null,
+    userId
   );
   return updated;
 }
@@ -1179,6 +1261,226 @@ export async function updateTradeSignals(
     signals
   );
   return updated;
+}
+
+export async function getAlertsForBoard(boardId: number) {
+  const result = await pool.query(
+    `
+      SELECT ta.*, t.coin_pair
+      FROM trade_alerts ta
+      LEFT JOIN trades t ON ta.trade_id = t.id
+      WHERE ta.board_id = $1
+      ORDER BY ta.created_at DESC
+    `,
+    [boardId]
+  );
+  return result.rows;
+}
+
+export async function createAlert(
+  boardId: number,
+  tradeId: number | null,
+  alertType: string,
+  conditionValue: number | null,
+  conditionOperator: string | null,
+  message: string | null,
+  userId: number
+) {
+  const result = await pool.query(
+    `
+      INSERT INTO trade_alerts (board_id, trade_id, alert_type, condition_value, condition_operator, message, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING *
+    `,
+    [boardId, tradeId, alertType, conditionValue, conditionOperator, message, userId]
+  );
+  return result.rows[0];
+}
+
+export async function updateAlert(alertId: number, updates: Record<string, unknown>) {
+  const allowedFields = [
+    'alert_type',
+    'trade_id',
+    'condition_value',
+    'condition_operator',
+    'message',
+    'triggered',
+    'triggered_at'
+  ];
+  const setClause: string[] = [];
+  const values: unknown[] = [];
+  let paramIndex = 1;
+
+  for (const [key, value] of Object.entries(updates)) {
+    if (allowedFields.includes(key)) {
+      setClause.push(`${key} = $${paramIndex}`);
+      values.push(value);
+      paramIndex += 1;
+    }
+  }
+
+  if (!setClause.length) return null;
+  values.push(alertId);
+
+  const result = await pool.query(
+    `UPDATE trade_alerts SET ${setClause.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
+    values
+  );
+  return result.rows[0];
+}
+
+function compareWithOperator(value: number, operator: string, target: number) {
+  switch (operator) {
+    case '>':
+      return value > target;
+    case '>=':
+      return value >= target;
+    case '<':
+      return value < target;
+    case '<=':
+      return value <= target;
+    case '=':
+    case '==':
+      return value === target;
+    default:
+      return value > target;
+  }
+}
+
+function resolvePriceFromMap(prices: Record<string, number>, pair: string) {
+  const normalized = normalizePair(pair);
+  return prices[normalized] ?? prices[normalized.replace('/', '-')] ?? prices[pair] ?? null;
+}
+
+export async function checkAlerts(boardId: number, prices: Record<string, number>) {
+  const alertsResult = await pool.query(
+    `SELECT * FROM trade_alerts WHERE board_id = $1 AND triggered = false`,
+    [boardId]
+  );
+  const alerts = alertsResult.rows;
+  if (!alerts.length) return [];
+
+  const tradesResult = await pool.query(
+    `
+      SELECT id, coin_pair, direction, entry_price, current_price, stop_loss, pnl_percent, position_size, confidence_score
+      FROM trades
+      WHERE board_id = $1
+    `,
+    [boardId]
+  );
+
+  const tradeMap = new Map<number, Record<string, unknown>>();
+  tradesResult.rows.forEach((trade) => tradeMap.set(trade.id, trade));
+
+  const triggeredAlerts: Record<string, unknown>[] = [];
+  const triggeredIds: number[] = [];
+
+  for (const alert of alerts) {
+    const tradeId = alert.trade_id ? Number(alert.trade_id) : null;
+    const trade = tradeId ? tradeMap.get(tradeId) : null;
+    if (tradeId && !trade) continue;
+
+    const alertType = String(alert.alert_type || '');
+    const operator = String(alert.condition_operator || '').trim();
+    const conditionValue = parseNumeric(alert.condition_value);
+    const tradePair = trade ? String(trade.coin_pair || '') : '';
+    const livePrice = tradePair ? resolvePriceFromMap(prices, tradePair) : null;
+    const currentPrice = livePrice ?? parseNumeric(trade?.current_price);
+
+    let shouldTrigger = false;
+
+    if (alertType === 'price_above' && currentPrice !== null && conditionValue !== null) {
+      shouldTrigger = currentPrice > conditionValue;
+    }
+
+    if (alertType === 'price_below' && currentPrice !== null && conditionValue !== null) {
+      shouldTrigger = currentPrice < conditionValue;
+    }
+
+    if (alertType === 'pnl_target' && trade && conditionValue !== null) {
+      const pnl = currentPrice !== null
+        ? computePnl(trade.entry_price, currentPrice, trade.position_size, trade.direction)
+        : null;
+      const pnlPercent = parseNumeric(trade.pnl_percent) ?? pnl?.pnlPercent ?? null;
+      if (pnlPercent !== null) {
+        shouldTrigger = compareWithOperator(pnlPercent, operator || '>', conditionValue);
+      }
+    }
+
+    if (alertType === 'stop_loss_hit' && trade && currentPrice !== null) {
+      const stopLoss = parseNumeric(trade.stop_loss);
+      if (stopLoss !== null) {
+        const direction = String(trade.direction || '').toLowerCase();
+        if (direction === 'short') {
+          shouldTrigger = currentPrice >= stopLoss;
+        } else {
+          shouldTrigger = currentPrice <= stopLoss;
+        }
+      }
+    }
+
+    if (alertType === 'confidence_change' && trade && conditionValue !== null) {
+      const confidence = parseNumeric(trade.confidence_score);
+      if (confidence !== null) {
+        shouldTrigger = compareWithOperator(confidence, operator || '>', conditionValue);
+      }
+    }
+
+    if (shouldTrigger) {
+      triggeredIds.push(Number(alert.id));
+      triggeredAlerts.push({
+        ...alert,
+        triggered: true,
+        triggered_at: new Date().toISOString(),
+        coin_pair: tradePair || null
+      });
+    }
+  }
+
+  if (triggeredIds.length) {
+    await pool.query(
+      `UPDATE trade_alerts SET triggered = true, triggered_at = NOW() WHERE id = ANY($1::int[])`,
+      [triggeredIds]
+    );
+  }
+
+  return triggeredAlerts;
+}
+
+export async function deleteAlert(alertId: number) {
+  await pool.query('DELETE FROM trade_alerts WHERE id = $1', [alertId]);
+}
+
+export async function getJournalEntries(tradeId: number) {
+  const result = await pool.query(
+    `
+      SELECT tj.*, u.name as created_by_name
+      FROM trade_journal tj
+      LEFT JOIN users u ON tj.created_by = u.id
+      WHERE tj.trade_id = $1
+      ORDER BY tj.created_at DESC
+    `,
+    [tradeId]
+  );
+  return result.rows;
+}
+
+export async function addJournalEntry(
+  tradeId: number,
+  entryType: string,
+  content: string,
+  mood: string | null,
+  userId: number
+) {
+  const result = await pool.query(
+    `
+      INSERT INTO trade_journal (trade_id, entry_type, content, mood, created_by)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING *
+    `,
+    [tradeId, entryType, content, mood, userId]
+  );
+  return result.rows[0];
 }
 
 export async function updateActiveTradePrices(prices: Record<string, number>) {

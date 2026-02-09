@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { UserMenu } from '@/components/UserMenu';
 import TradingChart from '@/components/TradingChart';
 import { ToastStack, type ToastItem } from '@/components/ToastStack';
+import { AlertsPanel } from '@/components/AlertsPanel';
 
 interface Trade {
   id: number;
@@ -92,6 +93,23 @@ interface ActivityItem {
   actor_name?: string | null;
   created_at: string;
   details?: any;
+}
+
+interface BotActivityItem {
+  id: number;
+  action: string;
+  created_at: string;
+  coin_pair?: string | null;
+  confidence_score?: number | string | null;
+}
+
+interface JournalEntry {
+  id: number;
+  entry_type: string;
+  content: string;
+  mood?: string | null;
+  created_at: string;
+  created_by_name?: string | null;
 }
 
 const columns = [
@@ -191,6 +209,23 @@ function signalBadge(signal?: string | null) {
   return { label: 'NEUTRAL', color: '#9ca3af', bg: 'rgba(156, 163, 175, 0.18)' };
 }
 
+function getBotDisplayName(name?: string | null) {
+  const lower = String(name || '').toLowerCase();
+  if (lower.includes('penny')) return 'Penny';
+  if (lower.includes('owen')) return 'Owen';
+  if (lower.includes('betty')) return 'Betty';
+  return null;
+}
+
+function confidenceColor(score: number | null) {
+  if (score === null || !Number.isFinite(score)) return '#9ca3af';
+  if (score >= 80) return '#4ade80';
+  if (score >= 60) return '#a3e635';
+  if (score >= 40) return '#f5b544';
+  if (score >= 20) return '#f59e0b';
+  return '#f05b6f';
+}
+
 export default function TradingBoardPage() {
   const params = useParams();
   const router = useRouter();
@@ -216,6 +251,11 @@ export default function TradingBoardPage() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [newTradeOpen, setNewTradeOpen] = useState(false);
   const [actionMenu, setActionMenu] = useState<{ trade: Trade; x: number; y: number } | null>(null);
+  const [botActivity, setBotActivity] = useState<BotActivityItem[]>([]);
+  const [botActivityLoading, setBotActivityLoading] = useState(true);
+  const [botScansExpanded, setBotScansExpanded] = useState(true);
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const [alertBadgeCount, setAlertBadgeCount] = useState(0);
 
   const priceMapRef = useRef<Record<string, { price: number; volume24h: number; change24h: number }>>({});
   const tradesRef = useRef<Trade[]>([]);
@@ -223,6 +263,7 @@ export default function TradingBoardPage() {
   const toastTimersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
   const reconnectRef = useRef<Record<string, ReturnType<typeof setTimeout> | null>>({});
   const priceAlertRef = useRef<Record<string, { tp?: boolean; sl?: boolean }>>({});
+  const alertCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchBoard = useCallback(async () => {
     try {
@@ -270,6 +311,32 @@ export default function TradingBoardPage() {
     }
   }, [boardId]);
 
+  const fetchBotActivity = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/v1/boards/${boardId}/bot-activity?limit=12`);
+      if (res.ok) {
+        const data = await res.json();
+        setBotActivity(data.activity || []);
+      }
+    } catch {
+      // silent
+    }
+    setBotActivityLoading(false);
+  }, [boardId]);
+
+  const refreshAlertCount = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/v1/alerts?boardId=${boardId}`);
+      if (res.ok) {
+        const data = await res.json();
+        const count = (data.alerts || []).filter((alert: { triggered?: boolean }) => !alert.triggered).length;
+        setAlertBadgeCount(count);
+      }
+    } catch {
+      // silent
+    }
+  }, [boardId]);
+
   const pushToast = useCallback((message: string, type: ToastItem['type'] = 'info') => {
     const id = toastIdRef.current++;
     setToasts(prev => [...prev, { id, message, type }]);
@@ -286,7 +353,9 @@ export default function TradingBoardPage() {
     fetchBoard();
     fetchTrades();
     fetchStats();
-  }, [fetchBoard, fetchTrades, fetchStats]);
+    fetchBotActivity();
+    refreshAlertCount();
+  }, [fetchBoard, fetchBotActivity, fetchStats, fetchTrades, refreshAlertCount]);
 
   useEffect(() => {
     if (!stats || statsInitialized) return;
@@ -448,6 +517,7 @@ export default function TradingBoardPage() {
             const nextTrades = payload.trades as Trade[];
             const prevTrades = tradesRef.current;
             const prevMap = new Map(prevTrades.map(t => [t.id, t]));
+            let botUpdate = false;
 
             nextTrades.forEach((trade) => {
               const prev = prevMap.get(trade.id);
@@ -465,7 +535,13 @@ export default function TradingBoardPage() {
                   }
                 }
               } else {
-                pushToast(`New trade: ${normalizePair(trade.coin_pair)}`, 'success');
+                const botName = getBotDisplayName(trade.created_by_name);
+                if (botName) {
+                  pushToast(`🤖 ${botName} added ${normalizePair(trade.coin_pair)} to ${trade.column_name || 'Watchlist'}`, 'success');
+                  botUpdate = true;
+                } else {
+                  pushToast(`New trade: ${normalizePair(trade.coin_pair)}`, 'success');
+                }
               }
             });
 
@@ -473,6 +549,9 @@ export default function TradingBoardPage() {
             setTrades(nextTrades);
             setTradesLoading(false);
             fetchStats();
+            if (botUpdate) {
+              fetchBotActivity();
+            }
           }
         } catch {
           // ignore
@@ -498,7 +577,7 @@ export default function TradingBoardPage() {
         clearTimeout(reconnectRef.current.trades);
       }
     };
-  }, [boardId, fetchStats, pushToast]);
+  }, [boardId, fetchBotActivity, fetchStats, pushToast]);
 
   useEffect(() => {
     trades.forEach((trade) => {
@@ -529,6 +608,44 @@ export default function TradingBoardPage() {
       }
     });
   }, [priceMap, trades, pushToast]);
+
+  useEffect(() => {
+    if (!Object.keys(priceMap).length) return;
+    if (alertCheckRef.current) {
+      clearTimeout(alertCheckRef.current);
+    }
+    alertCheckRef.current = setTimeout(async () => {
+      try {
+        const payloadPrices = Object.fromEntries(
+          Object.entries(priceMap).map(([pair, data]) => [pair, data.price])
+        );
+        const res = await fetch('/api/v1/alerts/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ boardId: Number(boardId), prices: payloadPrices }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const triggered = data.triggered || [];
+          if (triggered.length) {
+            triggered.forEach((alert: { coin_pair?: string | null; alert_type?: string }) => {
+              const pair = alert.coin_pair ? normalizePair(alert.coin_pair) : 'Board';
+              pushToast(`🔔 Alert triggered: ${pair}`, 'warning');
+            });
+            refreshAlertCount();
+          }
+        }
+      } catch {
+        // silent
+      }
+    }, 4000);
+
+    return () => {
+      if (alertCheckRef.current) {
+        clearTimeout(alertCheckRef.current);
+      }
+    };
+  }, [boardId, priceMap, pushToast, refreshAlertCount]);
 
   useEffect(() => {
     if (!actionMenu) return;
@@ -768,6 +885,45 @@ export default function TradingBoardPage() {
             SSE {sseConnected ? 'connected' : 'disconnected'}
           </div>
           <button
+            onClick={() => setAlertsOpen(true)}
+            style={{
+              position: 'relative',
+              background: 'var(--panel-2)',
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
+              padding: '8px 12px',
+              borderRadius: '999px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+            aria-label="Open alerts panel"
+          >
+            🔔 Alerts
+            {alertBadgeCount > 0 && (
+              <span style={{
+                position: 'absolute',
+                top: '-4px',
+                right: '-4px',
+                minWidth: '18px',
+                height: '18px',
+                borderRadius: '999px',
+                background: '#f05b6f',
+                color: '#fff',
+                fontSize: '10px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 5px',
+                boxShadow: '0 0 10px rgba(240,91,111,0.5)'
+              }}>
+                {alertBadgeCount}
+              </span>
+            )}
+          </button>
+          <button
             onClick={() => setNewTradeOpen(true)}
             style={{ ...primaryBtnStyle, padding: '8px 14px', fontSize: '12px' }}
           >
@@ -779,6 +935,75 @@ export default function TradingBoardPage() {
           <UserMenu />
         </div>
       </header>
+
+      <section style={{ marginBottom: '22px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '10px' }}>
+          <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'var(--muted)' }}>
+            Bot Scans
+          </div>
+          <button
+            onClick={() => setBotScansExpanded((prev) => !prev)}
+            style={{
+              background: 'transparent',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              padding: '6px 12px',
+              borderRadius: '999px',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: 600,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+            }}
+          >
+            {botScansExpanded ? 'Hide' : 'Show'}
+          </button>
+        </div>
+        <div
+          style={{
+            overflow: 'hidden',
+            maxHeight: botScansExpanded ? '260px' : '0px',
+            opacity: botScansExpanded ? 1 : 0,
+            transition: 'max-height 0.4s ease, opacity 0.25s ease',
+            pointerEvents: botScansExpanded ? 'auto' : 'none',
+          }}
+        >
+          <div style={{ ...glassCard, padding: '14px 16px' }}>
+            {botActivityLoading ? (
+              <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Loading bot activity...</div>
+            ) : botActivity.length === 0 ? (
+              <div style={{ fontSize: '12px', color: 'var(--muted)' }}>No recent bot scans yet.</div>
+            ) : (
+              <div style={{ display: 'grid', gap: '10px' }}>
+                {botActivity.map((item) => {
+                  const confidence = toNumber(item.confidence_score);
+                  const confidenceTone = confidenceColor(confidence);
+                  return (
+                    <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                      <div>
+                        <div style={{ fontSize: '12px', fontWeight: 600 }}>
+                          {item.action} · {item.coin_pair ? normalizePair(item.coin_pair) : '—'}
+                        </div>
+                        <div style={{ fontSize: '10px', color: 'var(--muted)' }}>
+                          {new Date(item.created_at).toLocaleString()}
+                        </div>
+                      </div>
+                      <div style={{ width: '120px' }}>
+                        <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '4px', textAlign: 'right' }}>
+                          Confidence {confidence ?? '—'}
+                        </div>
+                        <div style={{ height: '6px', borderRadius: '999px', background: 'var(--panel-3)', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, confidence ?? 0))}%`, background: confidenceTone }} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
 
       <section style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
@@ -999,6 +1224,9 @@ export default function TradingBoardPage() {
                       const direction = String(trade.direction || '').toUpperCase();
                       const directionTone = direction === 'SHORT' ? '#f05b6f' : '#4ade80';
                       const signal = signalBadge(trade.tbo_signal);
+                      const botName = getBotDisplayName(trade.created_by_name);
+                      const confidence = toNumber(trade.confidence_score);
+                      const confidenceTone = confidenceColor(confidence);
 
                       return (
                         <article
@@ -1036,6 +1264,11 @@ export default function TradingBoardPage() {
                               {pair.replace('/', ' / ')}
                             </button>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              {botName && (
+                                <div style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(123,125,255,0.2)', color: 'var(--accent)', border: '1px solid rgba(123,125,255,0.4)', fontWeight: 600 }}>
+                                  🤖 {botName}
+                                </div>
+                              )}
                               <div style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '999px', background: `${directionTone}22`, color: directionTone, border: `1px solid ${directionTone}44`, fontWeight: 600 }}>
                                 {direction || '—'}
                               </div>
@@ -1101,7 +1334,7 @@ export default function TradingBoardPage() {
                             <div style={{ flex: 1 }}>
                               <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '4px' }}>Confidence</div>
                               <div style={{ height: '6px', borderRadius: '999px', background: 'var(--panel-3)', overflow: 'hidden' }}>
-                                <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, Number(trade.confidence_score || 0)))}%`, background: col.color }} />
+                                <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, confidence ?? 0))}%`, background: confidenceTone }} />
                               </div>
                             </div>
                             <div style={{ fontSize: '10px', color: 'var(--muted)', minWidth: '38px', textAlign: 'right' }}>RSI {toNumber(trade.rsi_value) ?? '—'}</div>
@@ -1195,6 +1428,14 @@ export default function TradingBoardPage() {
           </div>
         </div>
       )}
+
+      <AlertsPanel
+        boardId={Number(boardId)}
+        trades={trades}
+        open={alertsOpen}
+        onClose={() => setAlertsOpen(false)}
+        onCountChange={(count) => setAlertBadgeCount(count)}
+      />
 
       {editingTrade && (
         <TradeDetailModal
@@ -1362,6 +1603,13 @@ function TradeDetailModal({ trade, livePrice, onClose, onSaved }: { trade: Trade
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [loadingComments, setLoadingComments] = useState(true);
+  const [activeTab, setActiveTab] = useState<'details' | 'journal'>('details');
+  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
+  const [journalLoading, setJournalLoading] = useState(true);
+  const [entryType, setEntryType] = useState('note');
+  const [entryContent, setEntryContent] = useState('');
+  const [entryMood, setEntryMood] = useState('');
+  const [entrySaving, setEntrySaving] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -1379,7 +1627,15 @@ function TradeDetailModal({ trade, livePrice, onClose, onSaved }: { trade: Trade
           setComments(data.comments || []);
         }
       } catch {}
+      try {
+        const res = await fetch(`/api/v1/trades/${trade.id}/journal`);
+        if (res.ok) {
+          const data = await res.json();
+          setJournalEntries(data.entries || []);
+        }
+      } catch {}
       setLoadingComments(false);
+      setJournalLoading(false);
     })();
   }, [trade.id]);
 
@@ -1456,7 +1712,34 @@ function TradeDetailModal({ trade, livePrice, onClose, onSaved }: { trade: Trade
     } catch {}
   };
 
+  const handleAddJournalEntry = async () => {
+    if (!entryContent.trim()) return;
+    setEntrySaving(true);
+    try {
+      const res = await fetch(`/api/v1/trades/${trade.id}/journal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entry_type: entryType, content: entryContent.trim(), mood: entryMood || null }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setJournalEntries((prev) => [data.entry, ...prev]);
+        setEntryContent('');
+        setEntryMood('');
+      }
+    } catch {}
+    setEntrySaving(false);
+  };
+
   const sectionTitleStyle: React.CSSProperties = { fontSize: '12px', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px' };
+  const journalTypeStyles: Record<string, { label: string; color: string; bg: string }> = {
+    note: { label: 'Note', color: '#9ca3af', bg: 'rgba(156, 163, 175, 0.2)' },
+    lesson: { label: 'Lesson', color: '#4ade80', bg: 'rgba(74, 222, 128, 0.2)' },
+    mistake: { label: 'Mistake', color: '#f05b6f', bg: 'rgba(240, 91, 111, 0.2)' },
+    win_reason: { label: 'Win Reason', color: '#4ade80', bg: 'rgba(74, 222, 128, 0.2)' },
+    strategy: { label: 'Strategy', color: '#7b7dff', bg: 'rgba(123, 125, 255, 0.2)' },
+    market_context: { label: 'Context', color: '#f5b544', bg: 'rgba(245, 181, 68, 0.2)' },
+  };
 
   return (
     <div
@@ -1480,149 +1763,254 @@ function TradeDetailModal({ trade, livePrice, onClose, onSaved }: { trade: Trade
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', fontSize: '20px', cursor: 'pointer' }}>×</button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '20px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div>
-              <div style={sectionTitleStyle}>Trade Details</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--muted)' }}>Entry Price</label>
-                  <input value={entryPrice} onChange={e => setEntryPrice(e.target.value)} style={inputStyle} />
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
+          <button
+            onClick={() => setActiveTab('details')}
+            style={{
+              ...secondaryBtnStyle,
+              padding: '8px 14px',
+              background: activeTab === 'details' ? 'rgba(123,125,255,0.2)' : 'transparent',
+              borderColor: activeTab === 'details' ? 'rgba(123,125,255,0.5)' : 'var(--border)',
+              color: activeTab === 'details' ? 'var(--accent)' : 'var(--text)',
+            }}
+          >
+            Details
+          </button>
+          <button
+            onClick={() => setActiveTab('journal')}
+            style={{
+              ...secondaryBtnStyle,
+              padding: '8px 14px',
+              background: activeTab === 'journal' ? 'rgba(74,222,128,0.2)' : 'transparent',
+              borderColor: activeTab === 'journal' ? 'rgba(74,222,128,0.5)' : 'var(--border)',
+              color: activeTab === 'journal' ? '#4ade80' : 'var(--text)',
+            }}
+          >
+            Journal
+          </button>
+        </div>
+
+        {activeTab === 'details' ? (
+          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '20px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <div style={sectionTitleStyle}>Trade Details</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--muted)' }}>Entry Price</label>
+                    <input value={entryPrice} onChange={e => setEntryPrice(e.target.value)} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--muted)' }}>Direction</label>
+                    <select value={direction} onChange={e => setDirection(e.target.value)} style={inputStyle}>
+                      <option value="long">LONG</option>
+                      <option value="short">SHORT</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--muted)' }}>Stop Loss</label>
+                    <input value={stopLoss} onChange={e => setStopLoss(e.target.value)} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--muted)' }}>Take Profit</label>
+                    <input value={takeProfit} onChange={e => setTakeProfit(e.target.value)} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--muted)' }}>Position Size</label>
+                    <input value={positionSize} onChange={e => setPositionSize(e.target.value)} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--muted)' }}>Status</label>
+                    <input value={trade.status || '—'} readOnly style={{ ...inputStyle, background: 'var(--panel-3)' }} />
+                  </div>
                 </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--muted)' }}>Direction</label>
-                  <select value={direction} onChange={e => setDirection(e.target.value)} style={inputStyle}>
-                    <option value="long">LONG</option>
-                    <option value="short">SHORT</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--muted)' }}>Stop Loss</label>
-                  <input value={stopLoss} onChange={e => setStopLoss(e.target.value)} style={inputStyle} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--muted)' }}>Take Profit</label>
-                  <input value={takeProfit} onChange={e => setTakeProfit(e.target.value)} style={inputStyle} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--muted)' }}>Position Size</label>
-                  <input value={positionSize} onChange={e => setPositionSize(e.target.value)} style={inputStyle} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--muted)' }}>Status</label>
-                  <input value={trade.status || '—'} readOnly style={{ ...inputStyle, background: 'var(--panel-3)' }} />
+              </div>
+
+              <div>
+                <div style={sectionTitleStyle}>Notes</div>
+                <textarea
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  style={{ ...inputStyle, minHeight: '100px', resize: 'vertical' }}
+                  placeholder="Trade notes..."
+                />
+              </div>
+
+              <div>
+                <div style={sectionTitleStyle}>Actions</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
+                  <button onClick={handleEnter} style={primaryBtnStyle}>Enter Trade</button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      value={exitPrice}
+                      onChange={e => setExitPrice(e.target.value)}
+                      placeholder="Exit price"
+                      style={{ ...inputStyle, width: '140px' }}
+                    />
+                    <button onClick={handleExit} style={secondaryBtnStyle}>Exit Trade</button>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      value={pauseReason}
+                      onChange={e => setPauseReason(e.target.value)}
+                      placeholder="Pause reason"
+                      style={{ ...inputStyle, width: '200px' }}
+                    />
+                    <button onClick={handlePark} style={secondaryBtnStyle}>Park</button>
+                  </div>
+                  <button onClick={handleSave} style={{ ...primaryBtnStyle, opacity: saving ? 0.6 : 1 }} disabled={saving}>
+                    Save Changes
+                  </button>
                 </div>
               </div>
             </div>
 
-            <div>
-              <div style={sectionTitleStyle}>Notes</div>
-              <textarea
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                style={{ ...inputStyle, minHeight: '100px', resize: 'vertical' }}
-                placeholder="Trade notes..."
-              />
-            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: '14px', padding: '16px' }}>
+                <div style={sectionTitleStyle}>Activity Timeline</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '220px', overflowY: 'auto' }}>
+                  {activity.length === 0 ? (
+                    <div style={{ fontSize: '12px', color: 'var(--muted)', fontStyle: 'italic' }}>No activity yet</div>
+                  ) : (
+                    activity.map((item) => (
+                      <div key={item.id} style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 600 }}>{item.action}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                          {item.from_column ? `${item.from_column} → ` : ''}{item.to_column || '—'} · {item.actor_name || 'System'}
+                        </div>
+                        <div style={{ fontSize: '10px', color: 'var(--muted)' }}>{new Date(item.created_at).toLocaleString()}</div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
 
-            <div>
-              <div style={sectionTitleStyle}>Actions</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
-                <button onClick={handleEnter} style={primaryBtnStyle}>Enter Trade</button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <input
-                    value={exitPrice}
-                    onChange={e => setExitPrice(e.target.value)}
-                    placeholder="Exit price"
-                    style={{ ...inputStyle, width: '140px' }}
-                  />
-                  <button onClick={handleExit} style={secondaryBtnStyle}>Exit Trade</button>
+              <div style={{ background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: '14px', padding: '16px' }}>
+                <div style={sectionTitleStyle}>Comments</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '180px', overflowY: 'auto', marginBottom: '10px' }}>
+                  {loadingComments ? (
+                    <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Loading comments...</div>
+                  ) : comments.length === 0 ? (
+                    <div style={{ fontSize: '12px', color: 'var(--muted)', fontStyle: 'italic' }}>No comments yet</div>
+                  ) : (
+                    comments.map(c => {
+                      const isBot = (c.user_name || '').toLowerCase().includes('penny') || (c.user_name || '').toLowerCase().includes('bot');
+                      return (
+                        <div key={c.id} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                          <div style={{
+                            width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0,
+                            background: isBot ? 'linear-gradient(135deg, #7b7dff, #9a9cff)' : 'var(--panel-3)',
+                            border: '1px solid var(--border)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: isBot ? '13px' : '11px', fontWeight: 600, color: '#fff',
+                          }}>
+                            {isBot ? '🤖' : (c.user_name || '?').charAt(0).toUpperCase()}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'baseline' }}>
+                              <span style={{ fontSize: '12px', fontWeight: 600 }}>{c.user_name || 'Unknown'}</span>
+                              {isBot && <span style={{ fontSize: '9px', background: 'rgba(123,125,255,0.2)', color: 'var(--accent)', padding: '1px 6px', borderRadius: '999px' }}>bot</span>}
+                              <span style={{ fontSize: '10px', color: 'var(--muted)' }}>
+                                {new Date(c.created_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '12px', color: 'var(--text)', lineHeight: 1.5, marginTop: '2px', whiteSpace: 'pre-wrap' }}>{c.content}</div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
                   <input
-                    value={pauseReason}
-                    onChange={e => setPauseReason(e.target.value)}
-                    placeholder="Pause reason"
-                    style={{ ...inputStyle, width: '200px' }}
+                    value={newComment}
+                    onChange={e => setNewComment(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleAddComment())}
+                    placeholder="Write a comment..."
+                    style={{ ...inputStyle, flex: 1, fontSize: '12px', padding: '8px 12px' }}
                   />
-                  <button onClick={handlePark} style={secondaryBtnStyle}>Park</button>
+                  <button onClick={handleAddComment} style={{ ...primaryBtnStyle, padding: '8px 14px', fontSize: '12px' }}>Send</button>
                 </div>
-                <button onClick={handleSave} style={{ ...primaryBtnStyle, opacity: saving ? 0.6 : 1 }} disabled={saving}>
-                  Save Changes
-                </button>
               </div>
             </div>
           </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: '14px', padding: '16px' }}>
-              <div style={sectionTitleStyle}>Activity Timeline</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '220px', overflowY: 'auto' }}>
-                {activity.length === 0 ? (
-                  <div style={{ fontSize: '12px', color: 'var(--muted)', fontStyle: 'italic' }}>No activity yet</div>
-                ) : (
-                  activity.map((item) => (
-                    <div key={item.id} style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 600 }}>{item.action}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
-                        {item.from_column ? `${item.from_column} → ` : ''}{item.to_column || '—'} · {item.actor_name || 'System'}
-                      </div>
-                      <div style={{ fontSize: '10px', color: 'var(--muted)' }}>{new Date(item.created_at).toLocaleString()}</div>
-                    </div>
-                  ))
-                )}
+        ) : (
+          <div style={{ display: 'grid', gap: '16px' }}>
+            {(trade.status === 'lost' || trade.column_name === 'Losses') && trade.lesson_tag && (
+              <div style={{ background: 'rgba(240, 91, 111, 0.16)', border: '1px solid rgba(240, 91, 111, 0.4)', borderRadius: '14px', padding: '14px' }}>
+                <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.18em', color: '#f05b6f', marginBottom: '6px' }}>Lesson Tag</div>
+                <div style={{ fontSize: '14px', fontWeight: 600 }}>{trade.lesson_tag}</div>
               </div>
-            </div>
+            )}
 
             <div style={{ background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: '14px', padding: '16px' }}>
-              <div style={sectionTitleStyle}>Comments</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '180px', overflowY: 'auto', marginBottom: '10px' }}>
-                {loadingComments ? (
-                  <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Loading comments...</div>
-                ) : comments.length === 0 ? (
-                  <div style={{ fontSize: '12px', color: 'var(--muted)', fontStyle: 'italic' }}>No comments yet</div>
+              <div style={sectionTitleStyle}>Journal Timeline</div>
+              <div style={{ display: 'grid', gap: '10px', maxHeight: '280px', overflowY: 'auto' }}>
+                {journalLoading ? (
+                  <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Loading journal...</div>
+                ) : journalEntries.length === 0 ? (
+                  <div style={{ fontSize: '12px', color: 'var(--muted)' }}>No journal entries yet.</div>
                 ) : (
-                  comments.map(c => {
-                    const isBot = (c.user_name || '').toLowerCase().includes('penny') || (c.user_name || '').toLowerCase().includes('bot');
+                  journalEntries.map((entry) => {
+                    const style = journalTypeStyles[entry.entry_type] || journalTypeStyles.note;
                     return (
-                      <div key={c.id} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                        <div style={{
-                          width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0,
-                          background: isBot ? 'linear-gradient(135deg, #7b7dff, #9a9cff)' : 'var(--panel-3)',
-                          border: '1px solid var(--border)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: isBot ? '13px' : '11px', fontWeight: 600, color: '#fff',
-                        }}>
-                          {isBot ? '🤖' : (c.user_name || '?').charAt(0).toUpperCase()}
+                      <div key={entry.id} style={{ display: 'grid', gap: '4px', paddingBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: style.bg, color: style.color, border: `1px solid ${style.color}44`, fontWeight: 600 }}>
+                            {style.label}
+                          </span>
+                          {entry.mood && <span style={{ fontSize: '14px' }}>{entry.mood}</span>}
+                          <span style={{ fontSize: '10px', color: 'var(--muted)' }}>
+                            {new Date(entry.created_at).toLocaleString()}
+                          </span>
                         </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'baseline' }}>
-                            <span style={{ fontSize: '12px', fontWeight: 600 }}>{c.user_name || 'Unknown'}</span>
-                            {isBot && <span style={{ fontSize: '9px', background: 'rgba(123,125,255,0.2)', color: 'var(--accent)', padding: '1px 6px', borderRadius: '999px' }}>bot</span>}
-                            <span style={{ fontSize: '10px', color: 'var(--muted)' }}>
-                              {new Date(c.created_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: '12px', color: 'var(--text)', lineHeight: 1.5, marginTop: '2px', whiteSpace: 'pre-wrap' }}>{c.content}</div>
-                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{entry.content}</div>
+                        {entry.created_by_name && <div style={{ fontSize: '10px', color: 'var(--muted)' }}>— {entry.created_by_name}</div>}
                       </div>
                     );
                   })
                 )}
               </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input
-                  value={newComment}
-                  onChange={e => setNewComment(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleAddComment())}
-                  placeholder="Write a comment..."
-                  style={{ ...inputStyle, flex: 1, fontSize: '12px', padding: '8px 12px' }}
+            </div>
+
+            <div style={{ background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: '14px', padding: '16px' }}>
+              <div style={sectionTitleStyle}>Add Entry</div>
+              <div style={{ display: 'grid', gap: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <select value={entryType} onChange={e => setEntryType(e.target.value)} style={inputStyle}>
+                    <option value="note">Note</option>
+                    <option value="lesson">Lesson</option>
+                    <option value="mistake">Mistake</option>
+                    <option value="win_reason">Win Reason</option>
+                    <option value="strategy">Strategy</option>
+                    <option value="market_context">Market Context</option>
+                  </select>
+                  <select value={entryMood} onChange={e => setEntryMood(e.target.value)} style={inputStyle}>
+                    <option value="">Mood (optional)</option>
+                    <option value="😊">😊 Positive</option>
+                    <option value="😐">😐 Neutral</option>
+                    <option value="😤">😤 Frustrated</option>
+                    <option value="😰">😰 Anxious</option>
+                    <option value="🎯">🎯 Focused</option>
+                  </select>
+                </div>
+                <textarea
+                  value={entryContent}
+                  onChange={e => setEntryContent(e.target.value)}
+                  style={{ ...inputStyle, minHeight: '120px', resize: 'vertical' }}
+                  placeholder="What happened? What did you learn?"
                 />
-                <button onClick={handleAddComment} style={{ ...primaryBtnStyle, padding: '8px 14px', fontSize: '12px' }}>Send</button>
+                <button
+                  onClick={handleAddJournalEntry}
+                  style={{ ...primaryBtnStyle, opacity: entrySaving ? 0.6 : 1 }}
+                  disabled={entrySaving}
+                >
+                  Add Entry
+                </button>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

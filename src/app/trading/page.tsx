@@ -598,7 +598,7 @@ export default function TradingDashboardPage() {
             gap: '14px',
             alignItems: 'flex-start',
           }}>
-            <span style={{ fontSize: '24px', lineHeight: 1, flexShrink: 0, marginTop: '2px' }}>🐱</span>
+            <img src="/icons/penny.png" alt="Penny" style={{ width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0 }} />
             <div>
               <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', marginBottom: '4px', fontWeight: 600 }}>
                 Penny&apos;s Update

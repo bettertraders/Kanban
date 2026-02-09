@@ -739,7 +739,8 @@ export default function TradingDashboardPage() {
         {/* 4–7. Trading Setup (stepped flow) */}
         <section style={{ marginBottom: '24px' }}>
           <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '20px 24px', display: 'grid', gap: '0' }}>
-            <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>Trading Setup</div>
+            <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '4px' }}>Get Started in 4 Easy Steps</div>
+            <div style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '16px' }}>No experience needed — Penny handles the hard part ✨</div>
 
             {/* Step 1: Risk Level */}
             <StepHeader step={1} total={4} label="Choose Your Risk Level" done={riskLevel !== null} />

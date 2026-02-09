@@ -363,24 +363,52 @@ export default function TradingDashboardPage() {
   const toastIdRef = useRef(1);
   const toastTimersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
-  // Load settings from localStorage
+  // Load settings — try DB first, fall back to localStorage
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    try {
-      const saved = JSON.parse(localStorage.getItem('clawdesk-trading-setup') || '{}');
-      if (saved.riskLevel) setRiskLevel(saved.riskLevel);
-      if (saved.tradingAmount) setTradingAmount(saved.tradingAmount);
-      if (saved.timeframe) setTimeframe(saved.timeframe);
-      if (saved.timeframeStartDate) setTimeframeStartDate(saved.timeframeStartDate);
-      if (saved.tboEnabled !== undefined) setTboEnabled(saved.tboEnabled);
-      if (saved.engineOn !== undefined) setEngineOn(saved.engineOn);
-    } catch {}
+    (async () => {
+      try {
+        const res = await fetch('/api/trading/settings');
+        if (res.ok) {
+          const { settings: saved } = await res.json();
+          if (saved && Object.keys(saved).length > 0) {
+            if (saved.riskLevel) setRiskLevel(saved.riskLevel);
+            if (saved.tradingAmount) setTradingAmount(saved.tradingAmount);
+            if (saved.timeframe) setTimeframe(saved.timeframe);
+            if (saved.timeframeStartDate) setTimeframeStartDate(saved.timeframeStartDate);
+            if (saved.tboEnabled !== undefined) setTboEnabled(saved.tboEnabled);
+            if (saved.engineOn !== undefined) setEngineOn(saved.engineOn);
+            return;
+          }
+        }
+      } catch {}
+      // Fallback to localStorage
+      try {
+        const saved = JSON.parse(localStorage.getItem('clawdesk-trading-setup') || '{}');
+        if (saved.riskLevel) setRiskLevel(saved.riskLevel);
+        if (saved.tradingAmount) setTradingAmount(saved.tradingAmount);
+        if (saved.timeframe) setTimeframe(saved.timeframe);
+        if (saved.timeframeStartDate) setTimeframeStartDate(saved.timeframeStartDate);
+        if (saved.tboEnabled !== undefined) setTboEnabled(saved.tboEnabled);
+        if (saved.engineOn !== undefined) setEngineOn(saved.engineOn);
+      } catch {}
+    })();
   }, []);
 
-  // Save settings to localStorage
+  // Save settings to both DB and localStorage
+  const settingsRef = useRef<string>('');
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    localStorage.setItem('clawdesk-trading-setup', JSON.stringify({ riskLevel, tradingAmount, timeframe, timeframeStartDate, tboEnabled, engineOn }));
+    const data = { riskLevel, tradingAmount, timeframe, timeframeStartDate, tboEnabled, engineOn };
+    const json = JSON.stringify(data);
+    if (json === settingsRef.current) return; // skip if unchanged
+    settingsRef.current = json;
+    localStorage.setItem('clawdesk-trading-setup', json);
+    fetch('/api/trading/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings: data }),
+    }).catch(() => {});
   }, [riskLevel, tradingAmount, timeframe, timeframeStartDate, tboEnabled, engineOn]);
 
   const pushToast = useCallback((message: string, type: ToastItem['type'] = 'info') => {

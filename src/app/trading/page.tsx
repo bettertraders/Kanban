@@ -363,34 +363,38 @@ export default function TradingDashboardPage() {
   const toastIdRef = useRef(1);
   const toastTimersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
-  // Load settings — try DB first, fall back to localStorage
+  // Load settings — localStorage first (instant), then sync from DB if available
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    // Always load localStorage first (fast, no network)
+    try {
+      const saved = JSON.parse(localStorage.getItem('clawdesk-trading-setup') || '{}');
+      if (saved.riskLevel) setRiskLevel(saved.riskLevel);
+      if (saved.tradingAmount) setTradingAmount(saved.tradingAmount);
+      if (saved.timeframe) setTimeframe(saved.timeframe);
+      if (saved.timeframeStartDate) setTimeframeStartDate(saved.timeframeStartDate);
+      if (saved.tboEnabled !== undefined) setTboEnabled(saved.tboEnabled);
+      if (saved.engineOn !== undefined) setEngineOn(saved.engineOn);
+    } catch {}
+
+    // Then try DB — only override if DB has actual data
     (async () => {
       try {
         const res = await fetch('/api/trading/settings');
         if (res.ok) {
           const { settings: saved } = await res.json();
-          if (saved && Object.keys(saved).length > 0) {
-            if (saved.riskLevel) setRiskLevel(saved.riskLevel);
+          if (saved && Object.keys(saved).length > 0 && saved.riskLevel) {
+            setRiskLevel(saved.riskLevel);
             if (saved.tradingAmount) setTradingAmount(saved.tradingAmount);
             if (saved.timeframe) setTimeframe(saved.timeframe);
             if (saved.timeframeStartDate) setTimeframeStartDate(saved.timeframeStartDate);
             if (saved.tboEnabled !== undefined) setTboEnabled(saved.tboEnabled);
             if (saved.engineOn !== undefined) setEngineOn(saved.engineOn);
-            return;
+            // Also save to localStorage so it's cached
+            localStorage.setItem('clawdesk-trading-setup', JSON.stringify(saved));
           }
         }
-      } catch {}
-      // Fallback to localStorage
-      try {
-        const saved = JSON.parse(localStorage.getItem('clawdesk-trading-setup') || '{}');
-        if (saved.riskLevel) setRiskLevel(saved.riskLevel);
-        if (saved.tradingAmount) setTradingAmount(saved.tradingAmount);
-        if (saved.timeframe) setTimeframe(saved.timeframe);
-        if (saved.timeframeStartDate) setTimeframeStartDate(saved.timeframeStartDate);
-        if (saved.tboEnabled !== undefined) setTboEnabled(saved.tboEnabled);
-        if (saved.engineOn !== undefined) setEngineOn(saved.engineOn);
       } catch {}
     })();
   }, []);

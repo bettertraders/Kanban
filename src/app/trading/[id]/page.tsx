@@ -2039,6 +2039,7 @@ export default function TradingBoardPage() {
         }
       `}</style>
     </div>
+    </>
   );
 }
 
@@ -2774,7 +2775,6 @@ function NewTradeModal({
         </div>
       </div>
     </div>
-    </>
   );
 
 }

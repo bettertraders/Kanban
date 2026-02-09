@@ -13,7 +13,8 @@ import { getStrategy } from './strategies';
 import { getBatchPrices, getPrice, getTopCoins } from './price-service';
 import {
   calculateDrift,
-  calculateRebalanceTrades,
+  calculateCurrentAllocation,
+  generateRebalanceTrades,
   getTargetAllocation,
   needsRebalance
 } from './rebalancer';
@@ -349,46 +350,58 @@ export async function checkRebalance(context: BotContext): Promise<any> {
   const riskLevel = Number(config.riskLevel ?? bot.strategy_config?.riskLevel ?? 5);
   const threshold = Number(config.rebalanceThreshold ?? 5);
 
-  const allocations: Record<string, { coin: string; value: number; category: string }[]> = {
-    stablecoins: [],
-    bitcoin: [],
-    largeCapAlts: [],
-    midCapAlts: [],
-    smallCapAlts: []
-  };
+  const boardTrades = await getTradesForBoard(bot.board_id);
+  const activeBoardTrades = boardTrades.filter((trade) =>
+    trade.status === 'active' || trade.column_name === 'Active'
+  );
+  const botTrades = activeBoardTrades.filter((trade) => Number(trade.bot_id) === Number(bot.id));
 
-  let totalValue = 0;
-  for (const trade of context.activeTrades) {
+  const pricePairs = activeBoardTrades.map((trade) => trade.coin_pair);
+  const priceMap = await buildPriceMap(pricePairs);
+  priceMap.set('CASH', 1);
+
+  const holdings = activeBoardTrades.map((trade) => {
     const pair = normalizePair(trade.coin_pair);
-    const snapshot = await getPrice(pair);
-    const currentPrice = toNumber(snapshot.price, 0);
-    const entryPrice = toNumber(trade.entry_price, currentPrice || 1);
+    const price = priceMap.get(pair) ?? toNumber(trade.current_price, 0);
+    const entryPrice = toNumber(trade.entry_price, price || 1);
     const positionSize = toNumber(trade.position_size, 0);
     const direction = String(trade.direction || 'long').toLowerCase();
-
     let value = positionSize;
     if (entryPrice > 0 && positionSize > 0) {
-      const change = (currentPrice - entryPrice) / entryPrice;
+      const change = (price - entryPrice) / entryPrice;
       value = positionSize + positionSize * (direction === 'short' ? -change : change);
     }
-
-    const category = findCategory(pair);
-    allocations[category].push({ coin: pair, value, category });
-    totalValue += value;
-  }
+    return {
+      pair,
+      value,
+      category: findCategory(pair),
+      isHolding: Number(trade.bot_id) === Number(bot.id),
+      volume24h: toNumber((trade as any).volume24h, 0)
+    };
+  });
 
   if (context.balance > 0) {
-    allocations.stablecoins.push({ coin: 'CASH', value: context.balance, category: 'stablecoins' });
-    totalValue += context.balance;
+    holdings.push({
+      pair: 'CASH',
+      value: context.balance,
+      category: 'stablecoins',
+      isHolding: true,
+      volume24h: 0
+    });
   }
 
+  const totalValue = holdings.reduce((sum, holding) => sum + toNumber(holding.value, 0), 0);
   if (totalValue <= 0) return { action: 'skipped', reason: 'No holdings' };
 
-  const currentAllocation: Record<string, number> = {};
-  for (const [category, holdings] of Object.entries(allocations)) {
-    const value = holdings.reduce((sum, holding) => sum + Number(holding.value || 0), 0);
-    currentAllocation[category] = (value / totalValue) * 100;
-  }
+  const currentAllocation = calculateCurrentAllocation(
+    holdings.map((holding) => ({
+      coin_pair: holding.pair,
+      position_size: holding.value,
+      entry_price: holding.pair === 'CASH' ? 1 : undefined,
+      direction: 'long'
+    })),
+    priceMap
+  );
 
   const target = getTargetAllocation(riskLevel);
   const drift = calculateDrift(currentAllocation, target);
@@ -397,37 +410,54 @@ export async function checkRebalance(context: BotContext): Promise<any> {
     return { action: 'none', drift };
   }
 
-  const { sell, buy } = calculateRebalanceTrades(allocations as any, target, totalValue);
+  let availableCoins = holdings;
+  try {
+    const scanned = await scanCoins(DEFAULT_WATCHLIST);
+    availableCoins = [
+      ...holdings,
+      ...scanned.map((coin) => ({
+        pair: coin.pair,
+        category: coin.category,
+        volume24h: coin.volume24h,
+        isHolding: false,
+        value: 0
+      }))
+    ];
+  } catch {
+    // fallback to current holdings only
+  }
+
+  const { sells, buys } = generateRebalanceTrades(currentAllocation, target, totalValue, availableCoins);
 
   const sellResults: any[] = [];
-  for (const sellOrder of sell) {
-    const trade = context.activeTrades.find((t) => normalizePair(t.coin_pair) === normalizePair(sellOrder.coin));
+  for (const sellOrder of sells) {
+    const trade = botTrades.find((t) => normalizePair(t.coin_pair) === normalizePair(sellOrder.pair));
     if (!trade) continue;
     const exited = await executeExit(context, Number(trade.id), 'Rebalance sell');
-    sellResults.push({ tradeId: trade.id, coin: trade.coin_pair, result: exited });
+    sellResults.push({ tradeId: trade.id, pair: trade.coin_pair, result: exited });
   }
 
   const buyResults: any[] = [];
-  for (const buyOrder of buy) {
-    if (String(buyOrder.coin).endsWith('_BASKET') || buyOrder.coin === 'CASH') continue;
+  for (const buyOrder of buys) {
+    if (String(buyOrder.pair).endsWith('_BASKET') || buyOrder.pair === 'CASH') continue;
     const positionSize = Math.min(buyOrder.amount, context.balance);
     if (!Number.isFinite(positionSize) || positionSize <= 0) continue;
     const entry = await executeEntry(context, {
-      coin_pair: buyOrder.coin,
+      coin_pair: buyOrder.pair,
       direction: 'long',
       confidence: 55,
       reason: 'Rebalance buy',
       position_size: positionSize
     });
-    buyResults.push({ coin: buyOrder.coin, result: entry });
+    buyResults.push({ pair: buyOrder.pair, result: entry });
     const updatedAccount = await getPaperAccount(bot.board_id, bot.user_id, 10000);
     context.balance = toNumber(updatedAccount?.current_balance, context.balance);
   }
 
   await savePortfolioSnapshot(bot.id, currentAllocation, totalValue);
-  await logBotExecution(bot.id, 'rebalance', { drift, sell: sellResults, buy: buyResults });
+  await logBotExecution(bot.id, 'rebalance', { drift, sells: sellResults, buys: buyResults });
 
-  return { action: 'rebalance', drift, sell: sellResults, buy: buyResults };
+  return { action: 'rebalance', drift, sells: sellResults, buys: buyResults };
 }
 
 // Run all active bots — called by cron

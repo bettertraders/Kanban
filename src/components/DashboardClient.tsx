@@ -365,6 +365,52 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail 
         >
           📊 Portfolio
         </Link>
+        <Link
+          href="/bots"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 14px',
+            borderRadius: '999px',
+            background: 'var(--panel-2)',
+            border: '1px solid var(--border)',
+            color: 'var(--text)',
+            textDecoration: 'none',
+            fontSize: '13px',
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+            transition: 'border-color 0.2s, box-shadow 0.2s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 0 8px rgba(123,125,255,0.3)'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+        >
+          🤖 Bots
+        </Link>
+        <Link
+          href="/leaderboard"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 14px',
+            borderRadius: '999px',
+            background: 'var(--panel-2)',
+            border: '1px solid var(--border)',
+            color: 'var(--text)',
+            textDecoration: 'none',
+            fontSize: '13px',
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+            transition: 'border-color 0.2s, box-shadow 0.2s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 0 8px rgba(123,125,255,0.3)'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+        >
+          🏆 Leaderboard
+        </Link>
         {boards.map((board) => {
           const boardStat = stats.perBoardStats.find(b => b.boardId === board.id);
           const taskCount = boardStat?.total ?? 0;

@@ -143,6 +143,45 @@ const columns = [
   { name: 'Losses', color: '#f05b6f' },
 ];
 
+const BOT_STYLE_MAP: Record<string, { icon: string; substyles: Record<string, string> }> = {
+  'Swing Trading': {
+    icon: '🏄',
+    substyles: {
+      Momentum: 'Ride stronger trends using volume + breakout confirmation.',
+      'Mean Reversion': 'Fade exhausted moves back toward the mean.',
+      Breakout: 'Trade volatility expansions after tight ranges.'
+    }
+  },
+  'Day Trading': {
+    icon: '⚡️',
+    substyles: {
+      Momentum: 'Trade intraday trend bursts with tight risk.',
+      Range: 'Buy support, sell resistance inside ranges.'
+    }
+  },
+  Scalper: {
+    icon: '🧵',
+    substyles: {
+      Grid: 'Layer micro orders around a tight midline.',
+      Momentum: 'Hit quick bursts, exit fast.'
+    }
+  },
+  Fundamental: {
+    icon: '📚',
+    substyles: {
+      Value: 'Buy discounted narratives with risk buffers.',
+      Narrative: 'Trade stories before they hit the crowd.'
+    }
+  },
+  'Long-Term Investor': {
+    icon: '🛰️',
+    substyles: {
+      DCA: 'Accumulate steadily with strict allocation rules.',
+      'Dip Buyer': 'Deploy cash on drawdown signals.'
+    }
+  }
+};
+
 const inputStyle: React.CSSProperties = {
   width: '100%',
   background: 'var(--panel-2)',
@@ -276,6 +315,13 @@ export default function TradingBoardPage() {
   const [botActivity, setBotActivity] = useState<BotActivityItem[]>([]);
   const [botActivityLoading, setBotActivityLoading] = useState(true);
   const [botScansExpanded, setBotScansExpanded] = useState(true);
+  const [boardBots, setBoardBots] = useState<any[]>([]);
+  const [boardBotsLoading, setBoardBotsLoading] = useState(true);
+  const [autoTradeOpen, setAutoTradeOpen] = useState(false);
+  const [autoTradeStyle, setAutoTradeStyle] = useState('Swing Trading');
+  const [autoTradeSubstyle, setAutoTradeSubstyle] = useState('Momentum');
+  const [autoTradeBalance, setAutoTradeBalance] = useState(100);
+  const [autoTradeCreating, setAutoTradeCreating] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [alertBadgeCount, setAlertBadgeCount] = useState(0);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
@@ -352,6 +398,19 @@ export default function TradingBoardPage() {
     setBotActivityLoading(false);
   }, [boardId]);
 
+  const fetchBoardBots = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/v1/bots?boardId=${boardId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setBoardBots(data.bots || []);
+      }
+    } catch {
+      // silent
+    }
+    setBoardBotsLoading(false);
+  }, [boardId]);
+
   const refreshAlertCount = useCallback(async () => {
     try {
       const res = await fetch(`/api/v1/alerts?boardId=${boardId}`);
@@ -382,8 +441,14 @@ export default function TradingBoardPage() {
     fetchTrades();
     fetchStats();
     fetchBotActivity();
+    fetchBoardBots();
     refreshAlertCount();
-  }, [fetchBoard, fetchBotActivity, fetchStats, fetchTrades, refreshAlertCount]);
+  }, [fetchBoard, fetchBotActivity, fetchBoardBots, fetchStats, fetchTrades, refreshAlertCount]);
+
+  useEffect(() => {
+    const nextSubstyle = Object.keys(BOT_STYLE_MAP[autoTradeStyle]?.substyles ?? {})[0];
+    if (nextSubstyle) setAutoTradeSubstyle(nextSubstyle);
+  }, [autoTradeStyle]);
 
   useEffect(() => {
     if (!stats || statsInitialized) return;
@@ -879,6 +944,38 @@ export default function TradingBoardPage() {
   const selectedPair = chartPair ? normalizePair(chartPair) : null;
   const selectedPrice = selectedPair ? priceMap[selectedPair]?.price ?? null : null;
 
+  const handleAutoTradeCreate = async () => {
+    if (!boardId) return;
+    setAutoTradeCreating(true);
+    try {
+      const res = await fetch('/api/v1/bots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `${autoTradeStyle} ${autoTradeSubstyle} Bot`,
+          board_id: Number(boardId),
+          strategy_style: autoTradeStyle,
+          strategy_substyle: autoTradeSubstyle,
+          strategy_config: { startingBalance: autoTradeBalance, riskLevel: 5 },
+          auto_trade: true,
+          rebalancer_enabled: false,
+          rebalancer_config: {}
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const botId = data?.bot?.id;
+        if (botId) {
+          await fetch(`/api/v1/bots/${botId}/start`, { method: 'POST' });
+        }
+        await fetchBoardBots();
+        setAutoTradeOpen(false);
+      }
+    } finally {
+      setAutoTradeCreating(false);
+    }
+  };
+
   if (boardLoading && !board) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -912,6 +1009,23 @@ export default function TradingBoardPage() {
             <span style={{ width: '8px', height: '8px', borderRadius: '999px', background: sseConnected ? '#4ade80' : '#f05b6f', boxShadow: sseConnected ? '0 0 8px rgba(74,222,128,0.7)' : '0 0 8px rgba(240,91,111,0.7)' }} />
             SSE {sseConnected ? 'connected' : 'disconnected'}
           </div>
+          {!boardBotsLoading && boardBots.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', borderRadius: '999px', background: 'var(--panel-2)', border: '1px solid var(--border)', fontSize: '11px', color: 'var(--muted)' }}>
+              {boardBots.slice(0, 3).map((bot) => {
+                const status = String(bot.status || 'stopped');
+                const color = status === 'running' ? '#4ade80' : status === 'paused' ? '#f5b544' : '#9ca3af';
+                return (
+                  <span key={bot.id} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '999px', background: color, boxShadow: status === 'running' ? '0 0 8px rgba(74,222,128,0.5)' : 'none' }} />
+                    {bot.name}
+                  </span>
+                );
+              })}
+              {boardBots.length > 3 && (
+                <span style={{ color: 'var(--muted)' }}>+{boardBots.length - 3}</span>
+              )}
+            </div>
+          )}
           <button
             onClick={() => setAlertsOpen(true)}
             style={{
@@ -950,6 +1064,12 @@ export default function TradingBoardPage() {
                 {alertBadgeCount}
               </span>
             )}
+          </button>
+          <button
+            onClick={() => setAutoTradeOpen(true)}
+            style={{ ...secondaryBtnStyle, padding: '8px 14px', fontSize: '12px' }}
+          >
+            ⚡️ Auto-Trade
           </button>
           <button
             onClick={() => setNewTradeOpen(true)}
@@ -1498,6 +1618,55 @@ export default function TradingBoardPage() {
             setExitPrompt(null);
           }}
         />
+      )}
+
+      {autoTradeOpen && (
+        <div
+          onClick={(event) => { if (event.target === event.currentTarget) setAutoTradeOpen(false); }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(5,5,15,0.78)', display: 'grid', placeItems: 'center', zIndex: 90 }}
+        >
+          <div style={{ width: 'min(640px, 92vw)', background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '20px', boxShadow: 'var(--shadow)', display: 'grid', gap: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: '16px', fontWeight: 600 }}>Auto-Trade Quick Setup</div>
+                <div style={{ fontSize: '11px', color: 'var(--muted)' }}>Pick a strategy, set balance, launch a bot.</div>
+              </div>
+              <button onClick={() => setAutoTradeOpen(false)} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', fontSize: '18px', cursor: 'pointer' }}>×</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+              <label style={{ display: 'grid', gap: '6px', fontSize: '12px', color: 'var(--muted)' }}>
+                Strategy style
+                <select value={autoTradeStyle} onChange={(event) => setAutoTradeStyle(event.target.value)} style={inputStyle}>
+                  {Object.keys(BOT_STYLE_MAP).map((style) => (
+                    <option key={style} value={style}>{style}</option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ display: 'grid', gap: '6px', fontSize: '12px', color: 'var(--muted)' }}>
+                Sub-style
+                <select value={autoTradeSubstyle} onChange={(event) => setAutoTradeSubstyle(event.target.value)} style={inputStyle}>
+                  {Object.keys(BOT_STYLE_MAP[autoTradeStyle]?.substyles ?? {}).map((sub) => (
+                    <option key={sub} value={sub}>{sub}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div style={{ background: 'rgba(123,125,255,0.12)', border: '1px solid rgba(123,125,255,0.3)', borderRadius: '12px', padding: '12px', fontSize: '12px', color: 'var(--text)' }}>
+              {BOT_STYLE_MAP[autoTradeStyle]?.substyles?.[autoTradeSubstyle]}
+            </div>
+            <label style={{ display: 'grid', gap: '6px', fontSize: '12px', color: 'var(--muted)' }}>
+              Starting balance
+              <input type="number" min={0} value={autoTradeBalance} onChange={(event) => setAutoTradeBalance(Number(event.target.value))} style={inputStyle} />
+            </label>
+            <button
+              onClick={handleAutoTradeCreate}
+              style={{ ...primaryBtnStyle, opacity: autoTradeCreating ? 0.7 : 1 }}
+              disabled={autoTradeCreating}
+            >
+              {autoTradeCreating ? 'Launching...' : 'Start Bot'}
+            </button>
+          </div>
+        </div>
       )}
 
       {newTradeOpen && (

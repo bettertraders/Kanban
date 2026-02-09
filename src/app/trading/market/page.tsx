@@ -212,7 +212,12 @@ export default function MarketDashboard() {
         <header style={{ marginBottom: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <img src="/icons/clawdesk-mark.png" alt="" style={{ width: '48px', height: '48px', borderRadius: '10px' }} />
-            <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4vw, 36px)' }}>Market Overview</h1>
+            <div>
+              <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4vw, 36px)' }}>Market Overview</h1>
+              <div style={{ color: 'var(--muted)', fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
+                Live Data &amp; Sentiment
+              </div>
+            </div>
           </div>
         </header>
         <TradingNav activeTab={'market' as any} />

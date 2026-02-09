@@ -59,10 +59,13 @@ export default function LeaderboardPage() {
   return (
     <div style={{ padding: '32px clamp(20px, 4vw, 48px) 40px', maxWidth: '1400px', margin: '0 auto' }}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', marginBottom: '24px' }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4vw, 36px)' }}>Bot Leaderboard</h1>
-          <div style={{ color: 'var(--muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.18em' }}>
-            Performance Overview
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <img src="/icons/clawdesk-mark.png" alt="" style={{ width: '48px', height: '48px', borderRadius: '10px' }} />
+          <div>
+            <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4vw, 36px)' }}>Bot Leaderboard</h1>
+            <div style={{ color: 'var(--muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.18em' }}>
+              Performance Overview
+            </div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>

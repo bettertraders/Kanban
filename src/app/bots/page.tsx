@@ -227,10 +227,13 @@ export default function BotsPage() {
   return (
     <div style={{ padding: '32px clamp(20px, 4vw, 48px) 40px', maxWidth: '1400px', margin: '0 auto' }}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4vw, 36px)' }}>Trading Bots</h1>
-          <div style={{ color: 'var(--muted)', fontSize: '13px', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
-            Strategy Runner Console
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <img src="/icons/clawdesk-mark.png" alt="" style={{ width: '48px', height: '48px', borderRadius: '10px' }} />
+          <div>
+            <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4vw, 36px)' }}>Trading Bots</h1>
+            <div style={{ color: 'var(--muted)', fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
+              Strategy Runner Console
+            </div>
           </div>
         </div>
         {/* Create Bot button removed — use Start a Trade on the board */}

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 // In-memory cache
 let cache: { data: any; ts: number } | null = null;
-const CACHE_TTL = 60_000; // 60 seconds
+const CACHE_TTL = 5 * 60_000; // 5 minutes — CoinGecko free tier rate limits aggressively
 
 async function fetchJSON(url: string) {
   const res = await fetch(url, { next: { revalidate: 60 } });
@@ -13,6 +13,8 @@ async function fetchJSON(url: string) {
 async function fetchMarketData() {
   const now = Date.now();
   if (cache && now - cache.ts < CACHE_TTL) return cache.data;
+
+  try {
 
   const [markets, trending, global, fng, watchlistRaw] = await Promise.all([
     fetchJSON(
@@ -87,6 +89,14 @@ async function fetchMarketData() {
 
   cache = { data, ts: now };
   return data;
+  } catch (err) {
+    // On rate limit or network error, return stale cache if available
+    if (cache?.data) {
+      console.warn('Market fetch failed, returning stale cache:', (err as Error).message);
+      return { ...cache.data, stale: true };
+    }
+    throw err;
+  }
 }
 
 function coinSummary(c: any) {

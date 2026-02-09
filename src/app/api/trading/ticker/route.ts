@@ -13,7 +13,7 @@ const TOP_SYMBOLS = [
 ];
 
 let cache: { data: TickerCoin[]; ts: number } | null = null;
-const CACHE_MS = 2 * 60 * 1000; // 2 minutes
+const CACHE_MS = 3 * 60 * 1000; // 3 minutes
 
 async function fetchFromBinance(): Promise<TickerCoin[]> {
   const exchange = new ccxt.binance({ enableRateLimit: true });

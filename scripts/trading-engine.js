@@ -117,11 +117,45 @@ async function fetchOHLCV(exchange, symbol) {
       sma50: calcSMA(closes, 50),
       volumeRatio: calcVolumeRatio(volumes),
       momentum: calcMomentum(closes, 10),
+      momentum4h: closes.length >= 2 ? ((closes[closes.length - 1] - closes[closes.length - 2]) / closes[closes.length - 2]) * 100 : 0,
     };
   } catch (err) {
     log(`  ⚠ Failed to fetch OHLCV for ${symbol}: ${err.message}`);
     return null;
   }
+}
+
+// ─── Cooldown Logic ──────────────────────────────────────────────────────────
+
+const COOLDOWN_FILE = path.join(__dirname, '.trading-engine-state.json');
+const MOVE_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
+const EXTREME_MOVE_PCT = 5; // 5% move in 4h overrides cooldown
+
+function loadState() {
+  try {
+    if (fs.existsSync(COOLDOWN_FILE)) return JSON.parse(fs.readFileSync(COOLDOWN_FILE, 'utf8'));
+  } catch {}
+  return { lastMoves: {} };
+}
+
+function saveState(state) {
+  try { fs.writeFileSync(COOLDOWN_FILE, JSON.stringify(state, null, 2)); } catch {}
+}
+
+function canMoveCard(symbol, state) {
+  const lastMove = state.lastMoves[symbol];
+  if (!lastMove) return true;
+  return Date.now() - lastMove > MOVE_COOLDOWN_MS;
+}
+
+function isExtremeMove(ind) {
+  if (!ind) return false;
+  // Check if the last 4h candle moved more than 5%
+  return Math.abs(ind.momentum4h || 0) > EXTREME_MOVE_PCT;
+}
+
+function recordMove(symbol, state) {
+  state.lastMoves[symbol] = Date.now();
 }
 
 // ─── Signal Logic ────────────────────────────────────────────────────────────
@@ -258,13 +292,20 @@ async function main() {
     const ind = indicators[sym];
 
     if (shouldMoveToActive(ind)) {
+      const extreme = isExtremeMove(ind);
+      if (!canMoveCard(sym + ':active', state) && !extreme) {
+        log(`  ⏳ ${sym} — entry signal but cooldown (24h). Skipping.`);
+        if (ind) await updateTradeAnalysis(trade.id, ind);
+        continue;
+      }
       const positionSize = Math.min(balance * (POSITION_SIZE_PCT / 100), balance);
       if (positionSize < 10) {
         log(`  ⚠ Insufficient balance for ${sym}`);
         continue;
       }
 
-      log(`  🎯 Entry signal for ${sym} — entering trade ($${positionSize.toFixed(2)})`);
+      log(`  🎯 Entry signal for ${sym} — entering trade ($${positionSize.toFixed(2)})${extreme ? ' (EXTREME MOVE)' : ''}`);
+      recordMove(sym + ':active', state);
       try {
         await apiPost('/api/trading/trade/enter', {
           boardId: BOARD_ID,
@@ -287,23 +328,32 @@ async function main() {
   log(`🎯 Entries: ${entryCount}`);
 
   // ── Step 6: Process Watchlist — move to Analyzing if setup forming ─────
+  // Cooldown: only move cards once per 24h unless extreme move (>5% in 4h)
+  const state = loadState();
   let analyzeCount = 0;
   for (const trade of watchlist) {
     const sym = normalizePair(trade.coin_pair);
     const ind = indicators[sym];
 
     if (shouldMoveToAnalyzing(ind)) {
-      log(`  🔍 Moving ${sym} → Analyzing`);
-      try {
-        await moveCard(trade.id, 'Analyzing');
-        analyzeCount++;
-      } catch (err) {
-        log(`  ⚠ Move failed for ${sym}: ${err.message}`);
+      const extreme = isExtremeMove(ind);
+      if (canMoveCard(sym, state) || extreme) {
+        log(`  🔍 Moving ${sym} → Analyzing${extreme ? ' (EXTREME MOVE)' : ''}`);
+        try {
+          await moveCard(trade.id, 'Analyzing');
+          recordMove(sym, state);
+          analyzeCount++;
+        } catch (err) {
+          log(`  ⚠ Move failed for ${sym}: ${err.message}`);
+        }
+      } else {
+        log(`  ⏳ ${sym} — signal active but cooldown (24h). Skipping move.`);
       }
     }
     // Always update analysis on watchlist cards
     if (ind) await updateTradeAnalysis(trade.id, ind);
   }
+  saveState(state);
   log(`🔍 Moved to Analyzing: ${analyzeCount}`);
 
   // ── Step 7: Update bot stats ───────────────────────────────────────────

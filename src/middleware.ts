@@ -13,6 +13,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/setup') ||
     pathname.startsWith('/api/v1') || // API routes handle their own auth
+    pathname.startsWith('/api/trading') || // Trading API routes handle their own auth
     pathname.startsWith('/_next') ||
     pathname === '/favicon.ico' ||
     pathname === '/manifest.json' ||

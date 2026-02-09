@@ -74,6 +74,66 @@ function formatCurrency(value: number) {
   return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function getBotQuote(pnlPct: number, _winRate: number, _activePositions: number, isEngineOn: boolean, totalTrades: number): { text: string; color: string } {
+  const onFire = [
+    "Penny is on fire today! 🔥",
+    "Someone call the fire department! 🚒",
+    "This is what a good day looks like 💰",
+    "Penny's cooking! Don't disturb the chef 👨‍🍳",
+    "Today's looking beautiful ☀️",
+  ];
+  const doingWell = [
+    "Steady gains — this is the way 📈",
+    "Slow and steady wins the race 🐢",
+    "Nice work! The strategy is paying off 💪",
+    "Green is my favorite color 💚",
+    "Keep calm and let the bot trade 🧘",
+  ];
+  const flat = [
+    "Quiet day — patience is a superpower ⏳",
+    "Sometimes the best trade is no trade 🤔",
+    "Sideways markets build character 💎",
+    "Waiting for the right moment... 🎯",
+    "Not every day is exciting — and that's okay ☕",
+  ];
+  const downBit = [
+    "A small dip — nothing to worry about 🌊",
+    "Every great trader has red days 📉",
+    "This is normal! Stay the course 🧭",
+    "Zoom out — one day doesn't define us 🔭",
+    "Deep breaths. The bot's got this 💙",
+  ];
+  const roughDay = [
+    "Tough day, but we'll bounce back 💪",
+    "Even Warren Buffett has bad days 🎩",
+    "This is why we paper trade first! 📝",
+    "Learning from losses makes us stronger 🧠",
+    "Rome wasn't built in a day — neither are profits 🏛️",
+  ];
+  const engineOff = [
+    "Ready when you are! 🚀",
+    "Flip the switch and let's go 🎮",
+    "Standing by... 🤖",
+  ];
+  const noTrades = [
+    "Let's make some trades! 🎯",
+    "Your first trade is just a toggle away ✨",
+    "The journey of a thousand trades starts with one 🚶",
+  ];
+
+  // Seeded random based on current hour so it changes hourly but not on re-render
+  const seed = new Date().getFullYear() * 10000 + (new Date().getMonth() + 1) * 100 + new Date().getDate() * 24 + new Date().getHours();
+  const pick = (arr: string[]) => arr[seed % arr.length];
+
+  if (!isEngineOn) return { text: pick(engineOff), color: 'var(--muted)' };
+  if (totalTrades === 0) return { text: pick(noTrades), color: 'var(--accent, #7b7dff)' };
+  if (pnlPct > 5) return { text: pick(onFire), color: '#4ade80' };
+  if (pnlPct > 1) return { text: pick(doingWell), color: '#4ade80' };
+  if (pnlPct >= -1) return { text: pick(flat), color: 'var(--muted)' };
+  if (pnlPct >= -5) return { text: pick(downBit), color: '#f5b544' };
+  return { text: pick(roughDay), color: '#f05b6f' };
+}
+
 export default function TradingDashboardPage() {
   const [pulse, setPulse] = useState<CoinPulse[]>([]);
   const [bots, setBots] = useState<Bot[]>([]);
@@ -179,6 +239,8 @@ export default function TradingDashboardPage() {
   const winRate = Number(portfolio?.summary?.win_rate ?? 0);
   const activePositions = Number(portfolio?.summary?.active_positions ?? 0);
   const totalTrades = Number(portfolio?.summary?.total_trades ?? bots.reduce((sum, b) => sum + (b.total_trades ?? b.performance?.total_trades ?? 0), 0));
+
+  const botQuote = useMemo(() => getBotQuote(dailyPnlPct, winRate, activePositions, engineOn, totalTrades), [dailyPnlPct, winRate, activePositions, engineOn, totalTrades]);
 
   // Day X of Y calculation
   const dayProgress = useMemo(() => {
@@ -337,6 +399,11 @@ export default function TradingDashboardPage() {
             ))}
           </div>
         </section>
+
+        {/* Bot personality quote */}
+        <div style={{ padding: '0 4px 8px', fontSize: '15px', fontStyle: 'italic', fontWeight: 500, color: botQuote.color, letterSpacing: '0.01em' }}>
+          {botQuote.text}
+        </div>
 
         {/* 3. Portfolio Allocation (simple badges) */}
         <section style={{ marginBottom: '24px' }}>

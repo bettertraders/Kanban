@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { UserMenu } from '@/components/UserMenu';
+import { ToastStack, type ToastItem } from '@/components/ToastStack';
 
 interface Board {
   id: number;
@@ -37,6 +38,14 @@ interface TeamMember {
   avatar_url?: string | null;
   role: string;
   joined_at: string;
+}
+
+interface PendingInvite {
+  id: number;
+  email: string;
+  status: string;
+  created_at: string;
+  expires_at: string;
 }
 
 interface PerBoardStat {
@@ -270,6 +279,10 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail,
   const [sharingMode, setSharingMode] = useState<'personal' | 'shared'>('personal');
   const [memberSearch, setMemberSearch] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<VisibleUser[]>([]);
+  const [draftBoardId, setDraftBoardId] = useState<number | null>(null);
+  const [draftTeamId, setDraftTeamId] = useState<number | null>(null);
+  const [createInviteEmail, setCreateInviteEmail] = useState('');
+  const [createInviteSending, setCreateInviteSending] = useState(false);
 
   const [visibleUsers, setVisibleUsers] = useState<VisibleUser[]>([]);
   const [visibleUsersLoaded, setVisibleUsersLoaded] = useState(false);
@@ -286,8 +299,24 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail,
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsDeleting, setSettingsDeleting] = useState(false);
   const [settingsRemoving, setSettingsRemoving] = useState<number | null>(null);
+  const [settingsInvites, setSettingsInvites] = useState<PendingInvite[]>([]);
+  const [settingsInvitesLoading, setSettingsInvitesLoading] = useState(false);
+  const [settingsInviteCancelling, setSettingsInviteCancelling] = useState<number | null>(null);
+
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const toastTimersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
 
   const isTradingAdmin = teams.some(t => ['admin', 'owner'].includes(t.user_role));
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  const pushToast = useCallback((message: string, type: ToastItem['type'] = 'info') => {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    setToasts(prev => [...prev, { id, message, type }]);
+    toastTimersRef.current[id] = setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+      delete toastTimersRef.current[id];
+    }, 3200);
+  }, []);
 
   const loadVisibleUsers = async () => {
     if (visibleUsersLoaded || visibleUsersLoading) return;
@@ -305,28 +334,32 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail,
     }
   };
 
-  const handleCreateBoard = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const createSharedBoard = async () => {
+    if (draftBoardId && draftTeamId) {
+      return { boardId: draftBoardId, teamId: draftTeamId };
+    }
+    if (!boardName.trim()) {
+      pushToast('Board name is required', 'error');
+      return null;
+    }
+    setCreatingBoard(true);
     try {
-      if (!boardName.trim()) return;
-      setCreatingBoard(true);
       let teamId: number | null = null;
-      if (sharingMode === 'shared') {
-        const teamRes = await fetch('/api/v1/teams', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: boardName.trim(), create_default_board: false })
-        });
-        if (teamRes.ok) {
-          const teamData = await teamRes.json();
-          teamId = teamData?.team?.id ?? null;
-          if (teamData?.team) {
-            setTeams(prev => [...prev, teamData.team]);
-          }
+      const teamRes = await fetch('/api/v1/teams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: boardName.trim(), create_default_board: false })
+      });
+      if (teamRes.ok) {
+        const teamData = await teamRes.json();
+        teamId = teamData?.team?.id ?? null;
+        if (teamData?.team) {
+          setTeams(prev => [...prev, teamData.team]);
         }
-        if (!teamId) {
-          return;
-        }
+      }
+      if (!teamId) {
+        pushToast('Failed to create team', 'error');
+        return null;
       }
 
       const res = await fetch('/api/v1/boards', {
@@ -334,29 +367,86 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: boardName.trim(),
-          teamId: teamId ?? undefined
+          teamId
+        })
+      });
+
+      if (!res.ok) {
+        pushToast('Failed to create board', 'error');
+        return null;
+      }
+
+      const data = await res.json();
+      setBoards(prev => [...prev, data.board]);
+      setDraftBoardId(data.board.id);
+      setDraftTeamId(teamId);
+
+      if (selectedMembers.length > 0) {
+        await Promise.all(
+          selectedMembers.map((member) =>
+            fetch(`/api/v1/teams/${teamId}/members`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: member.email, name: member.name || undefined, role: 'member' })
+            })
+          )
+        );
+        setSelectedMembers([]);
+        setMemberSearch('');
+      }
+
+      pushToast('Board created. Send invites or click Done.', 'success');
+      return { boardId: data.board.id, teamId };
+    } catch {
+      pushToast('Failed to create board', 'error');
+      return null;
+    } finally {
+      setCreatingBoard(false);
+    }
+  };
+
+  const handleCreateBoard = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    try {
+      if (!boardName.trim()) return;
+      if (sharingMode === 'shared') {
+        if (!draftBoardId) {
+          const created = await createSharedBoard();
+          if (!created) return;
+          return;
+        }
+        setShowNewBoardModal(false);
+        setBoardName('');
+        setSharingMode('personal');
+        setSelectedMembers([]);
+        setMemberSearch('');
+        setDraftBoardId(null);
+        setDraftTeamId(null);
+        setCreateInviteEmail('');
+        return;
+      }
+
+      setCreatingBoard(true);
+      const res = await fetch('/api/v1/boards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: boardName.trim(),
+          teamId: undefined
         })
       });
 
       if (res.ok) {
         const data = await res.json();
-        if (sharingMode === 'shared' && teamId && selectedMembers.length > 0) {
-          await Promise.all(
-            selectedMembers.map((member) =>
-              fetch(`/api/v1/teams/${teamId}/members`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: member.email, name: member.name || undefined, role: 'member' })
-              })
-            )
-          );
-        }
         setBoards([...boards, data.board]);
         setShowNewBoardModal(false);
         setBoardName('');
         setSharingMode('personal');
         setSelectedMembers([]);
         setMemberSearch('');
+        setCreateInviteEmail('');
+      } else {
+        pushToast('Failed to create board', 'error');
       }
     } catch {
     } finally {

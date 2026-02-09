@@ -132,6 +132,19 @@ export async function initializeDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
+      -- Board invites table
+      CREATE TABLE IF NOT EXISTS board_invites (
+        id SERIAL PRIMARY KEY,
+        board_id INTEGER REFERENCES boards(id) ON DELETE CASCADE,
+        team_id INTEGER REFERENCES teams(id),
+        invited_by INTEGER REFERENCES users(id),
+        email VARCHAR(255) NOT NULL,
+        status VARCHAR(20) DEFAULT 'pending',
+        token VARCHAR(64) NOT NULL UNIQUE,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        expires_at TIMESTAMPTZ DEFAULT NOW() + INTERVAL '7 days'
+      );
+
       -- Indexes
       CREATE INDEX IF NOT EXISTS idx_tasks_board ON tasks(board_id);
       CREATE INDEX IF NOT EXISTS idx_tasks_column ON tasks(board_id, column_name);
@@ -700,6 +713,132 @@ export async function createBoard(
     );
   }
   return board;
+}
+
+// Board invites
+export async function createInvite(
+  boardId: number,
+  teamId: number,
+  invitedBy: number,
+  email: string,
+  token: string
+): Promise<any> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const existing = await client.query(
+      `SELECT id FROM board_invites
+       WHERE board_id = $1
+         AND LOWER(email) = $2
+         AND status = 'pending'
+         AND expires_at > NOW()
+       LIMIT 1`,
+      [boardId, normalizedEmail]
+    );
+    if (existing.rows.length > 0) {
+      throw new Error('Invite already pending for this email');
+    }
+
+    const result = await client.query(
+      `INSERT INTO board_invites (board_id, team_id, invited_by, email, token)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [boardId, teamId, invitedBy, normalizedEmail, token]
+    );
+
+    await client.query('COMMIT');
+    return result.rows[0];
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function getInviteByToken(token: string): Promise<any> {
+  const result = await pool.query(
+    `SELECT bi.*, b.name as board_name, b.team_id as board_team_id, u.name as inviter_name, u.email as inviter_email
+     FROM board_invites bi
+     JOIN boards b ON bi.board_id = b.id
+     LEFT JOIN users u ON bi.invited_by = u.id
+     WHERE bi.token = $1`,
+    [token]
+  );
+  return result.rows[0];
+}
+
+export async function acceptInvite(token: string, userId: number): Promise<any> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const inviteResult = await client.query(
+      `SELECT bi.*, b.team_id as board_team_id
+       FROM board_invites bi
+       JOIN boards b ON bi.board_id = b.id
+       WHERE bi.token = $1
+       FOR UPDATE`,
+      [token]
+    );
+    const invite = inviteResult.rows[0];
+    if (!invite) {
+      throw new Error('Invite not found');
+    }
+    if (invite.status !== 'pending') {
+      throw new Error('Invite already used');
+    }
+    if (invite.expires_at && new Date(invite.expires_at).getTime() <= Date.now()) {
+      throw new Error('Invite expired');
+    }
+
+    const teamId = invite.team_id || invite.board_team_id;
+    if (!teamId) {
+      throw new Error('Invite is not associated with a team');
+    }
+
+    await client.query(
+      `INSERT INTO team_members (team_id, user_id, role)
+       VALUES ($1, $2, 'member')
+       ON CONFLICT (team_id, user_id) DO NOTHING`,
+      [teamId, userId]
+    );
+
+    const updated = await client.query(
+      `UPDATE board_invites SET status = 'accepted' WHERE id = $1 RETURNING *`,
+      [invite.id]
+    );
+
+    await client.query('COMMIT');
+    return { invite: updated.rows[0], board_id: invite.board_id, team_id: teamId };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function getPendingInvites(boardId: number): Promise<any[]> {
+  const result = await pool.query(
+    `SELECT id, board_id, email, status, created_at, expires_at
+     FROM board_invites
+     WHERE board_id = $1
+       AND status = 'pending'
+       AND expires_at > NOW()
+     ORDER BY created_at DESC`,
+    [boardId]
+  );
+  return result.rows;
+}
+
+export async function cancelInvite(inviteId: number): Promise<void> {
+  await pool.query(
+    `UPDATE board_invites SET status = 'cancelled' WHERE id = $1 AND status = 'pending'`,
+    [inviteId]
+  );
 }
 
 // Task functions

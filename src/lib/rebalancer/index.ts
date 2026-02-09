@@ -1,4 +1,11 @@
-import { COIN_CATEGORIES } from '../coin-scanner';
+// Inline coin categories to avoid importing server-only coin-scanner (ccxt dependency)
+const COIN_CATEGORIES = {
+  stablecoins: ['USDT', 'USDC'],
+  bitcoin: ['BTC/USDT'],
+  largeCapAlts: ['ETH/USDT', 'SOL/USDT', 'BNB/USDT', 'XRP/USDT'],
+  midCapAlts: ['ADA/USDT', 'DOGE/USDT', 'AVAX/USDT', 'DOT/USDT', 'LINK/USDT', 'UNI/USDT', 'ATOM/USDT', 'LTC/USDT'],
+  smallCapAlts: ['NEAR/USDT', 'APT/USDT', 'ARB/USDT', 'OP/USDT', 'SUI/USDT', 'PEPE/USDT', 'WIF/USDT', 'FET/USDT', 'RENDER/USDT', 'INJ/USDT']
+};
 
 export interface RebalancerConfig {
   enabled: boolean;

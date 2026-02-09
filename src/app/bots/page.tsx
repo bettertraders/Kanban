@@ -16,6 +16,7 @@ type Bot = {
   status: string;
   auto_trade?: boolean;
   rebalancer_enabled?: boolean;
+  strategy_config?: any;
   rebalancer_config?: any;
   performance?: any;
 };

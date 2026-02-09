@@ -1,3 +1,4 @@
+// Strategy registration files imported at bottom to avoid circular init issues
 export type TradingStyle = 'swing' | 'day' | 'scalper' | 'fundamental' | 'longterm';
 
 export interface CoinSignal {
@@ -45,21 +46,30 @@ export function registerStrategy(key: string, strategy: TradingStrategy) {
   STRATEGIES[key] = strategy;
 }
 
+// Lazy registration to avoid circular dependency
+let _registered = false;
+export function ensureStrategiesRegistered() {
+  if (_registered) return;
+  _registered = true;
+  require('./swing');
+  require('./day');
+  require('./scalper');
+  require('./fundamental');
+  require('./longterm');
+}
+
+// Auto-register on first access
 export function getStrategy(style: TradingStyle, subStyle: string): TradingStrategy | null {
+  ensureStrategiesRegistered();
   return STRATEGIES[`${style}:${subStyle}`] || null;
 }
 
 export function getStrategiesByStyle(style: TradingStyle): TradingStrategy[] {
+  ensureStrategiesRegistered();
   return Object.values(STRATEGIES).filter((s) => s.style === style);
 }
 
 export function getAllStrategies(): TradingStrategy[] {
+  ensureStrategiesRegistered();
   return Object.values(STRATEGIES);
 }
-
-// Register built-in strategies
-import './swing';
-import './day';
-import './scalper';
-import './fundamental';
-import './longterm';

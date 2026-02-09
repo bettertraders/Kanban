@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { UserMenu } from '@/components/UserMenu';
 
@@ -11,6 +11,7 @@ interface Board {
   is_personal: boolean;
   team_id?: number;
   team_name?: string;
+  owner_id?: number | null;
   columns: string[];
   board_type?: string;
 }
@@ -20,6 +21,22 @@ interface Team {
   name: string;
   slug: string;
   user_role: string;
+}
+
+interface VisibleUser {
+  id: number;
+  name: string | null;
+  email: string;
+  image?: string | null;
+}
+
+interface TeamMember {
+  id: number;
+  email: string;
+  name?: string | null;
+  avatar_url?: string | null;
+  role: string;
+  joined_at: string;
 }
 
 interface PerBoardStat {
@@ -65,6 +82,8 @@ interface Props {
   initialTeams: Team[];
   stats: Stats;
   userEmail: string;
+  userId: number;
+  userName?: string | null;
 }
 
 const CHART_COLORS = {
@@ -242,48 +261,236 @@ function BoardBarChart({ perBoardStats }: { perBoardStats: PerBoardStat[] }) {
 
 // --- MAIN COMPONENT ---
 
-export function DashboardClient({ initialBoards, initialTeams, stats, userEmail }: Props) {
+export function DashboardClient({ initialBoards, initialTeams, stats, userEmail, userId, userName }: Props) {
   const [boards, setBoards] = useState(initialBoards);
-  const [teams] = useState(initialTeams);
+  const [teams, setTeams] = useState(initialTeams);
   const [showNewBoardModal, setShowNewBoardModal] = useState(false);
-  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
-  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
-  const [newBoardType, setNewBoardType] = useState<'task' | 'trading'>('task');
+  const [creatingBoard, setCreatingBoard] = useState(false);
+  const [boardName, setBoardName] = useState('');
+  const [sharingMode, setSharingMode] = useState<'personal' | 'shared'>('personal');
+  const [memberSearch, setMemberSearch] = useState('');
+  const [selectedMembers, setSelectedMembers] = useState<VisibleUser[]>([]);
 
-  const canManage = ['michael@thebettertraders.com', 'penny@thebettertraders.com'].includes(userEmail);
+  const [visibleUsers, setVisibleUsers] = useState<VisibleUser[]>([]);
+  const [visibleUsersLoaded, setVisibleUsersLoaded] = useState(false);
+  const [visibleUsersLoading, setVisibleUsersLoading] = useState(false);
+
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [settingsBoard, setSettingsBoard] = useState<Board | null>(null);
+  const [settingsName, setSettingsName] = useState('');
+  const [settingsMembers, setSettingsMembers] = useState<TeamMember[]>([]);
+  const [settingsLoadingMembers, setSettingsLoadingMembers] = useState(false);
+  const [settingsMemberSearch, setSettingsMemberSearch] = useState('');
+  const [settingsSelectedMembers, setSettingsSelectedMembers] = useState<VisibleUser[]>([]);
+  const [settingsAddMode, setSettingsAddMode] = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsDeleting, setSettingsDeleting] = useState(false);
+  const [settingsRemoving, setSettingsRemoving] = useState<number | null>(null);
+
+  const isTradingAdmin = teams.some(t => ['admin', 'owner'].includes(t.user_role));
+
+  const loadVisibleUsers = async () => {
+    if (visibleUsersLoaded || visibleUsersLoading) return;
+    setVisibleUsersLoading(true);
+    try {
+      const res = await fetch('/api/v1/users/visible');
+      if (res.ok) {
+        const data = await res.json();
+        setVisibleUsers(Array.isArray(data?.users) ? data.users : []);
+        setVisibleUsersLoaded(true);
+      }
+    } catch {
+    } finally {
+      setVisibleUsersLoading(false);
+    }
+  };
 
   const handleCreateBoard = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-    const body: Record<string, unknown> = { name: formData.get('name'), description: formData.get('description') };
-    const teamId = formData.get('teamId');
-    const boardType = formData.get('boardType');
-    const startingBalance = formData.get('startingBalance');
-    if (teamId && teamId !== 'personal') body.teamId = parseInt(teamId as string);
-    if (boardType) body.board_type = String(boardType);
-    if (startingBalance !== null && startingBalance !== undefined && String(startingBalance).trim()) {
-      body.starting_balance = Number(startingBalance);
+    try {
+      if (!boardName.trim()) return;
+      setCreatingBoard(true);
+      let teamId: number | null = null;
+      if (sharingMode === 'shared') {
+        const teamRes = await fetch('/api/v1/teams', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: boardName.trim(), create_default_board: false })
+        });
+        if (teamRes.ok) {
+          const teamData = await teamRes.json();
+          teamId = teamData?.team?.id ?? null;
+          if (teamData?.team) {
+            setTeams(prev => [...prev, teamData.team]);
+          }
+        }
+        if (!teamId) {
+          return;
+        }
+      }
+
+      const res = await fetch('/api/v1/boards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: boardName.trim(),
+          teamId: teamId ?? undefined
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (sharingMode === 'shared' && teamId && selectedMembers.length > 0) {
+          await Promise.all(
+            selectedMembers.map((member) =>
+              fetch(`/api/v1/teams/${teamId}/members`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: member.email, name: member.name || undefined, role: 'member' })
+              })
+            )
+          );
+        }
+        setBoards([...boards, data.board]);
+        setShowNewBoardModal(false);
+        setBoardName('');
+        setSharingMode('personal');
+        setSelectedMembers([]);
+        setMemberSearch('');
+      }
+    } catch {
+    } finally {
+      setCreatingBoard(false);
     }
-    try {
-      const res = await fetch('/api/v1/boards', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      if (res.ok) { const data = await res.json(); setBoards([...boards, data.board]); setShowNewBoardModal(false); }
-    } catch {}
   };
 
-  const handleAddMember = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!selectedTeamId) return;
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-    const body = { email: formData.get('email'), role: formData.get('role') || 'member' };
-    try {
-      const res = await fetch(`/api/v1/teams/${selectedTeamId}/members`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      if (res.ok) { setShowAddMemberModal(false); setSelectedTeamId(null); }
-    } catch {}
+  const filteredVisibleUsers = visibleUsers.filter((u) => {
+    if (!memberSearch.trim()) return true;
+    const q = memberSearch.toLowerCase();
+    return (u.name || '').toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+  });
+
+  const toggleMember = (user: VisibleUser) => {
+    setSelectedMembers((prev) => {
+      const exists = prev.find(m => m.id === user.id);
+      if (exists) return prev.filter(m => m.id !== user.id);
+      return [...prev, user];
+    });
   };
 
-  const openAddMember = (teamId: number) => { setSelectedTeamId(teamId); setShowAddMemberModal(true); };
+  const openSettings = async (board: Board) => {
+    setSettingsBoard(board);
+    setSettingsName(board.name);
+    setSettingsMembers([]);
+    setSettingsSelectedMembers([]);
+    setSettingsMemberSearch('');
+    setSettingsAddMode(false);
+    setShowSettingsModal(true);
+    if (board.team_id) {
+      setSettingsLoadingMembers(true);
+      try {
+        const res = await fetch(`/api/v1/teams/${board.team_id}/members`);
+        if (res.ok) {
+          const data = await res.json();
+          setSettingsMembers(Array.isArray(data?.members) ? data.members : []);
+        }
+      } catch {
+      } finally {
+        setSettingsLoadingMembers(false);
+      }
+    }
+  };
+
+  const closeSettings = () => {
+    setShowSettingsModal(false);
+    setSettingsBoard(null);
+    setSettingsMembers([]);
+    setSettingsSelectedMembers([]);
+    setSettingsMemberSearch('');
+    setSettingsAddMode(false);
+  };
+
+  const toggleSettingsMember = (user: VisibleUser) => {
+    setSettingsSelectedMembers((prev) => {
+      const exists = prev.find(m => m.id === user.id);
+      if (exists) return prev.filter(m => m.id !== user.id);
+      return [...prev, user];
+    });
+  };
+
+  const saveSettings = async () => {
+    if (!settingsBoard) return;
+    setSettingsSaving(true);
+    try {
+      if (settingsName.trim() && settingsName.trim() !== settingsBoard.name) {
+        const res = await fetch(`/api/v1/boards/${settingsBoard.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: settingsName.trim() })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setBoards(prev => prev.map(b => b.id === settingsBoard.id ? data.board : b));
+        }
+      }
+
+      if (settingsBoard.team_id && settingsSelectedMembers.length > 0) {
+        await Promise.all(
+          settingsSelectedMembers.map((member) =>
+            fetch(`/api/v1/teams/${settingsBoard.team_id}/members`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: member.email, name: member.name || undefined, role: 'member' })
+            })
+          )
+        );
+        const refreshed = await fetch(`/api/v1/teams/${settingsBoard.team_id}/members`);
+        if (refreshed.ok) {
+          const data = await refreshed.json();
+          setSettingsMembers(Array.isArray(data?.members) ? data.members : []);
+        }
+      }
+      setSettingsSelectedMembers([]);
+      setSettingsAddMode(false);
+    } catch {
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
+  const removeSettingsMember = async (memberId: number) => {
+    if (!settingsBoard?.team_id) return;
+    setSettingsRemoving(memberId);
+    try {
+      const res = await fetch(`/api/v1/teams/${settingsBoard.team_id}/members`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: memberId })
+      });
+      if (res.ok) {
+        setSettingsMembers(prev => prev.filter(m => m.id !== memberId));
+      }
+    } catch {
+    } finally {
+      setSettingsRemoving(null);
+    }
+  };
+
+  const deleteBoard = async () => {
+    if (!settingsBoard) return;
+    if (!confirm('Delete this board? This cannot be undone.')) return;
+    setSettingsDeleting(true);
+    try {
+      const res = await fetch(`/api/v1/boards/${settingsBoard.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setBoards(prev => prev.filter(b => b.id !== settingsBoard.id));
+        closeSettings();
+      }
+    } catch {
+    } finally {
+      setSettingsDeleting(false);
+    }
+  };
 
   const glassCard: React.CSSProperties = {
     background: 'rgba(20, 20, 40, 0.6)',
@@ -301,6 +508,18 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail 
     padding: '24px',
   };
 
+  useEffect(() => {
+    if (showNewBoardModal && sharingMode === 'shared') {
+      void loadVisibleUsers();
+    }
+  }, [showNewBoardModal, sharingMode]);
+
+  useEffect(() => {
+    if (showSettingsModal && settingsAddMode) {
+      void loadVisibleUsers();
+    }
+  }, [showSettingsModal, settingsAddMode]);
+
   return (
     <div style={{ padding: '32px clamp(20px, 4vw, 48px) 40px', maxWidth: '1200px', margin: '0 auto' }}>
       {/* HEADER */}
@@ -313,136 +532,199 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail 
           </div>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-          {canManage && (
-            <button onClick={() => setShowNewBoardModal(true)} style={{ background: 'linear-gradient(135deg, var(--accent), #9a9cff)', color: '#0d0d1f', border: 'none', padding: '10px 18px', borderRadius: '999px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}>
-              New Board
-            </button>
-          )}
-          <Link href="/teams/new" style={{ background: 'transparent', color: 'var(--text)', border: '1px solid var(--border)', textDecoration: 'none', padding: '10px 18px', borderRadius: '999px', fontWeight: 600, fontSize: '14px' }}>New Team</Link>
+          <button onClick={() => setShowNewBoardModal(true)} style={{ background: 'linear-gradient(135deg, var(--accent), #9a9cff)', color: '#0d0d1f', border: 'none', padding: '10px 18px', borderRadius: '999px', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}>
+            New Board
+          </button>
           <Link href="/settings/api-keys" style={{ background: 'transparent', color: 'var(--text)', border: '1px solid var(--border)', textDecoration: 'none', padding: '10px 18px', borderRadius: '999px', fontWeight: 600, fontSize: '14px' }}>API Keys</Link>
           <UserMenu />
         </div>
       </header>
 
       {/* BOARD NAV TABS */}
-      <nav style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 40,
-        background: 'rgba(20, 20, 40, 0.8)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        borderRadius: '12px',
-        padding: '8px 12px',
-        marginBottom: '24px',
-        display: 'flex',
-        gap: '8px',
-        overflowX: 'auto',
-        scrollbarWidth: 'none',
-        msOverflowStyle: 'none',
-      }}>
-        <style>{`nav::-webkit-scrollbar { display: none; }`}</style>
-        <Link
-          href="/portfolio"
+      <nav
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 40,
+          background: 'rgba(20, 20, 40, 0.8)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          borderRadius: '12px',
+          padding: '8px 12px',
+          marginBottom: '24px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+        }}
+      >
+        <style>{`.board-nav::-webkit-scrollbar { display: none; }`}</style>
+        <div
+          className="board-nav"
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
-            padding: '6px 14px',
-            borderRadius: '999px',
-            background: 'var(--panel-2)',
-            border: '1px solid var(--border)',
-            color: 'var(--text)',
-            textDecoration: 'none',
-            fontSize: '13px',
-            fontWeight: 600,
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-            transition: 'border-color 0.2s, box-shadow 0.2s',
+            gap: '8px',
+            overflowX: 'auto',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            flex: 1,
+            minWidth: 0,
           }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 0 8px rgba(123,125,255,0.3)'; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
         >
-          📊 Portfolio
-        </Link>
-        <Link
-          href="/bots"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 14px',
-            borderRadius: '999px',
-            background: 'var(--panel-2)',
-            border: '1px solid var(--border)',
-            color: 'var(--text)',
-            textDecoration: 'none',
-            fontSize: '13px',
-            fontWeight: 600,
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-            transition: 'border-color 0.2s, box-shadow 0.2s',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 0 8px rgba(123,125,255,0.3)'; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
-        >
-          🤖 Bots
-        </Link>
-        <Link
-          href="/leaderboard"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 14px',
-            borderRadius: '999px',
-            background: 'var(--panel-2)',
-            border: '1px solid var(--border)',
-            color: 'var(--text)',
-            textDecoration: 'none',
-            fontSize: '13px',
-            fontWeight: 600,
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-            transition: 'border-color 0.2s, box-shadow 0.2s',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 0 8px rgba(123,125,255,0.3)'; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
-        >
-          🏆 Leaderboard
-        </Link>
-        {boards.map((board) => {
-          const boardStat = stats.perBoardStats.find(b => b.boardId === board.id);
-          const taskCount = boardStat?.total ?? 0;
-          const boardHref = board.board_type === 'trading' ? `/trading/${board.id}` : `/board/${board.id}`;
-          return (
+          <Link
+            href="/portfolio"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              borderRadius: '999px',
+              background: 'var(--panel-2)',
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
+              textDecoration: 'none',
+              fontSize: '13px',
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              transition: 'border-color 0.2s, box-shadow 0.2s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 0 8px rgba(123,125,255,0.3)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+          >
+            📊 Portfolio
+          </Link>
+          <Link
+            href="/bots"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              borderRadius: '999px',
+              background: 'var(--panel-2)',
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
+              textDecoration: 'none',
+              fontSize: '13px',
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              transition: 'border-color 0.2s, box-shadow 0.2s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 0 8px rgba(123,125,255,0.3)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+          >
+            🤖 Bots
+          </Link>
+          <Link
+            href="/leaderboard"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              borderRadius: '999px',
+              background: 'var(--panel-2)',
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
+              textDecoration: 'none',
+              fontSize: '13px',
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              transition: 'border-color 0.2s, box-shadow 0.2s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 0 8px rgba(123,125,255,0.3)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+          >
+            🏆 Leaderboard
+          </Link>
+          {boards.map((board) => {
+            const boardStat = stats.perBoardStats.find(b => b.boardId === board.id);
+            const taskCount = boardStat?.total ?? 0;
+            const boardHref = board.board_type === 'trading' ? `/trading/${board.id}` : `/board/${board.id}`;
+            const team = teams.find(t => t.id === board.team_id);
+            const isTeamAdmin = team?.user_role && ['admin', 'owner'].includes(team.user_role);
+            const canEditBoard = board.is_personal ? board.owner_id === userId : Boolean(isTeamAdmin);
+            return (
+              <div key={board.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                <Link
+                  href={boardHref}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 14px',
+                    borderRadius: '999px',
+                    background: 'var(--panel-2)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text)',
+                    textDecoration: 'none',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                    transition: 'border-color 0.2s, box-shadow 0.2s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 0 8px rgba(123,125,255,0.3)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+                >
+                  {board.board_type === 'trading' ? `📈 ${board.name}` : board.name}
+                  <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 400 }}>{taskCount}</span>
+                </Link>
+                {canEditBoard && (
+                  <button
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); openSettings(board); }}
+                    style={{
+                      width: '26px',
+                      height: '26px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border)',
+                      background: 'transparent',
+                      color: 'var(--muted)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px'
+                    }}
+                    title="Board settings"
+                  >
+                    ⚙️
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {isTradingAdmin && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+            <div style={{ width: '1px', height: '26px', background: 'var(--border)', opacity: 0.6 }} />
             <Link
-              key={board.id}
-              href={boardHref}
+              href="/trading"
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
                 padding: '6px 14px',
                 borderRadius: '999px',
-                background: 'var(--panel-2)',
-                border: '1px solid var(--border)',
-                color: 'var(--text)',
+                background: 'rgba(0,230,118,0.15)',
+                border: '1px solid rgba(0,230,118,0.3)',
+                color: 'var(--green)',
                 textDecoration: 'none',
                 fontSize: '13px',
-                fontWeight: 500,
+                fontWeight: 700,
                 whiteSpace: 'nowrap',
-                flexShrink: 0,
                 transition: 'border-color 0.2s, box-shadow 0.2s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 0 8px rgba(123,125,255,0.3)'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--green)'; e.currentTarget.style.boxShadow = '0 0 10px rgba(0,230,118,0.2)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(0,230,118,0.3)'; e.currentTarget.style.boxShadow = 'none'; }}
             >
-              {board.board_type === 'trading' ? `📈 ${board.name}` : board.name}
-              <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 400 }}>{taskCount}</span>
+              📈 Trading
             </Link>
-          );
-        })}
+          </div>
+        )}
       </nav>
 
       {/* A. STATS CARDS ROW */}
@@ -517,7 +799,7 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
         {boards.map((board) => {
           const team = teams.find(t => t.id === board.team_id);
-          const isTeamAdmin = team?.user_role === 'admin';
+          const isTeamAdmin = team?.user_role && ['admin', 'owner'].includes(team.user_role);
           const boardStat = stats.perBoardStats.find(b => b.boardId === board.id);
           const pctDone = boardStat && boardStat.total > 0 ? Math.round((boardStat.done / boardStat.total) * 100) : 0;
           const boardHref = board.board_type === 'trading' ? `/trading/${board.id}` : `/board/${board.id}`;
@@ -552,8 +834,10 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail 
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{board.columns?.length || 4} columns</span>
-                {canManage && !board.is_personal && isTeamAdmin && board.team_id && (
-                  <button onClick={() => openAddMember(board.team_id!)} style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', cursor: 'pointer' }}>+ Add Member</button>
+                {isTeamAdmin && board.team_id && (
+                  <button onClick={() => openSettings(board)} style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', cursor: 'pointer' }}>
+                    ⚙️ Settings
+                  </button>
                 )}
               </div>
             </div>
@@ -564,77 +848,240 @@ export function DashboardClient({ initialBoards, initialTeams, stats, userEmail 
       {/* NEW BOARD MODAL */}
       {showNewBoardModal && (
         <div onClick={e => { if (e.target === e.currentTarget) setShowNewBoardModal(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(5, 5, 15, 0.7)', display: 'grid', placeItems: 'center', padding: '20px', zIndex: 50 }}>
-          <div style={{ width: 'min(420px, 100%)', background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '24px', boxShadow: 'var(--shadow)' }}>
-            <h2 style={{ fontSize: '20px', marginBottom: '16px' }}>Create New Board</h2>
+          <div style={{ width: 'min(520px, 100%)', background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '24px', boxShadow: 'var(--shadow)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <h2 style={{ fontSize: '20px', margin: 0 }}>Create New Board</h2>
+              <button onClick={() => setShowNewBoardModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '18px' }}>✕</button>
+            </div>
             <form onSubmit={handleCreateBoard}>
-              <div style={{ display: 'grid', gap: '12px' }}>
+              <div style={{ display: 'grid', gap: '14px' }}>
                 <div>
                   <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Board Name</label>
-                  <input name="name" required style={inputStyle} placeholder="My Board" />
-                </div>
-                <div>
-                  <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Description</label>
-                  <textarea name="description" style={{ ...inputStyle, resize: 'vertical', minHeight: '60px' }} placeholder="Optional description" />
-                </div>
-                <div>
-                  <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Type</label>
-                  <select name="teamId" style={inputStyle}>
-                    <option value="personal">Personal Board</option>
-                    {teams.filter(t => t.user_role === 'admin').map(t => (<option key={t.id} value={t.id}>Team: {t.name}</option>))}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Board Type</label>
-                  <select
-                    name="boardType"
+                  <input
+                    name="name"
+                    required
                     style={inputStyle}
-                    value={newBoardType}
-                    onChange={(e) => setNewBoardType(e.target.value as 'task' | 'trading')}
-                  >
-                    <option value="task">Task Board</option>
-                    <option value="trading">Trading Board</option>
-                  </select>
+                    placeholder="My Board"
+                    value={boardName}
+                    onChange={(e) => setBoardName(e.target.value)}
+                  />
                 </div>
-                {newBoardType === 'trading' && (
-                  <div>
-                    <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Starting Balance</label>
-                    <input name="startingBalance" type="number" min="0" step="0.01" defaultValue="10000" style={inputStyle} />
+                <div>
+                  <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Sharing</label>
+                  <div style={{ display: 'grid', gap: '8px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
+                      <input
+                        type="radio"
+                        name="sharing"
+                        value="personal"
+                        checked={sharingMode === 'personal'}
+                        onChange={() => setSharingMode('personal')}
+                      />
+                      Just me (personal)
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
+                      <input
+                        type="radio"
+                        name="sharing"
+                        value="shared"
+                        checked={sharingMode === 'shared'}
+                        onChange={() => setSharingMode('shared')}
+                      />
+                      Shared with others
+                    </label>
+                  </div>
+                </div>
+                {sharingMode === 'shared' && (
+                  <div style={{ display: 'grid', gap: '10px' }}>
+                    <label style={{ fontSize: '12px', color: 'var(--muted)' }}>Add Members</label>
+                    <div style={{ border: '1px solid var(--border)', borderRadius: '14px', background: 'var(--panel-2)', padding: '12px', display: 'grid', gap: '10px' }}>
+                      <input
+                        type="text"
+                        placeholder="Search your contacts..."
+                        value={memberSearch}
+                        onChange={(e) => setMemberSearch(e.target.value)}
+                        style={{ ...inputStyle, background: 'rgba(10,10,26,0.4)' }}
+                      />
+                      {selectedMembers.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                          {selectedMembers.map((m) => (
+                            <span key={m.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(123,125,255,0.16)', border: '1px solid rgba(123,125,255,0.3)', color: 'var(--text)', padding: '4px 8px', borderRadius: '999px', fontSize: '12px' }}>
+                              {m.name || m.email}
+                              <button type="button" onClick={() => toggleMember(m)} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '12px' }}>✕</button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{ maxHeight: '160px', overflowY: 'auto', display: 'grid', gap: '6px' }}>
+                        {visibleUsersLoading && <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Loading contacts...</span>}
+                        {!visibleUsersLoading && filteredVisibleUsers.length === 0 && (
+                          <span style={{ fontSize: '12px', color: 'var(--muted)' }}>No matching contacts.</span>
+                        )}
+                        {filteredVisibleUsers.map((user) => {
+                          const selected = selectedMembers.some(m => m.id === user.id);
+                          return (
+                            <label key={user.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
+                              <input
+                                type="checkbox"
+                                checked={selected}
+                                onChange={() => toggleMember(user)}
+                              />
+                              <span style={{ flex: 1 }}>{user.name || user.email}</span>
+                              <span style={{ fontSize: '11px', color: 'var(--muted)' }}>{user.email}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <div style={{ display: 'grid', gap: '6px' }}>
+                        <label style={{ fontSize: '11px', color: 'var(--muted)' }}>Invite by email</label>
+                        <input
+                          type="text"
+                          disabled
+                          title="Coming soon"
+                          placeholder="Coming soon"
+                          style={{ ...inputStyle, opacity: 0.6, cursor: 'not-allowed' }}
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '18px' }}>
                 <button type="button" onClick={() => setShowNewBoardModal(false)} style={secondaryBtnStyle}>Cancel</button>
-                <button type="submit" style={primaryBtnStyle}>Create Board</button>
+                <button type="submit" style={primaryBtnStyle} disabled={creatingBoard}>
+                  {creatingBoard ? 'Creating...' : 'Create Board'}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* ADD MEMBER MODAL */}
-      {showAddMemberModal && selectedTeamId && (
-        <div onClick={e => { if (e.target === e.currentTarget) { setShowAddMemberModal(false); setSelectedTeamId(null); } }} style={{ position: 'fixed', inset: 0, background: 'rgba(5, 5, 15, 0.7)', display: 'grid', placeItems: 'center', padding: '20px', zIndex: 50 }}>
-          <div style={{ width: 'min(420px, 100%)', background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '24px', boxShadow: 'var(--shadow)' }}>
-            <h2 style={{ fontSize: '20px', marginBottom: '16px' }}>Add Team Member</h2>
-            <form onSubmit={handleAddMember}>
-              <div style={{ display: 'grid', gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Email</label>
-                  <input name="email" type="email" required style={inputStyle} placeholder="user@example.com" />
-                </div>
-                <div>
-                  <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Role</label>
-                  <select name="role" style={inputStyle}>
-                    <option value="member">Member</option>
-                    <option value="admin">Admin</option>
-                  </select>
+      {/* BOARD SETTINGS MODAL */}
+      {showSettingsModal && settingsBoard && (
+        <div onClick={e => { if (e.target === e.currentTarget) closeSettings(); }} style={{ position: 'fixed', inset: 0, background: 'rgba(5, 5, 15, 0.7)', display: 'grid', placeItems: 'center', padding: '20px', zIndex: 55 }}>
+          <div style={{ width: 'min(560px, 100%)', background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '24px', boxShadow: 'var(--shadow)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <h2 style={{ fontSize: '20px', margin: 0 }}>Board Settings</h2>
+              <button onClick={closeSettings} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '18px' }}>✕</button>
+            </div>
+            <div style={{ display: 'grid', gap: '16px' }}>
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Board Name</label>
+                <input value={settingsName} onChange={(e) => setSettingsName(e.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--muted)', display: 'block', marginBottom: '6px' }}>Members</label>
+                <div style={{ border: '1px solid var(--border)', borderRadius: '14px', padding: '12px', background: 'var(--panel-2)', display: 'grid', gap: '8px' }}>
+                  {settingsBoard.is_personal ? (
+                    <div style={{ fontSize: '13px', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>{userName || userEmail}</span>
+                      <span style={{ color: 'var(--muted)' }}>owner</span>
+                    </div>
+                  ) : (
+                    <>
+                      {settingsLoadingMembers && <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Loading members...</span>}
+                      {!settingsLoadingMembers && settingsMembers.length === 0 && (
+                        <span style={{ fontSize: '12px', color: 'var(--muted)' }}>No members found.</span>
+                      )}
+                      {settingsMembers.map((member) => (
+                        <div key={member.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', fontSize: '13px' }}>
+                          <span>
+                            {member.name || member.email}
+                            {member.role === 'admin' ? ' (admin)' : member.role === 'owner' ? ' (owner)' : ''}
+                          </span>
+                          {!['admin', 'owner'].includes(member.role) && (
+                            <button
+                              onClick={() => removeSettingsMember(member.id)}
+                              disabled={settingsRemoving === member.id}
+                              style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', cursor: 'pointer' }}
+                            >
+                              {settingsRemoving === member.id ? 'Removing...' : 'Remove'}
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        onClick={() => { setSettingsAddMode(true); void loadVisibleUsers(); }}
+                        style={{ background: 'transparent', border: '1px dashed var(--border)', color: 'var(--muted)', padding: '6px 10px', borderRadius: '10px', fontSize: '12px', cursor: 'pointer', textAlign: 'left' }}
+                      >
+                        + Add Member
+                      </button>
+                      {settingsAddMode && (
+                        <div style={{ marginTop: '8px', display: 'grid', gap: '8px' }}>
+                          <input
+                            type="text"
+                            placeholder="Search your contacts..."
+                            value={settingsMemberSearch}
+                            onChange={(e) => setSettingsMemberSearch(e.target.value)}
+                            style={{ ...inputStyle, background: 'rgba(10,10,26,0.4)' }}
+                          />
+                          {settingsSelectedMembers.length > 0 && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                              {settingsSelectedMembers.map((m) => (
+                                <span key={m.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(123,125,255,0.16)', border: '1px solid rgba(123,125,255,0.3)', color: 'var(--text)', padding: '4px 8px', borderRadius: '999px', fontSize: '12px' }}>
+                                  {m.name || m.email}
+                                  <button type="button" onClick={() => toggleSettingsMember(m)} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '12px' }}>✕</button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <div style={{ maxHeight: '160px', overflowY: 'auto', display: 'grid', gap: '6px' }}>
+                            {visibleUsersLoading && <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Loading contacts...</span>}
+                            {!visibleUsersLoading && visibleUsers.filter((u) => {
+                              const exists = settingsMembers.some(m => m.id === u.id);
+                              if (exists) return false;
+                              if (!settingsMemberSearch.trim()) return true;
+                              const q = settingsMemberSearch.toLowerCase();
+                              return (u.name || '').toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+                            }).length === 0 && (
+                              <span style={{ fontSize: '12px', color: 'var(--muted)' }}>No matching contacts.</span>
+                            )}
+                            {visibleUsers.filter((u) => {
+                              const exists = settingsMembers.some(m => m.id === u.id);
+                              if (exists) return false;
+                              if (!settingsMemberSearch.trim()) return true;
+                              const q = settingsMemberSearch.toLowerCase();
+                              return (u.name || '').toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+                            }).map((user) => {
+                              const selected = settingsSelectedMembers.some(m => m.id === user.id);
+                              return (
+                                <label key={user.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={selected}
+                                    onChange={() => toggleSettingsMember(user)}
+                                  />
+                                  <span style={{ flex: 1 }}>{user.name || user.email}</span>
+                                  <span style={{ fontSize: '11px', color: 'var(--muted)' }}>{user.email}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '18px' }}>
-                <button type="button" onClick={() => { setShowAddMemberModal(false); setSelectedTeamId(null); }} style={secondaryBtnStyle}>Cancel</button>
-                <button type="submit" style={primaryBtnStyle}>Add Member</button>
-              </div>
-            </form>
+              {!settingsBoard.is_personal && (
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
+                  <button
+                    onClick={deleteBoard}
+                    disabled={settingsDeleting}
+                    style={{ background: 'transparent', border: '1px solid rgba(255,82,82,0.5)', color: 'var(--red)', padding: '8px 12px', borderRadius: '12px', cursor: 'pointer', fontSize: '12px' }}
+                  >
+                    {settingsDeleting ? 'Deleting...' : '🗑️ Delete Board'}
+                  </button>
+                </div>
+              )}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '18px' }}>
+              <button type="button" onClick={closeSettings} style={secondaryBtnStyle}>Cancel</button>
+              <button type="button" onClick={saveSettings} style={primaryBtnStyle} disabled={settingsSaving}>
+                {settingsSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
           </div>
         </div>
       )}

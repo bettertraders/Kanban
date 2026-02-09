@@ -482,7 +482,13 @@ export async function generateApiKey(userId: number, name: string) {
 }
 
 // Team functions
-export async function createTeam(name: string, slug: string, createdBy: number, description?: string) {
+export async function createTeam(
+  name: string,
+  slug: string,
+  createdBy: number,
+  description?: string,
+  options: { createDefaultBoard?: boolean } = {}
+) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -500,12 +506,14 @@ export async function createTeam(name: string, slug: string, createdBy: number, 
       [team.id, createdBy, 'admin']
     );
     
-    // Create default team board
-    await client.query(
-      `INSERT INTO boards (name, description, team_id, is_personal, columns) 
-       VALUES ($1, $2, $3, false, $4)`,
-      [`${name} Board`, 'Team collaboration board', team.id, JSON.stringify(['Backlog', 'Planned', 'In Progress', 'Review', 'Done'])]
-    );
+    if (options.createDefaultBoard !== false) {
+      // Create default team board
+      await client.query(
+        `INSERT INTO boards (name, description, team_id, is_personal, columns) 
+         VALUES ($1, $2, $3, false, $4)`,
+        [`${name} Board`, 'Team collaboration board', team.id, JSON.stringify(['Backlog', 'Planned', 'In Progress', 'Review', 'Done'])]
+      );
+    }
     
     await client.query('COMMIT');
     return team;
@@ -525,6 +533,21 @@ export async function getTeamsForUser(userId: number) {
     WHERE tm.user_id = $1
     ORDER BY t.name
   `, [userId]);
+  return result.rows;
+}
+
+export async function getVisibleUsers(userId: number): Promise<{ id: number; name: string; email: string; image: string | null }[]> {
+  const result = await pool.query(
+    `
+      SELECT DISTINCT u.id, u.name, u.email, u.avatar_url as image
+      FROM users u
+      JOIN team_members tm1 ON u.id = tm1.user_id
+      JOIN team_members tm2 ON tm1.team_id = tm2.team_id
+      WHERE tm2.user_id = $1 AND u.id <> $1
+      ORDER BY u.name NULLS LAST, u.email
+    `,
+    [userId]
+  );
   return result.rows;
 }
 
@@ -563,7 +586,7 @@ export async function isTeamMember(teamId: number, userId: number) {
 
 export async function isAdminUser(userId: number) {
   const result = await pool.query(
-    "SELECT 1 FROM team_members WHERE user_id = $1 AND role = 'admin' LIMIT 1",
+    "SELECT 1 FROM team_members WHERE user_id = $1 AND role IN ('admin', 'owner') LIMIT 1",
     [userId]
   );
   return result.rows.length > 0;
@@ -622,7 +645,7 @@ export async function getBoardsForUser(userId: number) {
     ) sub
     WHERE visibility IS NULL
        OR visibility <> 'admin_only'
-       OR user_role = 'admin'
+       OR user_role IN ('admin', 'owner')
        OR owner_id = $1
     ORDER BY is_personal DESC, name
   `, [userId]);
@@ -636,7 +659,7 @@ export async function getBoard(boardId: number, userId: number) {
     LEFT JOIN teams t ON b.team_id = t.id
     LEFT JOIN team_members tm ON t.id = tm.team_id AND tm.user_id = $2
     WHERE b.id = $1 AND (b.owner_id = $2 OR tm.user_id = $2)
-      AND (b.visibility IS NULL OR b.visibility <> 'admin_only' OR tm.role = 'admin' OR b.owner_id = $2)
+      AND (b.visibility IS NULL OR b.visibility <> 'admin_only' OR tm.role IN ('admin', 'owner') OR b.owner_id = $2)
   `, [boardId, userId]);
   return result.rows[0];
 }
@@ -1151,6 +1174,25 @@ export async function getBotExecutions(botId: number, limit: number = 50): Promi
   const result = await pool.query(
     `SELECT * FROM bot_executions WHERE bot_id = $1 ORDER BY executed_at DESC LIMIT $2`,
     [botId, limit]
+  );
+  return result.rows;
+}
+
+export async function getRecentBotExecutionsForUser(userId: number, limit: number = 10): Promise<any[]> {
+  const result = await pool.query(
+    `
+      SELECT be.*, tb.name as bot_name, b.name as board_name
+      FROM bot_executions be
+      JOIN trading_bots tb ON tb.id = be.bot_id
+      JOIN boards b ON b.id = tb.board_id
+      LEFT JOIN team_members tm ON b.team_id = tm.team_id AND tm.user_id = $1
+      WHERE (b.owner_id = $1 OR tm.user_id = $1)
+        AND b.board_type = 'trading'
+        AND (b.visibility IS NULL OR b.visibility <> 'admin_only' OR tm.role IN ('admin', 'owner') OR b.owner_id = $1)
+      ORDER BY be.executed_at DESC
+      LIMIT $2
+    `,
+    [userId, limit]
   );
   return result.rows;
 }
@@ -1829,6 +1871,26 @@ export async function addJournalEntry(
   return result.rows[0];
 }
 
+export async function getTradeJournalForUser(userId: number, limit: number = 200) {
+  const result = await pool.query(
+    `
+      SELECT tj.*, u.name as created_by_name, t.coin_pair, t.board_id, b.name as board_name
+      FROM trade_journal tj
+      JOIN trades t ON t.id = tj.trade_id
+      JOIN boards b ON b.id = t.board_id
+      LEFT JOIN users u ON tj.created_by = u.id
+      LEFT JOIN team_members tm ON b.team_id = tm.team_id AND tm.user_id = $1
+      WHERE (b.owner_id = $1 OR tm.user_id = $1)
+        AND b.board_type = 'trading'
+        AND (b.visibility IS NULL OR b.visibility <> 'admin_only' OR tm.role IN ('admin', 'owner') OR b.owner_id = $1)
+      ORDER BY tj.created_at DESC
+      LIMIT $2
+    `,
+    [userId, limit]
+  );
+  return result.rows;
+}
+
 export async function updateActiveTradePrices(prices: Record<string, number>) {
   const result = await pool.query(
     `SELECT id, coin_pair, entry_price, direction, position_size
@@ -2262,7 +2324,7 @@ export async function getPortfolioStats(userId: number) {
         LEFT JOIN team_members tm ON b.team_id = tm.team_id AND tm.user_id = $1
         WHERE (b.owner_id = $1 OR tm.user_id = $1)
           AND b.board_type = 'trading'
-          AND (b.visibility IS NULL OR b.visibility <> 'admin_only' OR tm.role = 'admin' OR b.owner_id = $1)
+          AND (b.visibility IS NULL OR b.visibility <> 'admin_only' OR tm.role IN ('admin', 'owner') OR b.owner_id = $1)
       )
       SELECT
         (SELECT COUNT(*) FROM accessible_boards)::int as board_count,
@@ -2301,7 +2363,7 @@ export async function getPortfolioStats(userId: number) {
         LEFT JOIN team_members tm ON b.team_id = tm.team_id AND tm.user_id = $1
         WHERE (b.owner_id = $1 OR tm.user_id = $1)
           AND b.board_type = 'trading'
-          AND (b.visibility IS NULL OR b.visibility <> 'admin_only' OR tm.role = 'admin' OR b.owner_id = $1)
+          AND (b.visibility IS NULL OR b.visibility <> 'admin_only' OR tm.role IN ('admin', 'owner') OR b.owner_id = $1)
       )
       SELECT
         t.coin_pair,
@@ -2341,7 +2403,7 @@ export async function getPortfolioStats(userId: number) {
         LEFT JOIN team_members tm ON b.team_id = tm.team_id AND tm.user_id = $1
         WHERE (b.owner_id = $1 OR tm.user_id = $1)
           AND b.board_type = 'trading'
-          AND (b.visibility IS NULL OR b.visibility <> 'admin_only' OR tm.role = 'admin' OR b.owner_id = $1)
+          AND (b.visibility IS NULL OR b.visibility <> 'admin_only' OR tm.role IN ('admin', 'owner') OR b.owner_id = $1)
       )
       SELECT
         UPPER(COALESCE(t.direction, '')) as direction,
@@ -2378,7 +2440,7 @@ export async function getPortfolioStats(userId: number) {
         LEFT JOIN team_members tm ON b.team_id = tm.team_id AND tm.user_id = $1
         WHERE (b.owner_id = $1 OR tm.user_id = $1)
           AND b.board_type = 'trading'
-          AND (b.visibility IS NULL OR b.visibility <> 'admin_only' OR tm.role = 'admin' OR b.owner_id = $1)
+          AND (b.visibility IS NULL OR b.visibility <> 'admin_only' OR tm.role IN ('admin', 'owner') OR b.owner_id = $1)
       )
       SELECT exited_at, pnl_dollar, coin_pair
       FROM trades t

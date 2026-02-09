@@ -2,20 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/api-auth';
 import { getBoard, getTasksForBoard, pool } from '@/lib/database';
 
-// Check if user can edit a board (personal: owner only, team: admin only)
+// Check if user can edit a board (personal: owner only, team: admin/owner only)
 async function canEditBoard(board: any, userId: number): Promise<boolean> {
   // Personal boards: only owner can edit
   if (board.is_personal) {
     return board.owner_id === userId;
   }
   
-  // Team boards: only admins can edit
+  // Team boards: only admins/owners can edit
   if (board.team_id) {
     const result = await pool.query(
       'SELECT role FROM team_members WHERE team_id = $1 AND user_id = $2',
       [board.team_id, userId]
     );
-    return result.rows[0]?.role === 'admin';
+    return ['admin', 'owner'].includes(result.rows[0]?.role);
   }
   
   return false;
@@ -177,6 +177,11 @@ export async function DELETE(
     // Don't allow deleting personal boards
     if (board.is_personal) {
       return NextResponse.json({ error: 'Cannot delete personal boards' }, { status: 400 });
+    }
+
+    const canEdit = await canEditBoard(board, user.id);
+    if (!canEdit) {
+      return NextResponse.json({ error: 'Only team admins can delete team boards' }, { status: 403 });
     }
 
     await pool.query('DELETE FROM boards WHERE id = $1', [boardId]);

@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    const { name, description } = await request.json();
+    const { name, description, create_default_board } = await request.json();
     
     if (!name) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
@@ -37,7 +37,9 @@ export async function POST(request: NextRequest) {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
     
-    const team = await createTeam(name, slug, user.id, description);
+    const team = await createTeam(name, slug, user.id, description, {
+      createDefaultBoard: create_default_board !== false
+    });
     return NextResponse.json({ team }, { status: 201 });
   } catch (error) {
     console.error('Error creating team:', error);

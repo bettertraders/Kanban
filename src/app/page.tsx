@@ -28,6 +28,8 @@ export default async function HomePage() {
       initialTeams={teams}
       stats={stats} 
       userEmail={user.email}
+      userId={user.id}
+      userName={user.name}
     />
   );
 }

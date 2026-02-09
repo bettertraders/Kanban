@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { TradingNav } from '@/components/TradingNav';
 
 type LeaderboardEntry = {
   bot_id: number;
@@ -84,6 +85,7 @@ export default function LeaderboardPage() {
           ))}
         </div>
       </header>
+      <TradingNav activeTab="leaderboard" />
 
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px' }}>
         {podium.map((entry, index) => {

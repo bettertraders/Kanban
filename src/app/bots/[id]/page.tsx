@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { PieChart } from '@/components/PieChart';
 import { RiskSlider } from '@/components/RiskSlider';
 import { getTargetAllocation, calculateDrift } from '@/lib/rebalancer';
+import { TradingNav } from '@/components/TradingNav';
 
 type Bot = {
   id: number;
@@ -331,6 +332,7 @@ export default function BotDetailPage() {
           </button>
         </div>
       </header>
+      <TradingNav activeTab="bots" />
 
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '24px' }}>
         {[

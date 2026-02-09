@@ -46,7 +46,7 @@ export async function PATCH(
     
     // Verify user is an admin
     const membership = await isTeamMember(teamId, user.id);
-    if (!membership || membership.role !== 'admin') {
+    if (!membership || !['admin', 'owner'].includes(membership.role)) {
       return NextResponse.json({ error: 'Only admins can update member roles' }, { status: 403 });
     }
     
@@ -91,7 +91,7 @@ export async function DELETE(
     
     // Verify user is an admin
     const membership = await isTeamMember(teamId, user.id);
-    if (!membership || membership.role !== 'admin') {
+    if (!membership || !['admin', 'owner'].includes(membership.role)) {
       return NextResponse.json({ error: 'Only admins can remove members' }, { status: 403 });
     }
     
@@ -138,7 +138,7 @@ export async function POST(
     
     // Verify user is an admin
     const membership = await isTeamMember(teamId, user.id);
-    if (!membership || membership.role !== 'admin') {
+    if (!membership || !['admin', 'owner'].includes(membership.role)) {
       return NextResponse.json({ error: 'Only admins can add members' }, { status: 403 });
     }
     

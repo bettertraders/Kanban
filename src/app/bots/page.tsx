@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { PieChart } from '@/components/PieChart';
 import { RiskSlider } from '@/components/RiskSlider';
+import { TradingNav } from '@/components/TradingNav';
 import { getTargetAllocation } from '@/lib/rebalancer';
 
 type Bot = {
@@ -238,6 +239,7 @@ export default function BotsPage() {
           + Create Bot
         </button>
       </header>
+      <TradingNav activeTab="bots" />
 
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px', marginBottom: '24px' }}>
         <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px' }}>

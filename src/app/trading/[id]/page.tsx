@@ -7,6 +7,7 @@ import { UserMenu } from '@/components/UserMenu';
 import TradingChart from '@/components/TradingChart';
 import { ToastStack, type ToastItem } from '@/components/ToastStack';
 import { AlertsPanel } from '@/components/AlertsPanel';
+import { TradingNav } from '@/components/TradingNav';
 
 interface Trade {
   id: number;
@@ -1083,6 +1084,7 @@ export default function TradingBoardPage() {
           <UserMenu />
         </div>
       </header>
+      <TradingNav activeTab="board" />
 
       <section style={{ marginBottom: '22px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '10px' }}>

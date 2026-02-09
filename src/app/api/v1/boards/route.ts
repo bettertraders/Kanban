@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       if (!membership) {
         return NextResponse.json({ error: 'Not a member of this team' }, { status: 403 });
       }
-      if (board_type === 'trading' && membership.role !== 'admin') {
+      if (board_type === 'trading' && !['admin', 'owner'].includes(membership.role)) {
         return NextResponse.json({ error: 'Only team admins can create trading boards' }, { status: 403 });
       }
     }

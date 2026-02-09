@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TradingNav } from '@/components/TradingNav';
 import { ToastStack, type ToastItem } from '@/components/ToastStack';
+import { PieChart } from '@/components/PieChart';
 
 type CoinPulse = {
   pair: string;
   price: number;
   change24h: number;
-  volume24h?: number;
+  change7d?: number;
 };
 
 type Bot = {
@@ -16,14 +17,14 @@ type Bot = {
   name: string;
   status: string;
   return_pct?: number;
-};
-
-type Execution = {
-  id: number;
-  action: string;
-  executed_at: string;
-  bot_name?: string;
-  board_name?: string;
+  strategy_style?: string;
+  strategy_substyle?: string;
+  performance?: {
+    total_trades?: number;
+    return_pct?: number;
+    total_return?: number;
+  };
+  total_trades?: number;
 };
 
 type PortfolioSnapshot = {
@@ -41,11 +42,19 @@ type PortfolioStats = {
     paper_balance?: number;
   };
   snapshots?: PortfolioSnapshot[];
+  byCoin?: Array<{ coin_pair: string; total_pnl: number }>;
 };
 
 type Board = {
   id: number;
   board_type: string;
+};
+
+type NewsItem = {
+  title: string;
+  link: string;
+  pubDate: string;
+  source: string;
 };
 
 const RISK_OPTIONS = [
@@ -124,6 +133,12 @@ const SUBSTYLE_MAP: Record<(typeof STYLE_OPTIONS)[number], string[]> = {
   'Long-Term': ['Core', 'Growth', 'Income'],
 };
 
+const NEWS_SOURCES = {
+  CoinDesk: { label: 'CoinDesk', color: '#f39a26' },
+  CoinTelegraph: { label: 'CoinTelegraph', color: '#1b6bff' },
+  'Yahoo Finance': { label: 'Yahoo Finance', color: '#8b5cf6' },
+} as const;
+
 function formatCurrency(value: number, { compact = false } = {}) {
   if (!Number.isFinite(value)) return '—';
   if (compact) {
@@ -145,43 +160,55 @@ function formatTime(ts: string) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function buildSparkPath(values: number[], width: number, height: number) {
-  if (values.length < 2) {
-    return `M 0 ${height / 2} L ${width} ${height / 2}`;
-  }
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
-  return values
-    .map((value, index) => {
-      const x = (index / (values.length - 1)) * width;
-      const y = height - ((value - min) / range) * height;
-      return `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
-    })
-    .join(' ');
+function formatShortDate(ts?: string) {
+  if (!ts) return '—';
+  const date = new Date(ts);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
-function seededValues(seed: string, count = 12) {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i += 1) {
-    hash = (hash * 31 + seed.charCodeAt(i)) % 1000;
-  }
-  const values = [] as number[];
-  let current = (hash % 50) + 50;
-  for (let i = 0; i < count; i += 1) {
-    const delta = ((hash + i * 13) % 20) - 10;
-    current = Math.max(10, Math.min(100, current + delta));
-    values.push(current);
-  }
-  return values;
+function formatTimeAgo(ts?: string) {
+  if (!ts) return '—';
+  const date = new Date(ts);
+  if (Number.isNaN(date.getTime())) return '—';
+  const diffMs = Date.now() - date.getTime();
+  const minutes = Math.max(0, Math.floor(diffMs / 60000));
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function buildLinePath(values: number[], width: number, height: number, padding = 20) {
+  const safeValues = values.length >= 2 ? values : [values[0] ?? 0, values[0] ?? 0];
+  const min = Math.min(...safeValues);
+  const max = Math.max(...safeValues);
+  const range = max - min || 1;
+  const chartHeight = height - padding * 2;
+  const chartWidth = width - padding * 2;
+  const points = safeValues.map((value, index) => {
+    const x = padding + (index / (safeValues.length - 1)) * chartWidth;
+    const y = padding + chartHeight - ((value - min) / range) * chartHeight;
+    return { x, y };
+  });
+
+  const path = points
+    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
+    .join(' ');
+
+  const area = `${path} L ${padding + chartWidth} ${padding + chartHeight} L ${padding} ${padding + chartHeight} Z`;
+  return { path, area, min, max };
 }
 
 export default function TradingDashboardPage() {
   const [pulse, setPulse] = useState<CoinPulse[]>([]);
   const [bots, setBots] = useState<Bot[]>([]);
   const [portfolio, setPortfolio] = useState<PortfolioStats | null>(null);
-  const [executions, setExecutions] = useState<Execution[]>([]);
+  const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
+  const [newsError, setNewsError] = useState(false);
   const [boardId, setBoardId] = useState<number | null>(null);
+  const [isCompact, setIsCompact] = useState(false);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [amountInput, setAmountInput] = useState('500');
@@ -213,33 +240,57 @@ export default function TradingDashboardPage() {
 
   const loadDashboard = useCallback(async () => {
     try {
-      const [coinsRes, botsRes, portfolioRes, execRes, boardsRes] = await Promise.all([
-        fetch('/api/v1/prices?top=5'),
+      const [coinsRes, botsRes, portfolioRes, boardsRes, newsRes] = await Promise.allSettled([
+        fetch('/api/v1/prices?top=25'),
         fetch('/api/v1/bots'),
         fetch('/api/v1/portfolio'),
-        fetch('/api/v1/bots/executions?limit=8'),
         fetch('/api/v1/boards'),
+        fetch('/api/v1/news'),
       ]);
 
-      const coinsJson = await coinsRes.json();
-      setPulse(Array.isArray(coinsJson?.coins) ? coinsJson.coins : []);
+      if (coinsRes.status === 'fulfilled' && coinsRes.value.ok) {
+        const coinsJson = await coinsRes.value.json();
+        setPulse(Array.isArray(coinsJson?.coins) ? coinsJson.coins : []);
+      } else {
+        setPulse([]);
+      }
 
-      const botsJson = await botsRes.json();
-      setBots(Array.isArray(botsJson?.bots) ? botsJson.bots : []);
+      if (botsRes.status === 'fulfilled' && botsRes.value.ok) {
+        const botsJson = await botsRes.value.json();
+        setBots(Array.isArray(botsJson?.bots) ? botsJson.bots : []);
+      } else {
+        setBots([]);
+      }
 
-      const portfolioJson = await portfolioRes.json();
-      setPortfolio(portfolioJson || null);
+      if (portfolioRes.status === 'fulfilled' && portfolioRes.value.ok) {
+        const portfolioJson = await portfolioRes.value.json();
+        setPortfolio(portfolioJson || null);
+      } else {
+        setPortfolio(null);
+      }
 
-      const execJson = await execRes.json();
-      setExecutions(Array.isArray(execJson?.executions) ? execJson.executions : []);
+      if (boardsRes.status === 'fulfilled' && boardsRes.value.ok) {
+        const boardsJson = await boardsRes.value.json();
+        const boards = Array.isArray(boardsJson?.boards) ? boardsJson.boards : [];
+        const tradingBoard = boards.find((b: Board) => b.board_type === 'trading');
+        if (tradingBoard?.id) setBoardId(tradingBoard.id);
+      }
 
-      const boardsJson = await boardsRes.json();
-      const boards = Array.isArray(boardsJson?.boards) ? boardsJson.boards : [];
-      const tradingBoard = boards.find((b: Board) => b.board_type === 'trading');
-      if (tradingBoard?.id) setBoardId(tradingBoard.id);
+      if (newsRes.status === 'fulfilled' && newsRes.value.ok) {
+        const newsJson = await newsRes.value.json();
+        const items = Array.isArray(newsJson?.items) ? newsJson.items : [];
+        setNewsItems(items);
+        setNewsError(false);
+      } else {
+        setNewsItems([]);
+        setNewsError(true);
+      }
     } catch {
       setPulse([]);
       setBots([]);
+      setPortfolio(null);
+      setNewsItems([]);
+      setNewsError(true);
     }
   }, []);
 
@@ -261,26 +312,51 @@ export default function TradingDashboardPage() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [modalOpen]);
 
-  const portfolioValue = Number(portfolio?.summary?.total_portfolio_value ?? 0);
-  const realized = Number(portfolio?.summary?.total_realized_pnl ?? 0);
-  const unrealized = Number(portfolio?.summary?.total_unrealized_pnl ?? 0);
-  const totalPnl = realized + unrealized;
-  const dailyPnl = Number(portfolio?.summary?.daily_pnl ?? 0);
-  const weeklyPnl = Number(portfolio?.summary?.weekly_pnl ?? 0);
-  const paperBalance = Number(portfolio?.summary?.paper_balance ?? 10000);
+  useEffect(() => {
+    const updateLayout = () => setIsCompact(window.innerWidth < 980);
+    updateLayout();
+    window.addEventListener('resize', updateLayout);
+    return () => window.removeEventListener('resize', updateLayout);
+  }, []);
 
-  const equityValues = useMemo(() => {
-    if (portfolio?.snapshots?.length) {
-      return portfolio.snapshots
+  const paperBalance = Number(portfolio?.summary?.paper_balance ?? 0);
+
+  const snapshots = portfolio?.snapshots ?? [];
+  const snapshotValues = useMemo(() => {
+    if (snapshots.length) {
+      return snapshots
         .map((snap) => Number(snap.total_value ?? 0))
-        .filter((value) => Number.isFinite(value) && value > 0);
+        .filter((value) => Number.isFinite(value));
     }
     return [];
+  }, [snapshots]);
+
+  const chartValues = snapshotValues.length ? snapshotValues : [paperBalance || 0, paperBalance || 0];
+  const { path: equityPath, area: equityArea, min: equityMin, max: equityMax } = useMemo(
+    () => buildLinePath(chartValues, 600, 220, 24),
+    [chartValues]
+  );
+
+  const firstSnapshot = snapshots[0]?.timestamp;
+  const lastSnapshot = snapshots[snapshots.length - 1]?.timestamp;
+
+  const allocationData = useMemo(() => {
+    if (!portfolio?.byCoin?.length) return [];
+    const colors = ['#7b7dff', '#00e676', '#2196f3', '#ff9800', '#e91e63', '#f5b544', '#44d9e6'];
+    return portfolio.byCoin
+      .map((coin, index) => ({
+        label: coin.coin_pair,
+        value: Math.abs(Number(coin.total_pnl ?? 0)),
+        color: colors[index % colors.length],
+      }))
+      .filter((item) => Number.isFinite(item.value) && item.value > 0);
   }, [portfolio]);
 
-  const heroValues = equityValues.length >= 6 ? equityValues : Array.from({ length: 12 }, (_, i) => 50 + i * 2);
-  const heroPath = buildSparkPath(heroValues, 600, 80);
-  const heroArea = `${heroPath} L 600 80 L 0 80 Z`;
+  const movers = useMemo(() => {
+    return [...pulse]
+      .sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h))
+      .slice(0, 10);
+  }, [pulse]);
 
   const parsedAmount = Number(amountInput.replace(/[^0-9.]/g, ''));
   const amountReady = Number.isFinite(parsedAmount) && parsedAmount > 0;
@@ -342,111 +418,171 @@ export default function TradingDashboardPage() {
           background: 'linear-gradient(180deg, rgba(123,125,255,0.08), rgba(0,0,0,0))',
           border: '1px solid var(--border)',
           borderRadius: '20px',
-          padding: '26px clamp(18px, 4vw, 40px) 24px',
+          padding: '28px clamp(18px, 4vw, 40px) 30px',
           textAlign: 'center',
         }}
       >
         <div style={{ fontSize: '12px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.18em' }}>
           Portfolio Value
         </div>
-        <div style={{ marginTop: '10px', fontSize: 'clamp(36px, 6vw, 48px)', fontWeight: 700 }}>
-          {formatCurrency(portfolioValue || paperBalance)}
+        <div style={{ marginTop: '12px', fontSize: 'clamp(40px, 7vw, 56px)', fontWeight: 700 }}>
+          {formatCurrency(paperBalance)}
         </div>
-        <div style={{ marginTop: '16px' }}>
-          <svg width="100%" height="80" viewBox="0 0 600 80" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="equityFill" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.4" />
-                <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <path d={heroArea} fill="url(#equityFill)" />
-            <path d={heroPath} stroke="var(--accent)" strokeWidth="2.2" fill="none" />
-          </svg>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', flexWrap: 'wrap', marginTop: '10px' }}>
-          {[
-            { label: 'Today', value: dailyPnl },
-            { label: 'This Week', value: weeklyPnl },
-            { label: 'All Time', value: totalPnl },
-          ].map((chip) => {
-            const tone = chip.value >= 0 ? 'var(--green)' : 'var(--red)';
-            return (
-              <span
-                key={chip.label}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '999px',
-                  background: 'var(--panel)',
-                  border: `1px solid ${tone}`,
-                  color: tone,
-                  fontSize: '12px',
-                  fontWeight: 600,
-                }}
-              >
-                {chip.label}: {chip.value >= 0 ? '+' : ''}{formatCurrency(Math.abs(chip.value))}
-              </span>
-            );
-          })}
+        <div style={{ marginTop: '18px' }}>
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            style={{
+              ...primaryBtnStyle,
+              padding: '16px 34px',
+              fontSize: '16px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '10px',
+              boxShadow: '0 14px 30px rgba(123, 125, 255, 0.25)',
+            }}
+          >
+            <span style={{ display: 'inline-flex', width: '18px', height: '18px' }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 3l14 9-14 9 4-9-4-9z" />
+              </svg>
+            </span>
+            Start Trading
+          </button>
+          <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--muted)' }}>Set your risk. We handle everything else.</div>
         </div>
       </section>
 
-      {bots.length > 0 && (
-        <section style={{ marginTop: '20px' }}>
-          <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'var(--muted)', marginBottom: '10px' }}>
-            Active Bots
+      <section
+        style={{
+          marginTop: '26px',
+          display: 'grid',
+          gridTemplateColumns: isCompact ? '1fr' : 'repeat(2, 1fr)',
+          gap: '16px',
+        }}
+      >
+        <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '18px' }}>
+          <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600 }}>
+            Portfolio Value
           </div>
-          <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '6px' }}>
-            {bots.map((bot) => {
-              const statusColor = bot.status === 'running' ? 'var(--green)' : bot.status === 'paused' ? '#f5b544' : 'var(--muted)';
-              return (
+          <div style={{ marginTop: '12px', display: 'grid', gap: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--muted)' }}>
+              <span>{formatCurrency(equityMin)}</span>
+              <span>{formatCurrency(equityMax)}</span>
+            </div>
+            <div style={{ position: 'relative' }}>
+              <svg width="100%" height="220" viewBox="0 0 600 220" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="portfolioFill" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35" />
+                    <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                <path d={equityArea} fill="url(#portfolioFill)" />
+                <path d={equityPath} stroke="var(--accent)" strokeWidth="2.6" fill="none" />
+              </svg>
+              {!snapshotValues.length && (
                 <div
-                  key={bot.id}
                   style={{
-                    minWidth: '160px',
-                    borderRadius: '16px',
-                    border: '1px solid var(--border)',
-                    background: 'var(--panel)',
-                    padding: '12px',
+                    position: 'absolute',
+                    inset: 0,
                     display: 'grid',
-                    gap: '8px',
+                    placeItems: 'center',
+                    fontSize: '12px',
+                    color: 'var(--muted)',
                   }}
                 >
-                  <div style={{ fontWeight: 600, fontSize: '13px' }}>{bot.name}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{formatPercent(Number(bot.return_pct ?? 0))}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--muted)' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '999px', background: statusColor }} />
-                    {bot.status}
-                  </div>
+                  No history yet
                 </div>
-              );
-            })}
+              )}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--muted)' }}>
+              <span>{formatShortDate(firstSnapshot)}</span>
+              <span>{formatShortDate(lastSnapshot)}</span>
+            </div>
           </div>
-        </section>
-      )}
+        </div>
 
-      <section style={{ marginTop: '28px', display: 'grid', placeItems: 'center', textAlign: 'center' }}>
-        <button
-          type="button"
-          onClick={() => setModalOpen(true)}
-          style={{
-            ...primaryBtnStyle,
-            padding: '16px 34px',
-            fontSize: '16px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '10px',
-            boxShadow: '0 14px 30px rgba(123, 125, 255, 0.25)',
-          }}
-        >
-          <span style={{ display: 'inline-flex', width: '18px', height: '18px' }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5 3l14 9-14 9 4-9-4-9z" />
-            </svg>
-          </span>
-          Start Trading
-        </button>
-        <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--muted)' }}>Set your risk. We handle everything else.</div>
+        <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '18px' }}>
+          <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600 }}>
+            Allocation
+          </div>
+          <div style={{ marginTop: '12px' }}>
+            {allocationData.length ? (
+              <PieChart data={allocationData} size={220} />
+            ) : (
+              <div style={{ fontSize: '12px', color: 'var(--muted)' }}>No positions yet</div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section style={{ marginTop: '28px' }}>
+        <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '10px' }}>
+          Your Bots
+        </div>
+        <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '12px' }}>
+          {bots.length ? (
+            <div style={{ display: 'grid', gap: '8px' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: isCompact ? '1.2fr 1fr 1fr' : '1.4fr 1.1fr 1fr 0.9fr 0.8fr',
+                  gap: '10px',
+                  fontSize: '11px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.12em',
+                  color: 'var(--muted)',
+                  padding: '4px 8px',
+                }}
+              >
+                <span>Bot</span>
+                {!isCompact && <span>Strategy</span>}
+                <span>Status</span>
+                <span>Return</span>
+                {!isCompact && <span>Trades</span>}
+              </div>
+              {bots.map((bot) => {
+                const statusColor = bot.status === 'running' ? 'var(--green)' : bot.status === 'paused' ? '#f5b544' : 'var(--muted)';
+                const returnPct = Number(bot.return_pct ?? bot.performance?.return_pct ?? bot.performance?.total_return ?? 0);
+                const tradesCount = Number(bot.performance?.total_trades ?? bot.total_trades ?? 0);
+                const tradeLabel = Number.isFinite(tradesCount) ? tradesCount : '—';
+                const strategyLabel = [bot.strategy_style, bot.strategy_substyle].filter(Boolean).join(' · ');
+                return (
+                  <div
+                    key={bot.id}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: isCompact ? '1.2fr 1fr 1fr' : '1.4fr 1.1fr 1fr 0.9fr 0.8fr',
+                      gap: '10px',
+                      alignItems: 'center',
+                      padding: '10px 8px',
+                      borderRadius: '12px',
+                      border: '1px solid var(--border)',
+                      background: 'var(--panel-2)',
+                      fontSize: '12px',
+                    }}
+                  >
+                    <div style={{ fontWeight: 600 }}>{bot.name}</div>
+                    {!isCompact && <div style={{ color: 'var(--muted)' }}>{strategyLabel || '—'}</div>}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '999px', background: statusColor }} />
+                      <span style={{ color: 'var(--muted)' }}>{bot.status}</span>
+                    </div>
+                    <div style={{ color: returnPct >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
+                      {returnPct >= 0 ? '+' : ''}{formatPercent(returnPct)}
+                    </div>
+                    {!isCompact && <div style={{ color: 'var(--muted)' }}>{tradeLabel}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={{ fontSize: '12px', color: 'var(--muted)', padding: '12px' }}>
+              No bots yet. Hit Start Trading to create one.
+            </div>
+          )}
+        </div>
       </section>
 
       <section
@@ -460,58 +596,112 @@ export default function TradingDashboardPage() {
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
           <div style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)' }}>
-            Market Pulse
+            Market Movers
           </div>
-          <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Top 5</span>
+          <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Top 10</span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-          {pulse.map((coin) => {
-            const sparkValues = seededValues(coin.pair);
-            const sparkPath = buildSparkPath(sparkValues, 120, 28);
+        <div style={{ display: 'grid', gap: '8px' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: isCompact ? '1.2fr 1fr 1fr' : '1.2fr 1fr 1fr 1fr',
+              gap: '10px',
+              fontSize: '11px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.12em',
+              color: 'var(--muted)',
+              padding: '4px 6px',
+            }}
+          >
+            <span>Pair</span>
+            <span>Price</span>
+            <span>24h</span>
+            {!isCompact && <span>7d</span>}
+          </div>
+          {movers.map((coin) => {
+            const changeColor = Number(coin.change24h) >= 0 ? 'var(--green)' : 'var(--red)';
+            const changeArrow = Number(coin.change24h) >= 0 ? '▲' : '▼';
+            const raw7d = Number((coin as any).change7d ?? (coin as any).change7d_pct ?? (coin as any).change7dPercent ?? NaN);
+            const change7d = Number.isFinite(raw7d) ? raw7d : null;
+            const change7dColor = change7d !== null && change7d >= 0 ? 'var(--green)' : 'var(--red)';
             return (
               <div
                 key={coin.pair}
                 style={{
-                  borderRadius: '14px',
-                  padding: '12px',
+                  display: 'grid',
+                  gridTemplateColumns: isCompact ? '1.2fr 1fr 1fr' : '1.2fr 1fr 1fr 1fr',
+                  gap: '10px',
+                  alignItems: 'center',
+                  padding: '10px 6px',
+                  borderRadius: '12px',
                   border: '1px solid var(--border)',
                   background: 'var(--panel-2)',
-                  display: 'grid',
-                  gap: '6px',
+                  fontSize: '12px',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 600, fontSize: '13px' }}>{coin.pair}</span>
-                  <span style={{ fontSize: '12px', color: Number(coin.change24h) >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                    {formatPercent(Number(coin.change24h))}
+                <div style={{ fontWeight: 600 }}>{coin.pair}</div>
+                <div style={{ color: 'var(--muted)' }}>{formatCurrency(Number(coin.price))}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: changeColor, fontWeight: 600 }}>
+                  <span style={{ ...pillStyle, padding: '2px 8px', borderColor: changeColor, color: changeColor }}>
+                    {changeArrow}
                   </span>
+                  {formatPercent(Number(coin.change24h))}
                 </div>
-                <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{formatCurrency(Number(coin.price))}</div>
-                <svg width="100%" height="28" viewBox="0 0 120 28" preserveAspectRatio="none">
-                  <path d={sparkPath} stroke="var(--accent)" strokeWidth="1.8" fill="none" />
-                </svg>
+                {!isCompact && (
+                  <div style={{ color: change7d === null ? 'var(--muted)' : change7dColor, fontWeight: 600 }}>
+                    {change7d === null ? '—' : formatPercent(change7d)}
+                  </div>
+                )}
               </div>
             );
           })}
-          {!pulse.length && <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Loading prices...</span>}
+          {!movers.length && <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Loading prices...</span>}
         </div>
       </section>
 
       <section style={{ marginTop: '28px' }}>
         <div style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', marginBottom: '10px' }}>
-          Recent Bot Activity
+          Market News
         </div>
-        <div style={{ display: 'grid', gap: '10px', background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '14px' }}>
-          {executions.map((ex) => (
-            <div key={ex.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', fontSize: '12px' }}>
-              <div>
-                <div style={{ fontWeight: 600 }}>{ex.bot_name || 'Bot'} · {ex.action}</div>
-                <div style={{ color: 'var(--muted)' }}>{ex.board_name || '—'}</div>
-              </div>
-              <div style={{ color: 'var(--muted)' }}>{formatTime(ex.executed_at)}</div>
+        <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px' }}>
+          {newsError ? (
+            <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Unable to load news</div>
+          ) : newsItems.length ? (
+            <div style={{ display: 'grid', gap: '10px' }}>
+              {newsItems.map((item) => {
+                const badge = NEWS_SOURCES[item.source as keyof typeof NEWS_SOURCES];
+                return (
+                  <div
+                    key={`${item.link}-${item.pubDate}`}
+                    style={{ display: 'grid', gridTemplateColumns: isCompact ? '1fr' : 'auto 1fr auto', gap: '10px', alignItems: 'center' }}
+                  >
+                    <span
+                      style={{
+                        ...pillStyle,
+                        borderColor: badge?.color ?? 'var(--border)',
+                        color: badge?.color ?? 'var(--text)',
+                        padding: '4px 10px',
+                        justifySelf: 'start',
+                      }}
+                    >
+                      {badge?.label ?? item.source}
+                    </span>
+                    <a
+                      href={item.link}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ color: 'var(--text)', textDecoration: 'none', fontSize: '13px', fontWeight: 600 }}
+                    >
+                      {item.title}
+                    </a>
+                    {!isCompact && <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{formatTimeAgo(item.pubDate)}</span>}
+                  </div>
+                );
+              })}
             </div>
-          ))}
-          {!executions.length && <span style={{ fontSize: '12px', color: 'var(--muted)' }}>No recent executions.</span>}
+          ) : (
+            <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Loading news...</div>
+          )}
         </div>
       </section>
 
@@ -844,5 +1034,8 @@ const pillStyle: React.CSSProperties = {
   borderRadius: '999px',
   fontSize: '11px',
   cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '6px',
 };
-

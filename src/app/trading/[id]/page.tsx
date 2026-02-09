@@ -2704,7 +2704,7 @@ function NewTradeModal({
 }
 
 function DashboardStatusBar() {
-  const [settings, setSettings] = useState<{ riskLevel: string | null; tradingAmount: number | null; tboEnabled: boolean; engineOn: boolean } | null>(null);
+  const [settings, setSettings] = useState<{ riskLevel: string | null; tradingAmount: number | null; timeframe: string | null; timeframeStartDate: string | null; tboEnabled: boolean; engineOn: boolean } | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -2713,6 +2713,8 @@ function DashboardStatusBar() {
       setSettings({
         riskLevel: saved.riskLevel || null,
         tradingAmount: saved.tradingAmount || null,
+        timeframe: saved.timeframe || null,
+        timeframeStartDate: saved.timeframeStartDate || null,
         tboEnabled: !!saved.tboEnabled,
         engineOn: !!saved.engineOn,
       });
@@ -2725,6 +2727,16 @@ function DashboardStatusBar() {
 
   const riskLabel = settings.riskLevel ? settings.riskLevel.charAt(0).toUpperCase() + settings.riskLevel.slice(1) : 'Not Set';
   const amountLabel = settings.tradingAmount ? `$${settings.tradingAmount.toLocaleString()}` : 'Not Set';
+  const timeframeLabel = settings.timeframe ? (settings.timeframe === 'unlimited' ? 'Unlimited' : `${settings.timeframe} days`) : '—';
+
+  let dayLabel = '';
+  if (settings.timeframeStartDate) {
+    const start = new Date(settings.timeframeStartDate);
+    const now = new Date();
+    const dayNum = Math.max(1, Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+    dayLabel = `Day ${dayNum}`;
+  }
+
   const tboLabel = settings.tboEnabled ? 'TBO ON' : 'TBO OFF';
   const engineLabel = settings.engineOn ? 'Engine Active' : 'Engine Off';
   const engineColor = settings.engineOn ? '#4ade80' : 'var(--muted)';
@@ -2743,6 +2755,9 @@ function DashboardStatusBar() {
       <span>{riskLabel}</span>
       <span style={{ opacity: 0.4 }}>·</span>
       <span>{amountLabel}</span>
+      <span style={{ opacity: 0.4 }}>·</span>
+      <span>{timeframeLabel}</span>
+      {dayLabel && <><span style={{ opacity: 0.4 }}>·</span><span>{dayLabel}</span></>}
       <span style={{ opacity: 0.4 }}>·</span>
       <span>{tboLabel}</span>
       <span style={{ opacity: 0.4 }}>·</span>

@@ -39,7 +39,7 @@ type PortfolioStats = {
     active_positions?: number;
     total_trades?: number;
   };
-  byCoin?: Array<{ coin_pair: string; total_pnl: number }>;
+  byCoin?: Array<{ coin_pair: string; total_pnl: number; allocation_pct?: number }>;
 };
 
 type Board = {
@@ -53,12 +53,21 @@ type MarketSentiment = {
 };
 
 type RiskLevel = 'conservative' | 'moderate' | 'aggressive';
+type Timeframe = '10' | '30' | '60' | '90' | 'unlimited';
 
 const RISK_LEVELS: Record<RiskLevel, { label: string; icon: string; description: string }> = {
   conservative: { label: 'Conservative', icon: '🛡️', description: 'Steady growth. BTC, ETH and top large caps. Best for new traders.' },
   moderate: { label: 'Moderate', icon: '⚖️', description: 'Balanced returns. Top 20 coins, mixed strategies.' },
   aggressive: { label: 'Aggressive', icon: '🔥', description: 'Higher risk for bigger upside. Momentum plays, trending coins.' },
 };
+
+const TIMEFRAME_OPTIONS: { value: Timeframe; label: string }[] = [
+  { value: '10', label: '10 days' },
+  { value: '30', label: '30 days' },
+  { value: '60', label: '60 days' },
+  { value: '90', label: '90 days' },
+  { value: 'unlimited', label: 'Unlimited' },
+];
 
 function formatCurrency(value: number) {
   if (!Number.isFinite(value)) return '—';
@@ -76,6 +85,8 @@ export default function TradingDashboardPage() {
   // Setup state (persisted to localStorage)
   const [riskLevel, setRiskLevel] = useState<RiskLevel | null>(null);
   const [tradingAmount, setTradingAmount] = useState<number | null>(null);
+  const [timeframe, setTimeframe] = useState<Timeframe | null>(null);
+  const [timeframeStartDate, setTimeframeStartDate] = useState<string | null>(null);
   const [tboEnabled, setTboEnabled] = useState(false);
   const [engineOn, setEngineOn] = useState(false);
 
@@ -95,6 +106,8 @@ export default function TradingDashboardPage() {
       const saved = JSON.parse(localStorage.getItem('clawdesk-trading-setup') || '{}');
       if (saved.riskLevel) setRiskLevel(saved.riskLevel);
       if (saved.tradingAmount) setTradingAmount(saved.tradingAmount);
+      if (saved.timeframe) setTimeframe(saved.timeframe);
+      if (saved.timeframeStartDate) setTimeframeStartDate(saved.timeframeStartDate);
       if (saved.tboEnabled !== undefined) setTboEnabled(saved.tboEnabled);
       if (saved.engineOn !== undefined) setEngineOn(saved.engineOn);
     } catch {}
@@ -103,8 +116,8 @@ export default function TradingDashboardPage() {
   // Save settings to localStorage
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    localStorage.setItem('clawdesk-trading-setup', JSON.stringify({ riskLevel, tradingAmount, tboEnabled, engineOn }));
-  }, [riskLevel, tradingAmount, tboEnabled, engineOn]);
+    localStorage.setItem('clawdesk-trading-setup', JSON.stringify({ riskLevel, tradingAmount, timeframe, timeframeStartDate, tboEnabled, engineOn }));
+  }, [riskLevel, tradingAmount, timeframe, timeframeStartDate, tboEnabled, engineOn]);
 
   const pushToast = useCallback((message: string, type: ToastItem['type'] = 'info') => {
     const id = toastIdRef.current++;
@@ -167,6 +180,18 @@ export default function TradingDashboardPage() {
   const activePositions = Number(portfolio?.summary?.active_positions ?? 0);
   const totalTrades = Number(portfolio?.summary?.total_trades ?? bots.reduce((sum, b) => sum + (b.total_trades ?? b.performance?.total_trades ?? 0), 0));
 
+  // Day X of Y calculation
+  const dayProgress = useMemo(() => {
+    if (!timeframeStartDate || !timeframe) return null;
+    const start = new Date(timeframeStartDate);
+    const now = new Date();
+    const diffMs = now.getTime() - start.getTime();
+    const dayNum = Math.max(1, Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1);
+    if (timeframe === 'unlimited') return { day: dayNum, total: null };
+    const totalDays = parseInt(timeframe);
+    return { day: Math.min(dayNum, totalDays), total: totalDays };
+  }, [timeframe, timeframeStartDate]);
+
   const setupReady = riskLevel !== null && tradingAmount !== null;
   const allConfigured = setupReady && tboEnabled && engineOn;
 
@@ -178,13 +203,41 @@ export default function TradingDashboardPage() {
   const btcCoin = pulse.find(c => c.pair?.includes('BTC'));
   const ethCoin = pulse.find(c => c.pair?.includes('ETH'));
 
+  // Portfolio allocation from byCoin data or mock
+  const allocations = useMemo(() => {
+    if (portfolio?.byCoin && portfolio.byCoin.length > 0) {
+      const total = portfolio.byCoin.reduce((s, c) => s + Math.abs(c.total_pnl), 0);
+      if (total > 0) {
+        return portfolio.byCoin.map(c => ({
+          coin: c.coin_pair.replace(/USDT?$/, ''),
+          pct: Math.round((Math.abs(c.total_pnl) / total) * 100),
+        })).sort((a, b) => b.pct - a.pct).slice(0, 5);
+      }
+    }
+    return null;
+  }, [portfolio]);
+
+  const stepStatus = (done: boolean) => done ? '✓' : '⚠️';
+
+  const handleTimeframeSelect = (tf: Timeframe) => {
+    setTimeframe(tf);
+    if (!timeframeStartDate) {
+      setTimeframeStartDate(new Date().toISOString());
+    }
+    pushToast(`Timeframe set to ${tf === 'unlimited' ? 'Unlimited' : tf + ' days'}`, 'success');
+  };
+
   const handleEngineToggle = useCallback(async () => {
     if (!setupReady) return;
     const next = !engineOn;
     setEngineOn(next);
 
+    // Set timeframe start date when engine first starts
+    if (next && !timeframeStartDate) {
+      setTimeframeStartDate(new Date().toISOString());
+    }
+
     if (next && boardId) {
-      // Start bots
       try {
         for (const bot of bots) {
           if (bot.status !== 'running') {
@@ -192,7 +245,6 @@ export default function TradingDashboardPage() {
           }
         }
         if (bots.length === 0) {
-          // Create a default bot
           const riskMap = { conservative: 2, moderate: 5, aggressive: 8 };
           const stratMap = { conservative: 'swing_mean_reversion', moderate: 'swing_momentum', aggressive: 'scalper_momentum' };
           await fetch('/api/v1/bots', {
@@ -212,8 +264,7 @@ export default function TradingDashboardPage() {
       } catch {
         pushToast('Failed to start engine', 'error');
       }
-    } else {
-      // Stop bots
+    } else if (!next) {
       try {
         for (const bot of bots) {
           if (bot.status === 'running') {
@@ -224,7 +275,7 @@ export default function TradingDashboardPage() {
         await loadDashboard();
       } catch {}
     }
-  }, [engineOn, setupReady, boardId, bots, riskLevel, pushToast, loadDashboard]);
+  }, [engineOn, setupReady, boardId, bots, riskLevel, pushToast, loadDashboard, timeframeStartDate]);
 
   return (
     <>
@@ -243,14 +294,90 @@ export default function TradingDashboardPage() {
         </header>
         <TradingNav activeTab="dashboard" />
 
-        {/* Section 1: Your Trading Setup */}
-        <section style={{ marginTop: '24px', marginBottom: '24px' }}>
-          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '20px 24px', display: 'grid', gap: '0' }}>
-            <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>Your Trading Setup</div>
+        {/* 1. Market Summary (compact one-liner) */}
+        <section style={{ marginTop: '24px', marginBottom: '16px' }}>
+          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '14px', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ fontSize: '13px', color: 'var(--text)' }}>
+              Market: {sentiment?.label ?? 'Unknown'} ({sentiment?.value ?? '—'})
+              {btcCoin && <> · BTC {formatCurrency(btcCoin.price)} <span style={{ color: btcCoin.change24h >= 0 ? '#4ade80' : '#f05b6f' }}>{btcCoin.change24h >= 0 ? '▲' : '▼'}{Math.abs(btcCoin.change24h).toFixed(1)}%</span></>}
+              {ethCoin && <> · ETH {formatCurrency(ethCoin.price)} <span style={{ color: ethCoin.change24h >= 0 ? '#4ade80' : '#f05b6f' }}>{ethCoin.change24h >= 0 ? '▲' : '▼'}{Math.abs(ethCoin.change24h).toFixed(1)}%</span></>}
+            </div>
+            <Link href="/trading/market" style={{ fontSize: '12px', color: 'var(--accent)', textDecoration: 'none' }}>
+              See full market →
+            </Link>
+          </div>
+        </section>
 
-            {/* Row 1: Risk Level */}
+        {/* 2. Status at a Glance */}
+        <section style={{ marginBottom: '16px' }}>
+          <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'var(--muted)', marginBottom: '10px' }}>
+            Status at a Glance
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '10px' }}>
+            {[
+              { label: 'Paper Balance', value: formatCurrency(paperBalance) },
+              { label: "Today's P&L", value: `${dailyPnl >= 0 ? '+' : ''}${formatCurrency(dailyPnl)} (${dailyPnlPct >= 0 ? '+' : ''}${dailyPnlPct.toFixed(1)}%)`, color: dailyPnl >= 0 ? '#4ade80' : '#f05b6f' },
+              { label: 'Win Rate', value: `${winRate.toFixed(0)}%`, color: winRate >= 50 ? '#4ade80' : winRate > 0 ? '#f05b6f' : undefined },
+              { label: 'Active Positions', value: String(activePositions) },
+              { label: 'Total Trades', value: String(totalTrades) },
+              {
+                label: 'Progress',
+                value: dayProgress
+                  ? dayProgress.total
+                    ? `Day ${dayProgress.day} of ${dayProgress.total}`
+                    : `Day ${dayProgress.day}`
+                  : 'Day 1 — No timeframe set',
+                color: dayProgress?.total && dayProgress.day >= dayProgress.total ? '#f5b544' : undefined,
+              },
+            ].map((stat) => (
+              <div key={stat.label} style={{ flex: '1 1 0', minWidth: 0, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '14px 12px' }}>
+                <div style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stat.label}</div>
+                <div style={{ marginTop: '8px', fontSize: '18px', fontWeight: 700, color: stat.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stat.value}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* 3. Portfolio Allocation (simple badges) */}
+        <section style={{ marginBottom: '24px' }}>
+          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '14px', padding: '14px 16px' }}>
+            <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', marginBottom: '10px' }}>Portfolio Allocation</div>
+            {allocations && allocations.length > 0 ? (
+              <>
+                {/* Horizontal allocation bar */}
+                <div style={{ display: 'flex', borderRadius: '8px', overflow: 'hidden', height: '10px', marginBottom: '10px' }}>
+                  {allocations.map((a, i) => {
+                    const colors = ['#7b7dff', '#4ade80', '#f5b544', '#f05b6f', '#a78bfa'];
+                    return (
+                      <div key={a.coin} style={{ width: `${Math.max(a.pct, 3)}%`, background: colors[i % colors.length], transition: 'width 0.3s' }} />
+                    );
+                  })}
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {allocations.map((a, i) => {
+                    const colors = ['#7b7dff', '#4ade80', '#f5b544', '#f05b6f', '#a78bfa'];
+                    return (
+                      <span key={a.coin} style={{ fontSize: '12px', fontWeight: 600, color: colors[i % colors.length] }}>
+                        {a.coin} {a.pct}%
+                      </span>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: '13px', color: 'var(--muted)' }}>No positions yet — start trading to see your allocation</div>
+            )}
+          </div>
+        </section>
+
+        {/* 4–7. Trading Setup (stepped flow) */}
+        <section style={{ marginBottom: '24px' }}>
+          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '20px 24px', display: 'grid', gap: '0' }}>
+            <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>Trading Setup</div>
+
+            {/* Step 1: Risk Level */}
+            <StepHeader step={1} total={4} label="Choose Your Risk Level" done={riskLevel !== null} />
             <SetupRow
-              label="Risk Level"
               isSet={riskLevel !== null}
               value={riskLevel ? (
                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -266,9 +393,9 @@ export default function TradingDashboardPage() {
 
             <Divider />
 
-            {/* Row 2: Trading Amount */}
+            {/* Step 2: Trading Amount */}
+            <StepHeader step={2} total={4} label="Set Your Trading Amount" done={tradingAmount !== null} />
             <SetupRow
-              label="Trading Amount"
               isSet={tradingAmount !== null}
               value={tradingAmount !== null ? (
                 <span>
@@ -283,46 +410,82 @@ export default function TradingDashboardPage() {
 
             <Divider />
 
-            {/* Row 3: Intelligence Layer (TBO PRO) */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0' }}>
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '2px' }}>Intelligence Layer (TBO PRO)</div>
-                <div style={{ fontSize: '12px', color: 'var(--muted)' }}>AI signal enhancement from TBO indicators</div>
+            {/* Step 3: Timeframe */}
+            <StepHeader step={3} total={4} label="Set Your Timeframe" done={timeframe !== null} />
+            <div style={{ padding: '10px 0 14px' }}>
+              <div style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '10px' }}>How long do you want to trade?</div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {TIMEFRAME_OPTIONS.map(tf => (
+                  <button
+                    key={tf.value}
+                    onClick={() => handleTimeframeSelect(tf.value)}
+                    style={{
+                      padding: '8px 18px',
+                      borderRadius: '999px',
+                      border: `2px solid ${timeframe === tf.value ? 'var(--accent)' : 'var(--border)'}`,
+                      background: timeframe === tf.value ? 'rgba(123,125,255,0.15)' : 'var(--panel-2)',
+                      color: timeframe === tf.value ? 'var(--accent)' : 'var(--text)',
+                      fontSize: '13px',
+                      fontWeight: timeframe === tf.value ? 700 : 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {tf.label}{timeframe === tf.value ? ' ✓' : ''}
+                  </button>
+                ))}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: tboEnabled ? '#4ade80' : 'var(--muted)' }}>
-                  {tboEnabled ? 'Active' : 'Off'}
-                </span>
-                <ToggleSwitch on={tboEnabled} onChange={() => setTboEnabled(prev => !prev)} />
-              </div>
+              {!timeframe && (
+                <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '6px', fontStyle: 'italic' }}>
+                  Pick a timeframe to track your trading progress
+                </div>
+              )}
             </div>
-            {!tboEnabled && <SubtlePrompt />}
 
             <Divider />
 
-            {/* Row 4: Bot Engine */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0' }}>
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '2px' }}>Bot Engine</div>
-                <div style={{ fontSize: '12px', color: engineOn ? '#4ade80' : 'var(--muted)' }}>
-                  {engineStatusText}
+            {/* Step 4: Start Trading */}
+            <StepHeader step={4} total={4} label="Start Trading" done={tboEnabled && engineOn} />
+            <div style={{ padding: '10px 0 4px' }}>
+              {/* TBO Toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '2px' }}>Intelligence Layer (TBO PRO)</div>
+                  <div style={{ fontSize: '12px', color: 'var(--muted)' }}>AI signal enhancement from TBO indicators</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: tboEnabled ? '#4ade80' : 'var(--muted)' }}>
+                    {tboEnabled ? 'Active' : 'Off'}
+                  </span>
+                  <ToggleSwitch on={tboEnabled} onChange={() => setTboEnabled(prev => !prev)} />
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <ToggleSwitch
-                  on={engineOn}
-                  onChange={handleEngineToggle}
-                  disabled={!setupReady}
-                  big
-                  glow={engineOn}
-                />
+              {!tboEnabled && <SubtlePrompt text="Enable for smarter trading signals ↑" />}
+
+              {/* Engine Toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0 8px' }}>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '2px' }}>Bot Engine</div>
+                  <div style={{ fontSize: '12px', color: engineOn ? '#4ade80' : 'var(--muted)' }}>
+                    {engineStatusText}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <ToggleSwitch
+                    on={engineOn}
+                    onChange={handleEngineToggle}
+                    disabled={!setupReady}
+                    big
+                    glow={engineOn}
+                  />
+                </div>
               </div>
+              {!setupReady && (
+                <div style={{ fontSize: '11px', color: 'var(--muted)', fontStyle: 'italic', paddingBottom: '4px' }}>
+                  Complete steps 1 &amp; 2 to enable the engine
+                </div>
+              )}
             </div>
-            {!setupReady && (
-              <div style={{ fontSize: '11px', color: 'var(--muted)', fontStyle: 'italic', paddingBottom: '4px' }}>
-                Set risk level and trading amount to enable the engine
-              </div>
-            )}
 
             {/* Success state */}
             {allConfigured && (
@@ -340,42 +503,7 @@ export default function TradingDashboardPage() {
           </div>
         </section>
 
-        {/* Section 2: Status at a Glance */}
-        <section style={{ marginBottom: '24px' }}>
-          <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'var(--muted)', marginBottom: '12px' }}>
-            Status at a Glance
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '10px' }}>
-            {[
-              { label: 'Paper Balance', value: formatCurrency(paperBalance) },
-              { label: "Today's P&L", value: `${dailyPnl >= 0 ? '+' : ''}${formatCurrency(dailyPnl)} (${dailyPnlPct >= 0 ? '+' : ''}${dailyPnlPct.toFixed(1)}%)`, color: dailyPnl >= 0 ? '#4ade80' : '#f05b6f' },
-              { label: 'Win Rate', value: `${winRate.toFixed(0)}%`, color: winRate >= 50 ? '#4ade80' : winRate > 0 ? '#f05b6f' : undefined },
-              { label: 'Active Positions', value: String(activePositions) },
-              { label: 'Total Trades', value: String(totalTrades) },
-            ].map((stat) => (
-              <div key={stat.label} style={{ flex: '1 1 0', minWidth: 0, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '14px 12px' }}>
-                <div style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stat.label}</div>
-                <div style={{ marginTop: '8px', fontSize: '18px', fontWeight: 700, color: stat.color }}>{stat.value}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Section 3: Market Summary */}
-        <section style={{ marginBottom: '24px' }}>
-          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '14px', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-            <div style={{ fontSize: '13px', color: 'var(--text)' }}>
-              Market: {sentiment?.label ?? 'Unknown'} ({sentiment?.value ?? '—'})
-              {btcCoin && <> · BTC {formatCurrency(btcCoin.price)} {btcCoin.change24h >= 0 ? '▲' : '▼'}{Math.abs(btcCoin.change24h).toFixed(1)}%</>}
-              {ethCoin && <> · ETH {formatCurrency(ethCoin.price)} {ethCoin.change24h >= 0 ? '▲' : '▼'}{Math.abs(ethCoin.change24h).toFixed(1)}%</>}
-            </div>
-            <Link href="/trading/market" style={{ fontSize: '12px', color: 'var(--accent)', textDecoration: 'none' }}>
-              See full market →
-            </Link>
-          </div>
-        </section>
-
-        {/* Section 4: Advanced (collapsed) */}
+        {/* 8. Advanced (collapsed) */}
         <section style={{ marginBottom: '24px' }}>
           <button
             onClick={() => setAdvancedOpen(prev => !prev)}
@@ -409,16 +537,6 @@ export default function TradingDashboardPage() {
                   <div style={{ fontSize: '11px', color: 'var(--muted)' }}>Reinvest profits into new trades</div>
                 </div>
                 <ToggleSwitch on={true} onChange={() => {}} />
-              </div>
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>Trading Timeframe</div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {['10 days', '30 days', '60 days', '90 days', 'Unlimited'].map(tf => (
-                    <button key={tf} style={{ padding: '6px 14px', borderRadius: '999px', border: '1px solid var(--border)', background: tf === 'Unlimited' ? 'rgba(123,125,255,0.2)' : 'var(--panel-2)', color: 'var(--text)', fontSize: '12px', cursor: 'pointer' }}>
-                      {tf}
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
           )}
@@ -544,14 +662,30 @@ export default function TradingDashboardPage() {
 
 /* ── Subcomponents ── */
 
-function SetupRow({ label, isSet, value, onSet }: { label: string; isSet: boolean; value: React.ReactNode; onSet: () => void }) {
+function StepHeader({ step, total, label, done }: { step: number; total: number; label: string; done: boolean }) {
   return (
-    <div style={{ padding: '14px 0' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingTop: '12px' }}>
+      <span style={{
+        fontSize: '11px',
+        fontWeight: 700,
+        color: done ? '#4ade80' : 'var(--accent)',
+        background: done ? 'rgba(74,222,128,0.12)' : 'rgba(123,125,255,0.12)',
+        padding: '3px 10px',
+        borderRadius: '999px',
+        whiteSpace: 'nowrap',
+      }}>
+        {done ? '✓' : `Step ${step} of ${total}`}
+      </span>
+      <span style={{ fontSize: '13px', fontWeight: 600 }}>{label}</span>
+    </div>
+  );
+}
+
+function SetupRow({ isSet, value, onSet }: { isSet: boolean; value: React.ReactNode; onSet: () => void }) {
+  return (
+    <div style={{ padding: '8px 0 14px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-        <div>
-          <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '2px' }}>{label}</div>
-          <div style={{ fontSize: '13px' }}>{value}</div>
-        </div>
+        <div style={{ fontSize: '13px' }}>{value}</div>
         <button
           onClick={onSet}
           style={{
@@ -569,15 +703,14 @@ function SetupRow({ label, isSet, value, onSet }: { label: string; isSet: boolea
           {isSet ? 'Change' : 'Set'}
         </button>
       </div>
-      {!isSet && <SubtlePrompt />}
     </div>
   );
 }
 
-function SubtlePrompt() {
+function SubtlePrompt({ text }: { text?: string }) {
   return (
     <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px', fontStyle: 'italic' }}>
-      Set this to start trading ↑
+      {text ?? 'Set this to start trading ↑'}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
 type TradingNavProps = {
-  activeTab: 'dashboard' | 'board' | 'bots' | 'leaderboard' | 'portfolio' | 'journal' | 'market';
+  activeTab: 'dashboard' | 'board' | 'bots' | 'leaderboard' | 'journal' | 'market';
 };
 
 const tabs = [
@@ -13,7 +13,6 @@ const tabs = [
   { key: 'board', label: 'Board', href: '/trading' },
   { key: 'bots', label: 'Bots', href: '/bots' },
   { key: 'leaderboard', label: 'Leaderboard', href: '/leaderboard' },
-  { key: 'portfolio', label: 'Portfolio', href: '/trading/portfolio' },
   { key: 'journal', label: 'Journal', href: '/trading/journal' },
 ];
 

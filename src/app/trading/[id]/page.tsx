@@ -8,6 +8,7 @@ import TradingChart from '@/components/TradingChart';
 import { ToastStack, type ToastItem } from '@/components/ToastStack';
 import { AlertsPanel } from '@/components/AlertsPanel';
 import { TradingNav } from '@/components/TradingNav';
+import { TboToggle } from '@/components/TboToggle';
 
 interface Trade {
   id: number;
@@ -340,6 +341,7 @@ export default function TradingBoardPage() {
   const [showBoardSettings, setShowBoardSettings] = useState(false);
   const [paperAccount, setPaperAccount] = useState<{ starting_balance: number; current_balance: number } | null>(null);
   const [paperLoading, setPaperLoading] = useState(false);
+  const [watchlistCoins, setWatchlistCoins] = useState<Array<{ id: number; coin_pair: string; tbo_signal?: string | null }>>([]);
 
   const priceMapRef = useRef<Record<string, { price: number; volume24h: number; change24h: number }>>({});
   const tradesRef = useRef<Trade[]>([]);
@@ -450,6 +452,11 @@ export default function TradingBoardPage() {
       delete toastTimersRef.current[id];
     }, 3000);
   }, []);
+
+  useEffect(() => {
+    const wl = trades.filter(t => t.column_name === 'Watchlist');
+    setWatchlistCoins(wl.map(t => ({ id: t.id, coin_pair: t.coin_pair, tbo_signal: t.tbo_signal })));
+  }, [trades]);
 
   useEffect(() => {
     fetchBoard();
@@ -1102,9 +1109,17 @@ export default function TradingBoardPage() {
               cursor: 'pointer',
               fontSize: '13px',
               animation: 'pulse-glow 3s ease-in-out infinite',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
             }}
           >
-            ⚡️ Auto-Trade
+            <span style={{ display: 'inline-flex', width: '16px', height: '16px' }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 3l14 9-14 9 4-9-4-9z" />
+              </svg>
+            </span>
+            Start a Trade
           </button>
           <button
             onClick={() => setNewTradeOpen(true)}
@@ -1119,6 +1134,58 @@ export default function TradingBoardPage() {
         </div>
       </header>
       <TradingNav activeTab="board" />
+
+      <div style={{ margin: '16px 0' }}>
+        <TboToggle />
+      </div>
+
+      {watchlistCoins.length > 0 && (
+        <section style={{ marginBottom: '22px' }}>
+          <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'var(--muted)', marginBottom: '10px' }}>
+            ⭐ Watchlist
+          </div>
+          <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '4px' }}>
+            {watchlistCoins.map((coin) => {
+              const pair = normalizePair(coin.coin_pair);
+              const live = priceMap[pair];
+              const signal = signalBadge(coin.tbo_signal);
+              return (
+                <div
+                  key={coin.id}
+                  onClick={() => setChartPair(toApiPair(pair))}
+                  style={{
+                    flex: '0 0 auto',
+                    minWidth: '150px',
+                    padding: '12px 14px',
+                    borderRadius: '12px',
+                    background: 'rgba(20, 20, 40, 0.6)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    cursor: 'pointer',
+                    transition: 'border-color 0.2s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                >
+                  <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px' }}>{pair}</div>
+                  <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '4px' }}>
+                    {live ? formatCurrency(live.price) : '—'}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px' }}>
+                    {live && (
+                      <span style={{ color: live.change24h >= 0 ? '#4ade80' : '#f05b6f', fontWeight: 600 }}>
+                        {live.change24h >= 0 ? '+' : ''}{live.change24h.toFixed(2)}%
+                      </span>
+                    )}
+                    <span style={{ padding: '1px 6px', borderRadius: '999px', background: signal.bg, color: signal.color, fontSize: '10px', fontWeight: 600 }}>
+                      {signal.label}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <section style={{ marginBottom: '22px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '10px' }}>

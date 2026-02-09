@@ -233,12 +233,7 @@ export default function BotsPage() {
             Strategy Runner Console
           </div>
         </div>
-        <button
-          onClick={() => setModalOpen(true)}
-          style={{ background: 'linear-gradient(135deg, var(--accent), #9a9cff)', color: '#0d0d1f', border: 'none', padding: '10px 18px', borderRadius: '999px', fontWeight: 600, cursor: 'pointer' }}
-        >
-          + Create Bot
-        </button>
+        {/* Create Bot button removed — use Start a Trade on the board */}
       </header>
       <TradingNav activeTab="bots" />
 

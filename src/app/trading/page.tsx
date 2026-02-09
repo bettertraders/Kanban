@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TradingNav } from '@/components/TradingNav';
-import { TboToggle } from '@/components/TboToggle';
+// TboToggle moved to board page
 import { ToastStack, type ToastItem } from '@/components/ToastStack';
 import { PieChart } from '@/components/PieChart';
 
@@ -41,6 +41,8 @@ type PortfolioStats = {
     daily_pnl?: number;
     weekly_pnl?: number;
     paper_balance?: number;
+    win_rate?: number;
+    active_positions?: number;
   };
   snapshots?: PortfolioSnapshot[];
   byCoin?: Array<{ coin_pair: string; total_pnl: number }>;
@@ -429,9 +431,7 @@ export default function TradingDashboardPage() {
       </header>
       <TradingNav activeTab="dashboard" />
 
-      <div style={{ margin: '16px 0' }}>
-        <TboToggle />
-      </div>
+      {/* TBO toggle moved to board page */}
 
       <section
         style={{
@@ -486,7 +486,7 @@ export default function TradingDashboardPage() {
                   <path d="M5 3l14 9-14 9 4-9-4-9z" />
                 </svg>
               </span>
-              Start Trading
+              Start a Trade
             </button>
           </div>
 
@@ -534,6 +534,28 @@ export default function TradingDashboardPage() {
               </div>
             )}
           </div>
+        </div>
+      </section>
+
+      <div style={sectionDividerStyle} />
+
+      <section style={{ marginTop: '18px' }}>
+        <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '12px' }}>
+          Portfolio Stats
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+          {[
+            { label: 'Portfolio Value', value: formatCurrency(paperBalance) },
+            { label: 'Realized P&L', value: formatCurrency(Number(portfolio?.summary?.total_realized_pnl ?? 0)), color: Number(portfolio?.summary?.total_realized_pnl ?? 0) >= 0 ? 'var(--green)' : 'var(--red)' },
+            { label: 'Unrealized P&L', value: formatCurrency(Number(portfolio?.summary?.total_unrealized_pnl ?? 0)), color: Number(portfolio?.summary?.total_unrealized_pnl ?? 0) >= 0 ? 'var(--green)' : 'var(--red)' },
+            { label: 'Win Rate', value: formatPercent(Number(portfolio?.summary?.win_rate ?? 0)) },
+            { label: 'Active Positions', value: String(portfolio?.summary?.active_positions ?? 0) },
+          ].map((stat) => (
+            <div key={stat.label} style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '18px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>{stat.label}</div>
+              <div style={{ marginTop: '10px', fontSize: '20px', fontWeight: 700, color: stat.color || 'var(--text)' }}>{stat.value}</div>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -596,13 +618,13 @@ export default function TradingDashboardPage() {
               background: 'var(--panel)',
             }}
           >
-            <div style={{ fontSize: '12px', color: 'var(--muted)' }}>No bots yet. Start Trading to spin up your first one.</div>
+            <div style={{ fontSize: '12px', color: 'var(--muted)' }}>No bots yet. Start a Trade to spin up your first one.</div>
             <button
               type="button"
               onClick={() => setModalOpen(true)}
               style={{ ...primaryBtnStyle, padding: '10px 18px', animation: 'pulse-glow 3s ease-in-out infinite' }}
             >
-              Start Trading
+              Start a Trade
             </button>
           </div>
         )}
@@ -815,7 +837,7 @@ export default function TradingDashboardPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'var(--muted)' }}>
-                  Start Trading
+                  Start a Trade
                 </div>
                 <div style={{ fontSize: '20px', fontWeight: 700 }}>Set your plan</div>
               </div>

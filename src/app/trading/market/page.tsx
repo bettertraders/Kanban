@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { TradingNav } from '@/components/TradingNav';
-import { TboToggle } from '@/components/TboToggle';
+// TboToggle moved to board page
 
 /* ── types ── */
 type Coin = {
@@ -150,9 +150,7 @@ export default function MarketDashboard() {
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
         <TradingNav activeTab={'market' as any} />
 
-        <div style={{ margin: '16px 0' }}>
-          <TboToggle />
-        </div>
+        {/* TBO toggle moved to board page */}
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>

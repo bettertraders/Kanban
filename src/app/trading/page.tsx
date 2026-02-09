@@ -636,7 +636,7 @@ export default function TradingDashboardPage() {
         <section style={{ marginTop: '24px', marginBottom: '16px' }}>
           <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '14px', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ fontSize: '13px', color: 'var(--text)' }}>
-              Market: {sentiment?.label ?? 'Unknown'} ({sentiment?.value ?? '—'})
+              Market: {sentiment?.label ?? (marketDetail?.overview?.fearGreed?.label) ?? 'Loading...'} ({sentiment?.value ?? (marketDetail?.overview?.fearGreed?.value) ?? '—'})
               {btcCoin && <> · BTC {formatCurrency(btcCoin.price)} <span style={{ color: btcCoin.change24h >= 0 ? '#4ade80' : '#f05b6f' }}>{btcCoin.change24h >= 0 ? '▲' : '▼'}{Math.abs(btcCoin.change24h).toFixed(1)}%</span></>}
               {ethCoin && <> · ETH {formatCurrency(ethCoin.price)} <span style={{ color: ethCoin.change24h >= 0 ? '#4ade80' : '#f05b6f' }}>{ethCoin.change24h >= 0 ? '▲' : '▼'}{Math.abs(ethCoin.change24h).toFixed(1)}%</span></>}
             </div>

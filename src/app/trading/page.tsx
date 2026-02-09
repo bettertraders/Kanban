@@ -28,11 +28,6 @@ type Bot = {
   total_trades?: number;
 };
 
-type PortfolioSnapshot = {
-  timestamp?: string;
-  total_value?: number;
-};
-
 type PortfolioStats = {
   summary?: {
     total_portfolio_value?: number;
@@ -44,7 +39,6 @@ type PortfolioStats = {
     win_rate?: number;
     active_positions?: number;
   };
-  snapshots?: PortfolioSnapshot[];
   byCoin?: Array<{ coin_pair: string; total_pnl: number }>;
 };
 
@@ -157,19 +151,6 @@ function formatPercent(value: number) {
   return `${value.toFixed(2)}%`;
 }
 
-function formatTime(ts: string) {
-  const date = new Date(ts);
-  if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
-function formatShortDate(ts?: string) {
-  if (!ts) return '—';
-  const date = new Date(ts);
-  if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-}
-
 function formatTimeAgo(ts?: string) {
   if (!ts) return '—';
   const date = new Date(ts);
@@ -181,27 +162,6 @@ function formatTimeAgo(ts?: string) {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
-}
-
-function buildLinePath(values: number[], width: number, height: number, padding = 20) {
-  const safeValues = values.length >= 2 ? values : [values[0] ?? 0, values[0] ?? 0];
-  const min = Math.min(...safeValues);
-  const max = Math.max(...safeValues);
-  const range = max - min || 1;
-  const chartHeight = height - padding * 2;
-  const chartWidth = width - padding * 2;
-  const points = safeValues.map((value, index) => {
-    const x = padding + (index / (safeValues.length - 1)) * chartWidth;
-    const y = padding + chartHeight - ((value - min) / range) * chartHeight;
-    return { x, y };
-  });
-
-  const path = points
-    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
-    .join(' ');
-
-  const area = `${path} L ${padding + chartWidth} ${padding + chartHeight} L ${padding} ${padding + chartHeight} Z`;
-  return { path, area, min, max };
 }
 
 export default function TradingDashboardPage() {
@@ -325,22 +285,6 @@ export default function TradingDashboardPage() {
 
   const paperBalance = Number(portfolio?.summary?.paper_balance ?? 0);
 
-  const snapshots = portfolio?.snapshots ?? [];
-  const snapshotValues = useMemo(() => {
-    if (snapshots.length) {
-      return snapshots
-        .map((snap) => Number(snap.total_value ?? 0))
-        .filter((value) => Number.isFinite(value));
-    }
-    return [];
-  }, [snapshots]);
-
-  const chartValues = snapshotValues.length ? snapshotValues : [paperBalance || 0, paperBalance || 0];
-  const { path: equityPath, area: equityArea } = useMemo(
-    () => buildLinePath(chartValues, 600, 180, 18),
-    [chartValues]
-  );
-
   const allocationData = useMemo(() => {
     if (!portfolio?.byCoin?.length) return [];
     const colors = ['#7b7dff', '#00e676', '#2196f3', '#ff9800', '#e91e63', '#f5b544', '#44d9e6'];
@@ -358,18 +302,6 @@ export default function TradingDashboardPage() {
     [pulse]
   );
 
-  const movers = useMemo(() => {
-    const btc = btcPulse ?? null;
-    const rest = pulse.filter((coin) => coin !== btc);
-    rest.sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h));
-    const top = rest.slice(0, btc ? 4 : 5);
-    return btc ? [btc, ...top] : top;
-  }, [pulse, btcPulse]);
-
-  const dailyPnl = Number(portfolio?.summary?.daily_pnl ?? 42);
-  const allTimePnl = Number((portfolio?.summary?.total_realized_pnl ?? 0) + (portfolio?.summary?.total_unrealized_pnl ?? 0));
-  const safeDailyPnl = Number.isFinite(dailyPnl) ? dailyPnl : 42;
-  const safeAllTimePnl = Number.isFinite(allTimePnl) ? allTimePnl : 320;
   const btcChange = Number(btcPulse?.change24h ?? 0);
   const sentiment =
     Math.abs(btcChange) < 0.5
@@ -443,6 +375,7 @@ export default function TradingDashboardPage() {
             { label: 'Realized P&L', value: formatCurrency(Number(portfolio?.summary?.total_realized_pnl ?? 0)) },
             { label: 'Unrealized P&L', value: formatCurrency(Number(portfolio?.summary?.total_unrealized_pnl ?? 0)) },
             { label: 'Win Rate', value: `${Number(portfolio?.summary?.win_rate ?? 0).toFixed(2)}%` },
+            { label: 'Active Positions', value: String(portfolio?.summary?.active_positions ?? 0) },
           ].map((stat) => (
             <div key={stat.label} style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '18px' }}>
               <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>{stat.label}</div>
@@ -493,134 +426,6 @@ export default function TradingDashboardPage() {
           </div>
         </div>
       </section>
-
-      <section
-        style={{
-          marginTop: '24px',
-          background: 'linear-gradient(180deg, rgba(123,125,255,0.08), rgba(0,0,0,0))',
-          border: '1px solid var(--border)',
-          borderRadius: '22px',
-          padding: '24px clamp(18px, 4vw, 32px)',
-        }}
-      >
-        <div
-          className="hero-grid"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: isCompact ? '1fr' : '1fr 1.5fr 1fr',
-            gap: '22px',
-            alignItems: 'center',
-          }}
-        >
-          <div style={{ display: 'grid', gap: '12px' }}>
-            <div style={{ fontSize: '12px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.18em' }}>
-              Portfolio Value
-            </div>
-            <div style={{ fontSize: 'clamp(40px, 7vw, 56px)', fontWeight: 700 }}>
-              {formatCurrency(paperBalance)}
-            </div>
-            <div style={{ display: 'grid', gap: '6px', fontSize: '13px' }}>
-              <span style={{ color: safeDailyPnl >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
-                Today: {safeDailyPnl >= 0 ? '+' : '-'}{formatCurrency(Math.abs(safeDailyPnl))}
-              </span>
-              <span style={{ color: safeAllTimePnl >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
-                All Time: {safeAllTimePnl >= 0 ? '+' : '-'}{formatCurrency(Math.abs(safeAllTimePnl))}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setModalOpen(true)}
-              style={{
-                ...primaryBtnStyle,
-                padding: '14px 28px',
-                fontSize: '14px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '10px',
-                boxShadow: '0 16px 30px rgba(123, 125, 255, 0.3)',
-                animation: 'pulse-glow 3s ease-in-out infinite',
-                width: 'fit-content',
-              }}
-            >
-              <span style={{ display: 'inline-flex', width: '18px', height: '18px' }}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 3l14 9-14 9 4-9-4-9z" />
-                </svg>
-              </span>
-              Start a Trade
-            </button>
-          </div>
-
-          <div style={{ position: 'relative' }}>
-            <svg width="100%" height="160" viewBox="0 0 600 180" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="portfolioFill" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35" />
-                  <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              <path d={equityArea} fill="url(#portfolioFill)" />
-              <path d={equityPath} stroke="var(--accent)" strokeWidth="2.8" fill="none" />
-            </svg>
-            {!snapshotValues.length && (
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  display: 'grid',
-                  placeItems: 'center',
-                  fontSize: '12px',
-                  color: 'var(--muted)',
-                }}
-              >
-                No history yet
-              </div>
-            )}
-          </div>
-
-          <div style={{ display: 'grid', justifyItems: 'center', gap: '10px' }}>
-            {allocationData.length ? (
-              <PieChart data={allocationData} size={160} />
-            ) : (
-              <div style={{ fontSize: '12px', color: 'var(--muted)' }}>No positions yet</div>
-            )}
-            {!!allocationData.length && (
-              <div style={{ display: 'grid', gap: '6px', width: '100%' }}>
-                {allocationData.slice(0, 3).map((item) => (
-                  <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--muted)' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '999px', background: item.color }} />
-                    <span>{item.label}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      <div style={sectionDividerStyle} />
-
-      <section style={{ marginTop: '18px' }}>
-        <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '12px' }}>
-          Portfolio Stats
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
-          {[
-            { label: 'Portfolio Value', value: formatCurrency(paperBalance) },
-            { label: 'Realized P&L', value: formatCurrency(Number(portfolio?.summary?.total_realized_pnl ?? 0)), color: Number(portfolio?.summary?.total_realized_pnl ?? 0) >= 0 ? 'var(--green)' : 'var(--red)' },
-            { label: 'Unrealized P&L', value: formatCurrency(Number(portfolio?.summary?.total_unrealized_pnl ?? 0)), color: Number(portfolio?.summary?.total_unrealized_pnl ?? 0) >= 0 ? 'var(--green)' : 'var(--red)' },
-            { label: 'Win Rate', value: formatPercent(Number(portfolio?.summary?.win_rate ?? 0)) },
-            { label: 'Active Positions', value: String(portfolio?.summary?.active_positions ?? 0) },
-          ].map((stat) => (
-            <div key={stat.label} style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '18px' }}>
-              <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>{stat.label}</div>
-              <div style={{ marginTop: '10px', fontSize: '20px', fontWeight: 700, color: stat.color || 'var(--text)' }}>{stat.value}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <div style={sectionDividerStyle} />
 
       <section style={{ marginTop: '18px' }}>
         <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '12px' }}>
@@ -693,6 +498,7 @@ export default function TradingDashboardPage() {
 
       <div style={sectionDividerStyle} />
 
+      {/* Market Section — Sentiment at top, News below on left */}
       <section style={{ marginTop: '18px' }}>
         <div
           style={{
@@ -704,6 +510,7 @@ export default function TradingDashboardPage() {
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: '12px',
+            marginBottom: '16px',
           }}
         >
           <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)' }}>
@@ -713,134 +520,60 @@ export default function TradingDashboardPage() {
             {sentiment.emoji} {sentiment.label}
           </div>
         </div>
-      </section>
 
-      <div style={sectionDividerStyle} />
-
-      <section
-        style={{
-          marginTop: '18px',
-          background: 'var(--panel)',
-          border: '1px solid var(--border)',
-          borderRadius: '16px',
-          padding: '18px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '999px', background: 'var(--green)', animation: 'live-dot 1.6s ease-in-out infinite' }} />
-            <div style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)' }}>
-              Market Pulse
+        <div style={{ display: 'grid', gridTemplateColumns: isCompact ? '1fr' : '1fr 1fr', gap: '16px' }}>
+          <div>
+            <div style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', marginBottom: '10px' }}>
+              Market News
+            </div>
+            <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px' }}>
+              {newsError ? (
+                <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Unable to load news</div>
+              ) : newsItems.length ? (
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {newsItems.slice(0, 5).map((item, index) => {
+                    const badge = NEWS_SOURCES[item.source as keyof typeof NEWS_SOURCES];
+                    return (
+                      <div
+                        key={`${item.link}-${item.pubDate}`}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'auto 1fr auto',
+                          gap: '10px',
+                          alignItems: 'center',
+                          paddingLeft: index === 0 ? '10px' : '0',
+                          borderLeft: index === 0 ? '2px solid #f3c226' : '2px solid transparent',
+                        }}
+                      >
+                        <span
+                          style={{
+                            ...pillStyle,
+                            borderColor: badge?.color ?? 'var(--border)',
+                            color: badge?.color ?? 'var(--text)',
+                            padding: '4px 10px',
+                            justifySelf: 'start',
+                          }}
+                        >
+                          {badge?.label ?? item.source}
+                        </span>
+                        <a
+                          href={item.link}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ color: 'var(--text)', textDecoration: 'none', fontSize: '13px', fontWeight: 600 }}
+                        >
+                          {item.title}
+                        </a>
+                        <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{formatTimeAgo(item.pubDate)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Loading news...</div>
+              )}
             </div>
           </div>
-          <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Top 5</span>
-        </div>
-        <div style={{ display: 'grid', gap: '8px' }}>
-          {movers.map((coin) => {
-            const changeValue = Number(coin.change24h);
-            const changeColor = changeValue >= 0 ? 'var(--green)' : 'var(--red)';
-            const isHot = Math.abs(changeValue) >= 5;
-            const isSuperHot = Math.abs(changeValue) >= 10;
-            const hotStyle = isHot
-              ? {
-                  border: '1px solid rgba(243,194,38,0.4)',
-                  boxShadow: `0 0 ${isSuperHot ? '18px' : '10px'} rgba(243,194,38,0.4)`,
-                }
-              : {};
-            return (
-              <div
-                key={coin.pair}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: isCompact ? '1.2fr 1fr 1fr' : '1.4fr 1fr 1fr',
-                  gap: '10px',
-                  alignItems: 'center',
-                  padding: '10px 8px',
-                  borderRadius: '12px',
-                  border: '1px solid var(--border)',
-                  background: 'var(--panel-2)',
-                  fontSize: '12px',
-                  ...(hotStyle as React.CSSProperties),
-                }}
-              >
-                <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  {coin.pair}
-                  {isHot && <span style={{ fontSize: '14px' }}>🔥</span>}
-                </div>
-                <div style={{ color: 'var(--muted)' }}>{formatCurrency(Number(coin.price))}</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: changeColor, fontWeight: 600 }}>
-                  <span
-                    style={{
-                      ...pillStyle,
-                      padding: '2px 8px',
-                      borderColor: changeColor,
-                      color: changeColor,
-                      background: 'rgba(0,0,0,0.2)',
-                    }}
-                  >
-                    {changeValue >= 0 ? '▲' : '▼'}
-                  </span>
-                  {formatPercent(changeValue)}
-                </div>
-              </div>
-            );
-          })}
-          {!movers.length && <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Loading prices...</span>}
-        </div>
-      </section>
-
-      <div style={sectionDividerStyle} />
-
-      <section style={{ marginTop: '18px' }}>
-        <div style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', marginBottom: '10px' }}>
-          Market News
-        </div>
-        <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px' }}>
-          {newsError ? (
-            <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Unable to load news</div>
-          ) : newsItems.length ? (
-            <div style={{ display: 'grid', gap: '10px' }}>
-              {newsItems.slice(0, 5).map((item, index) => {
-                const badge = NEWS_SOURCES[item.source as keyof typeof NEWS_SOURCES];
-                return (
-                  <div
-                    key={`${item.link}-${item.pubDate}`}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: isCompact ? '1fr' : 'auto 1fr auto',
-                      gap: '10px',
-                      alignItems: 'center',
-                      paddingLeft: index === 0 ? '10px' : '0',
-                      borderLeft: index === 0 ? '2px solid #f3c226' : '2px solid transparent',
-                    }}
-                  >
-                    <span
-                      style={{
-                        ...pillStyle,
-                        borderColor: badge?.color ?? 'var(--border)',
-                        color: badge?.color ?? 'var(--text)',
-                        padding: '4px 10px',
-                        justifySelf: 'start',
-                      }}
-                    >
-                      {badge?.label ?? item.source}
-                    </span>
-                    <a
-                      href={item.link}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{ color: 'var(--text)', textDecoration: 'none', fontSize: '13px', fontWeight: 600 }}
-                    >
-                      {item.title}
-                    </a>
-                    {!isCompact && <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{formatTimeAgo(item.pubDate)}</span>}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Loading news...</div>
-          )}
         </div>
       </section>
 
@@ -859,11 +592,6 @@ export default function TradingDashboardPage() {
         }
         .fade-in {
           animation: fade-in 240ms ease-out;
-        }
-        @media (max-width: 900px) {
-          .hero-grid {
-            grid-template-columns: 1fr !important;
-          }
         }
       `}</style>
 

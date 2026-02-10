@@ -223,10 +223,9 @@ function toApiPair(pair: string) {
   return pair.replace(/\//g, '-').toUpperCase();
 }
 
-function formatCurrency(value: number | null) {
+function formatCurrency(value: number | null, forceDecimals?: number) {
   if (value === null || !Number.isFinite(value)) return '—';
-  const abs = Math.abs(value);
-  const decimals = abs >= 100 ? 2 : abs >= 1 ? 4 : 6;
+  const decimals = forceDecimals ?? 2;
   return `$${value.toFixed(decimals)}`;
 }
 
@@ -1123,7 +1122,7 @@ export default function TradingBoardPage() {
       </section>
 
       {/* Dashboard settings status bar */}
-      <DashboardStatusBar />
+      <DashboardStatusBar livePnl={columnTotals['Active']?.pnl ?? null} />
 
       {/* Board action bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
@@ -1438,7 +1437,7 @@ export default function TradingBoardPage() {
                         >⋯</button>
                       </div>
                       <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '4px' }}>
-                        {live ? formatCurrency(live.price) : '—'}
+                        {live ? `$${formatPrice(live.price)}` : '—'}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
                         {live && (
@@ -2638,7 +2637,7 @@ function NewTradeModal({
 
 }
 
-function DashboardStatusBar() {
+function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
   const [settings, setSettings] = useState<{ riskLevel: string | null; tradingAmount: number | null; timeframe: string | null; timeframeStartDate: string | null; tboEnabled: boolean; engineOn: boolean } | null>(null);
   const [pnl, setPnl] = useState<number | null>(null);
 
@@ -2700,8 +2699,9 @@ function DashboardStatusBar() {
   const engineLabel = settings.engineOn ? 'Engine Active' : 'Engine Off';
   const engineColor = settings.engineOn ? '#4ade80' : 'var(--muted)';
 
-  const pnlColor = pnl === null ? 'var(--muted)' : pnl >= 0 ? '#4ade80' : '#f05b6f';
-  const pnlLabel = pnl === null ? '' : `${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}`;
+  const displayPnl = livePnl ?? pnl;
+  const pnlColor = displayPnl === null ? 'var(--muted)' : displayPnl >= 0 ? '#4ade80' : '#f05b6f';
+  const pnlLabel = displayPnl === null ? '' : `${displayPnl >= 0 ? '+' : ''}$${displayPnl.toFixed(2)}`;
 
   return (
     <div style={{

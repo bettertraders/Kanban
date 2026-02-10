@@ -1324,7 +1324,7 @@ export default function TradingBoardPage() {
           borderRadius: '18px',
           padding: chartPair ? '16px' : '0 16px',
           marginBottom: chartPair ? '24px' : '0',
-          maxHeight: chartPair ? '1050px' : '0px',
+          maxHeight: chartPair ? '520px' : '0px',
           opacity: chartPair ? 1 : 0,
           transform: chartPair ? 'translateY(0)' : 'translateY(-8px)',
           transition: 'max-height 0.4s ease, opacity 0.3s ease, transform 0.35s ease, padding 0.3s ease',

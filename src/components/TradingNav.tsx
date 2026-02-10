@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
 type TradingNavProps = {
@@ -10,31 +9,13 @@ type TradingNavProps = {
 const tabs = [
   { key: 'dashboard', label: 'Dashboard', href: '/trading' },
   { key: 'market', label: 'Market', href: '/trading/market' },
-  { key: 'board', label: 'Trades', href: '/trading' },
+  { key: 'board', label: 'Trades', href: '/trading/trades' },
   { key: 'bots', label: 'Active Bots', href: '/bots' },
   { key: 'leaderboard', label: 'Leaderboard', href: '/leaderboard' },
-  { key: 'journal', label: 'Trade History', href: '/trading/journal' },
+  { key: 'journal', label: 'Trade History', href: '/trading/history' },
 ];
 
 export function TradingNav({ activeTab }: TradingNavProps) {
-  const [boardHref, setBoardHref] = useState('/trading');
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await fetch('/api/v1/boards');
-        const data = await res.json();
-        const boards = Array.isArray(data?.boards) ? data.boards : [];
-        const tradingBoard = boards.find((b: any) => b.board_type === 'trading');
-        if (tradingBoard?.id) {
-          setBoardHref(`/trading/${tradingBoard.id}`);
-        }
-      } catch {
-      }
-    };
-    void load();
-  }, []);
-
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', margin: '8px 0 18px', alignItems: 'center' }}>
       <Link
@@ -61,7 +42,7 @@ export function TradingNav({ activeTab }: TradingNavProps) {
       <div style={{ width: '1px', height: '20px', background: 'var(--border)', marginRight: '4px' }} />
       {tabs.map((tab) => {
         const isActive = tab.key === activeTab;
-        const href = tab.key === 'board' ? boardHref : tab.href;
+        const href = tab.href;
         return (
           <Link
             key={tab.key}

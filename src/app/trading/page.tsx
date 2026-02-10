@@ -102,7 +102,7 @@ function getBotQuote(pnlPct: number, _winRate: number, _activePositions: number,
     "Keep calm and let the bot trade 🧘",
   ];
   const flat = [
-    "Quiet day — patience is a superpower ⏳",
+    "Flat market — watching for the next move 🎯",
     "Sometimes the best trade is no trade 🤔",
     "Sideways markets build character 💎",
     "Waiting for the right moment... 🎯",
@@ -203,7 +203,7 @@ function generatePennyUpdate(data: PennyUpdateData): string {
     }
     if (marketTrend === 'flat') {
       return pick([
-        `Quiet day — BTC hovering around ${btcK}. I'm scanning for breakout setups. Toggle the engine on when you're ready 🔍`,
+        `BTC hovering around ${btcK}. I'm scanning for breakout setups. Toggle the engine on when you're ready 🔍`,
         `Markets are consolidating. The Fear & Greed index sits at ${fearGreed} (${fearGreedLabel.toLowerCase()}). Could go either way from here 🤔`,
         `Not much action today, but I'm still watching. Sometimes the best moves come after the quiet periods ⏳`,
       ]);
@@ -581,8 +581,10 @@ export default function TradingDashboardPage() {
   }, [riskValue]);
 
   const activeBots = bots.filter(b => b.status === 'running');
+  // Count coins on the trading board (Analyzing + Active columns)
+  const boardCoinCount = activeBots.length > 0 ? activeBots.length : pulse.length > 5 ? 5 : pulse.length;
   const engineStatusText = engineOn
-    ? `Active — watching ${activeBots.length > 0 ? activeBots.length : pulse.length > 5 ? 5 : pulse.length} coins, ${activePositions} active trades`
+    ? `Active — watching ${boardCoinCount} coins, ${activePositions} active trades`
     : 'Paused — all trading stopped';
 
   const btcCoin = pulse.find(c => c.pair?.includes('BTC'));
@@ -825,7 +827,7 @@ export default function TradingDashboardPage() {
               {(() => {
                 const displayAlloc = (allocations && allocations.length > 0)
                   ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#f5b544', '#a78bfa', '#f05b6f', '#6b6b8a'][i % 6] }))
-                  : defaultAllocation;
+                  : [{ label: 'Cash', pct: 100, color: '#6b6b8a' }];
                 let offset = 25;
                 return (
                   <svg viewBox="0 0 36 36" style={{ width: '240px', height: '240px' }}>
@@ -843,11 +845,11 @@ export default function TradingDashboardPage() {
 
             {/* Legend — compact, tight to percentages */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', minWidth: 0, flexShrink: 1 }}>
-              <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '1px' }}>{allocations ? 'Current Holdings' : 'Target Allocation'}</div>
+              <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '1px' }}>{allocations ? 'Current Holdings' : 'Current Holdings'}</div>
               {(() => {
                 const displayAlloc = (allocations && allocations.length > 0)
                   ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#f5b544', '#a78bfa', '#f05b6f', '#6b6b8a'][i % 6] }))
-                  : defaultAllocation;
+                  : [{ label: 'Cash', pct: 100, color: '#6b6b8a' }];
                 return displayAlloc.map((seg) => (
                   <div key={seg.label} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
                     <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: seg.color, flexShrink: 0 }} />

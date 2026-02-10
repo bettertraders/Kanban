@@ -748,6 +748,13 @@ export default function TradingDashboardPage() {
               {btcCoin && <> · BTC {formatCurrency(btcCoin.price)} <span style={{ color: btcCoin.change24h >= 0 ? '#4ade80' : '#f05b6f' }}>{btcCoin.change24h >= 0 ? '▲' : '▼'}{Math.abs(btcCoin.change24h).toFixed(1)}%</span></>}
               {ethCoin && <> · ETH {formatCurrency(ethCoin.price)} <span style={{ color: ethCoin.change24h >= 0 ? '#4ade80' : '#f05b6f' }}>{ethCoin.change24h >= 0 ? '▲' : '▼'}{Math.abs(ethCoin.change24h).toFixed(1)}%</span></>}
               {tradeScore && <> · <span style={{ color: tradeScore.color, fontWeight: 600 }}>Trade Conditions: {tradeScore.label} ({tradeScore.score}/100)</span></>}
+              {(() => {
+                const fng = sentiment?.value ?? marketDetail?.overview?.fearGreed?.value;
+                if (fng == null) return null;
+                const label = fng < 30 ? 'Bearish' : fng < 45 ? 'Cautious' : fng <= 55 ? 'Neutral' : fng <= 70 ? 'Bullish' : 'Very Bullish';
+                const color = fng < 30 ? '#f05b6f' : fng < 45 ? '#9ca3af' : fng <= 55 ? '#9ca3af' : fng <= 70 ? '#4ade80' : '#22c55e';
+                return <> · <span style={{ color, fontWeight: 600 }}>Market: {label}</span></>;
+              })()}
             </div>
             <Link href="/trading/market" style={{ fontSize: '12px', color: 'var(--accent)', textDecoration: 'none' }}>
               See full market →
@@ -763,23 +770,6 @@ export default function TradingDashboardPage() {
           <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '10px' }}>
             {[
               { label: 'Bot Status', value: engineOn ? '● Active' : '● Paused', color: engineOn ? '#22c55e' : '#ef4444' },
-              { label: 'Market', value: (() => {
-                const fng = sentiment?.value ?? marketDetail?.overview?.fearGreed?.value;
-                if (fng == null) return 'Loading...';
-                if (fng < 30) return 'Bearish';
-                if (fng < 45) return 'Cautious';
-                if (fng <= 55) return 'Neutral';
-                if (fng <= 70) return 'Bullish';
-                return 'Very Bullish';
-              })(), color: (() => {
-                const fng = sentiment?.value ?? marketDetail?.overview?.fearGreed?.value;
-                if (fng == null) return undefined;
-                if (fng < 30) return '#f05b6f';
-                if (fng < 45) return '#9ca3af';
-                if (fng <= 55) return '#9ca3af';
-                if (fng <= 70) return '#4ade80';
-                return '#22c55e';
-              })() },
               { label: 'Paper Balance', value: formatCurrency(paperBalance) },
               { label: "Today's P&L", value: `${dailyPnl >= 0 ? '+' : ''}${formatCurrency(dailyPnl)} (${dailyPnlPct >= 0 ? '+' : ''}${dailyPnlPct.toFixed(1)}%)`, color: dailyPnl >= 0 ? '#4ade80' : '#f05b6f' },
               { label: 'Win Rate', value: `${winRate.toFixed(0)}%`, color: winRate >= 50 ? '#4ade80' : winRate > 0 ? '#f05b6f' : undefined },

@@ -807,7 +807,7 @@ export default function TradingDashboardPage() {
           <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'var(--muted)', marginBottom: '10px' }}>
             Status at a Glance
           </div>
-          <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '10px' }}>
+          <div className="stats-row" style={{ display: 'flex', flexWrap: 'nowrap', gap: '10px' }}>
             {[
               { label: 'Bot Status', value: engineOn ? '● Active' : '● Paused', color: engineOn ? '#22c55e' : '#ef4444' },
               { label: 'Paper Balance', value: formatCurrency(paperBalance) },
@@ -837,7 +837,7 @@ export default function TradingDashboardPage() {
         </section>
 
         {/* Two-column: Portfolio Mix + Trading Setup */}
-        <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+        <section className="portfolio-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
 
           {/* LEFT — Portfolio Mix (pie big, legend compact right) */}
           <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
@@ -1186,6 +1186,15 @@ export default function TradingDashboardPage() {
           @keyframes pulse-glow {
             0%, 100% { box-shadow: 0 0 20px rgba(123,125,255,0.25); }
             50% { box-shadow: 0 0 35px rgba(123,125,255,0.5); }
+          }
+          @media (max-width: 768px) {
+            .stats-row { flex-wrap: wrap !important; }
+            .stats-row > div { min-width: calc(50% - 6px) !important; flex: 1 1 calc(50% - 6px) !important; }
+            .portfolio-grid { grid-template-columns: 1fr !important; }
+            .coin-pulse-row { flex-wrap: wrap !important; }
+          }
+          @media (max-width: 480px) {
+            .stats-row > div { min-width: 100% !important; flex: 1 1 100% !important; }
           }
         `}</style>
       </div>

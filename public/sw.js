@@ -1,8 +1,11 @@
-const CACHE_NAME = 'clawdesk-v2';
+const CACHE_NAME = 'clawdesk-v3';
 const STATIC_ASSETS = [
+  '/',
+  '/trading',
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',
+  '/apple-touch-icon.png',
   '/icons/clawdesk-mark.png',
 ];
 

@@ -280,7 +280,7 @@ async function main() {
       }
     } else if (ind) {
       // Update current price on card description
-      await updateTradeAnalysis(trade.id, ind);
+      await updateTradeAnalysis(trade.id, ind, sym);
     }
   }
   log(`🚪 Exits: ${exitCount}`);
@@ -299,7 +299,7 @@ async function main() {
       const extreme = isExtremeMove(ind);
       if (!canMoveCard(sym + ':active', state) && !extreme) {
         log(`  ⏳ ${sym} — entry signal but cooldown (24h). Skipping.`);
-        if (ind) await updateTradeAnalysis(trade.id, ind);
+        if (ind) await updateTradeAnalysis(trade.id, ind, sym);
         continue;
       }
       const positionSize = Math.min(balance * (POSITION_SIZE_PCT / 100), balance);
@@ -326,7 +326,7 @@ async function main() {
         log(`  ⚠ Entry failed for ${sym}: ${err.message}`);
       }
     } else if (ind) {
-      await updateTradeAnalysis(trade.id, ind);
+      await updateTradeAnalysis(trade.id, ind, sym);
     }
   }
   log(`🎯 Entries: ${entryCount}`);
@@ -355,7 +355,7 @@ async function main() {
       }
     }
     // Always update analysis on watchlist cards
-    if (ind) await updateTradeAnalysis(trade.id, ind);
+    if (ind) await updateTradeAnalysis(trade.id, ind, sym);
   }
   saveState(state);
   log(`🔍 Moved to Analyzing: ${analyzeCount}`);
@@ -419,52 +419,69 @@ async function ensureBot() {
   return bot;
 }
 
-function generateReason(ind) {
-  const reasons = [];
+function generateReason(ind, ticker) {
   const price = ind.currentPrice;
-  
-  // RSI analysis
-  if (ind.rsi < 30) reasons.push('RSI oversold — strong buy zone');
-  else if (ind.rsi < 40) reasons.push('RSI approaching oversold — watching for bounce');
-  else if (ind.rsi > 70) reasons.push('RSI overbought — may pull back');
-  else if (ind.rsi > 60) reasons.push('RSI elevated — momentum building');
-  else reasons.push('RSI neutral');
+  const fmt = (v) => v > 1000 ? `$${v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}` : v > 1 ? `$${v.toFixed(2)}` : `$${v.toFixed(4)}`;
 
-  // SMA relationship
+  // Build headline — what's the story?
+  let headline = '';
+  if (ind.rsi < 30) headline = `🔥 ${ticker} oversold at RSI ${ind.rsi.toFixed(0)} — prime buy zone`;
+  else if (ind.rsi < 35) headline = `👀 ${ticker} nearing oversold (RSI ${ind.rsi.toFixed(0)}) — watching closely`;
+  else if (ind.rsi > 70) headline = `⚠️ ${ticker} overbought at RSI ${ind.rsi.toFixed(0)} — looking to take profit`;
+  else if (ind.rsi > 60) headline = `📈 ${ticker} building momentum (RSI ${ind.rsi.toFixed(0)})`;
+  else headline = `${ticker} ranging — no clear signal yet (RSI ${ind.rsi.toFixed(0)})`;
+
+  // Key observations
+  const obs = [];
+
+  // SMA structure
   if (ind.sma20 && ind.sma50) {
-    if (ind.sma20 > ind.sma50) reasons.push('SMA20 above SMA50 (bullish trend)');
-    else {
-      const gap = ((ind.sma50 - ind.sma20) / ind.sma50 * 100).toFixed(1);
-      if (gap < 2) reasons.push(`SMA20 closing in on SMA50 — crossover forming (${gap}% gap)`);
-      else reasons.push('SMA20 below SMA50 (bearish macro)');
+    if (ind.sma20 > ind.sma50) {
+      obs.push('Trend bullish (SMA20 > SMA50)');
+    } else {
+      const gap = ((ind.sma50 - ind.sma20) / ind.sma50 * 100);
+      if (gap < 1.5) obs.push(`SMA crossover forming — gap only ${gap.toFixed(1)}%`);
+      else obs.push(`Trend bearish — SMA20 still ${gap.toFixed(1)}% below SMA50`);
     }
   }
 
-  // Price vs SMA20
+  // Price vs SMA20 — the bounce zone
   if (ind.sma20) {
     const dist = ((price - ind.sma20) / ind.sma20 * 100);
-    if (Math.abs(dist) < 2) reasons.push('Price near SMA20 — bounce zone');
-    else if (dist > 0) reasons.push(`Price ${dist.toFixed(1)}% above SMA20`);
-    else reasons.push(`Price ${Math.abs(dist).toFixed(1)}% below SMA20`);
+    if (Math.abs(dist) < 1) obs.push(`Sitting right on SMA20 (${fmt(ind.sma20)}) — key decision point`);
+    else if (Math.abs(dist) < 3) obs.push(`Near SMA20 bounce zone (${dist > 0 ? 'above' : 'below'} by ${Math.abs(dist).toFixed(1)}%)`);
+    else if (dist < -5) obs.push(`Extended ${Math.abs(dist).toFixed(1)}% below SMA20 — stretched, mean reversion play`);
   }
 
-  // Volume
-  if (ind.volumeRatio > 1.5) reasons.push('High volume — strong interest');
-  else if (ind.volumeRatio > 1.0) reasons.push('Volume above average');
-  else if (ind.volumeRatio < 0.5) reasons.push('Low volume — thin market');
+  // Volume context
+  if (ind.volumeRatio > 2.0) obs.push('Volume surging (2x+ avg) — big move brewing');
+  else if (ind.volumeRatio > 1.3) obs.push('Above-average volume — conviction behind the move');
+  else if (ind.volumeRatio < 0.5) obs.push('Volume dried up — wait for participation');
 
-  // Entry target
-  if (ind.sma20 && ind.rsi > 40) {
-    const target = ind.sma20 * 0.98;
-    reasons.push(`Entry target: ~$${target.toFixed(target > 100 ? 0 : 2)}`);
+  // Momentum
+  if (ind.momentum > 3) obs.push(`Strong momentum (+${ind.momentum.toFixed(1)}%)`);
+  else if (ind.momentum < -3) obs.push(`Selling pressure (${ind.momentum.toFixed(1)}%)`);
+
+  // Action — what am I watching for?
+  let action = '';
+  if (ind.rsi < 35 && ind.sma20 && Math.abs(price - ind.sma20) / ind.sma20 < 0.03) {
+    action = `🎯 Entry zone! Watching for bounce confirmation near ${fmt(ind.sma20)}`;
+  } else if (ind.rsi < 40) {
+    const target = ind.sma20 ? fmt(ind.sma20 * 0.98) : fmt(price * 0.97);
+    action = `Ideal entry: ${target} on RSI dip below 35 with volume`;
+  } else if (ind.rsi > 65) {
+    action = `Watching for exit signals above RSI 70`;
+  } else {
+    action = `Patience — need RSI below 35 or SMA crossover to act`;
   }
 
-  return reasons.slice(0, 3).join('. ') + '.';
+  return `${headline}\n${obs.join(' · ')}\n${action}`;
 }
 
-async function updateTradeAnalysis(tradeId, ind) {
-  const reason = generateReason(ind);
-  const analysis = `${reason}\n\n📊 RSI: ${ind.rsi?.toFixed(1)} | SMA20: $${ind.sma20?.toFixed(2)} | SMA50: $${ind.sma50?.toFixed(2)} | Vol: ${ind.volumeRatio?.toFixed(1)}x | Mom: ${ind.momentum?.toFixed(1)}%`;
+async function updateTradeAnalysis(tradeId, ind, ticker) {
+  ticker = ticker || '???';
+  const reason = generateReason(ind, ticker);
+  const analysis = reason;
 
   // Calculate confidence score based on signal strength
   let confidence = 50;

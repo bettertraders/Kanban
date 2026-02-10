@@ -495,26 +495,29 @@ export default function TradingDashboardPage() {
   }, []);
 
   const paperBalance = Number(portfolio?.summary?.paper_balance ?? 0);
-  // Compute live unrealized P&L from pulse prices + active holdings
-  const livePnl = useMemo(() => {
+  // Fetch live P&L from the same price source as the board (CCXT/Binance)
+  const [livePnl, setLivePnl] = useState<number | null>(null);
+  useEffect(() => {
     const holdings = portfolio?.activeHoldings;
-    if (!holdings || holdings.length === 0 || pulse.length === 0) return null;
-    let total = 0;
-    let matched = 0;
-    for (const h of holdings) {
-      if (!h.entry_price || h.entry_price === 0) continue;
-      const norm = h.coin_pair.replace(/\/USDT$/i, '').replace(/\/USD$/i, '').toUpperCase();
-      const coin = pulse.find(c => {
-        const p = (c.pair || '').replace(/\/USDT$/i, '').replace(/\/USD$/i, '').toUpperCase();
-        return p === norm;
-      });
-      if (!coin) continue;
-      matched++;
-      const qty = h.position_size / h.entry_price;
-      total += (coin.price - h.entry_price) * qty;
-    }
-    return matched > 0 ? total : null;
-  }, [portfolio, pulse]);
+    if (!holdings || holdings.length === 0) return;
+    const pairs = holdings.map(h => h.coin_pair).join(',');
+    fetch(`/api/v1/prices?pairs=${encodeURIComponent(pairs)}`)
+      .then(r => r.json())
+      .then(data => {
+        const prices = data?.prices || {};
+        let total = 0;
+        for (const h of holdings) {
+          if (!h.entry_price || h.entry_price === 0) continue;
+          const norm = h.coin_pair.replace(/\//g, '').toUpperCase();
+          const live = prices[norm]?.price || prices[h.coin_pair]?.price;
+          if (!live) continue;
+          const qty = h.position_size / h.entry_price;
+          total += (live - h.entry_price) * qty;
+        }
+        setLivePnl(total);
+      })
+      .catch(() => {});
+  }, [portfolio]);
   const dailyPnl = livePnl ?? Number(portfolio?.summary?.daily_pnl ?? portfolio?.summary?.total_unrealized_pnl ?? 0);
   const dailyPnlPct = paperBalance > 0 ? (dailyPnl / (paperBalance - dailyPnl)) * 100 : 0;
   const winRate = Number(portfolio?.summary?.win_rate ?? 0);

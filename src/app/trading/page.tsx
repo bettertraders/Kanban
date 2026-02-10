@@ -794,12 +794,15 @@ export default function TradingDashboardPage() {
                   : 'Day 1 — No timeframe set',
                 color: dayProgress?.total && dayProgress.day >= dayProgress.total ? '#f5b544' : undefined,
               },
-            ].map((stat) => (
-              <div key={stat.label} style={{ flex: '1 1 0', minWidth: 0, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '14px 12px' }}>
-                <div style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stat.label}</div>
-                <div style={{ marginTop: '8px', fontSize: '18px', fontWeight: 700, color: stat.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stat.value}</div>
-              </div>
-            ))}
+            ].map((stat) => {
+              const wide = stat.label === "Today's P&L" || stat.label === 'Progress';
+              return (
+                <div key={stat.label} style={{ flex: wide ? '1.6 1 0' : '1 1 0', minWidth: 0, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '14px 12px' }}>
+                  <div style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stat.label}</div>
+                  <div style={{ marginTop: '8px', fontSize: wide ? '16px' : '18px', fontWeight: 700, color: stat.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stat.value}</div>
+                </div>
+              );
+            })}
           </div>
         </section>
 
@@ -807,7 +810,7 @@ export default function TradingDashboardPage() {
         <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
 
           {/* LEFT — Portfolio Mix (pie big, legend compact right) */}
-          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '16px 14px 16px 20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
             {/* Donut chart — bigger */}
             <div style={{ flexShrink: 0 }}>
               {(() => {
@@ -816,7 +819,7 @@ export default function TradingDashboardPage() {
                   : defaultAllocation;
                 let offset = 25;
                 return (
-                  <svg viewBox="0 0 36 36" style={{ width: '220px', height: '220px' }}>
+                  <svg viewBox="0 0 36 36" style={{ width: '240px', height: '240px' }}>
                     {displayAlloc.map((seg) => {
                       const el = <circle key={seg.label} r="15.9" cx="18" cy="18" fill="none" stroke={seg.color} strokeWidth="4" strokeDasharray={`${seg.pct} ${100 - seg.pct}`} strokeDashoffset={`${-offset + 25}`} style={{ transition: 'stroke-dasharray 0.4s ease, stroke-dashoffset 0.4s ease' }} />;
                       offset += seg.pct;
@@ -829,9 +832,9 @@ export default function TradingDashboardPage() {
               })()}
             </div>
 
-            {/* Legend — compact, closer spacing */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '2px' }}>Portfolio Mix</div>
+            {/* Legend — compact, tight to percentages */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', minWidth: 0, flexShrink: 1 }}>
+              <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '1px' }}>Portfolio Mix</div>
               {(() => {
                 const displayAlloc = (allocations && allocations.length > 0)
                   ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#f5b544', '#a78bfa', '#f05b6f', '#6b6b8a'][i % 6] }))

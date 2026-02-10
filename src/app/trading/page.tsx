@@ -130,7 +130,7 @@ function getBotQuote(pnlPct: number, _winRate: number, _activePositions: number,
     "Standing by... 🤖",
   ];
   const noTrades = [
-    "Let's make some trades! 🎯",
+    "Let's make some trades 🎯",
     "Your first trade is just a toggle away ✨",
     "The journey of a thousand trades starts with one 🚶",
   ];

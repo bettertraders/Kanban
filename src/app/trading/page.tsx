@@ -788,9 +788,9 @@ export default function TradingDashboardPage() {
         {/* Two-column: Portfolio Mix + Trading Setup */}
         <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
 
-          {/* LEFT — Portfolio Mix (pie left, legend right) */}
-          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-            {/* Donut chart */}
+          {/* LEFT — Portfolio Mix (pie big, legend compact right) */}
+          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+            {/* Donut chart — bigger */}
             <div style={{ flexShrink: 0 }}>
               {(() => {
                 const displayAlloc = (allocations && allocations.length > 0)
@@ -798,9 +798,9 @@ export default function TradingDashboardPage() {
                   : defaultAllocation;
                 let offset = 25;
                 return (
-                  <svg viewBox="0 0 36 36" style={{ width: '180px', height: '180px' }}>
+                  <svg viewBox="0 0 36 36" style={{ width: '220px', height: '220px' }}>
                     {displayAlloc.map((seg) => {
-                      const el = <circle key={seg.label} r="15.9" cx="18" cy="18" fill="none" stroke={seg.color} strokeWidth="4" strokeDasharray={`${seg.pct} ${100 - seg.pct}`} strokeDashoffset={`${-offset + 25}`} />;
+                      const el = <circle key={seg.label} r="15.9" cx="18" cy="18" fill="none" stroke={seg.color} strokeWidth="4" strokeDasharray={`${seg.pct} ${100 - seg.pct}`} strokeDashoffset={`${-offset + 25}`} style={{ transition: 'stroke-dasharray 0.4s ease, stroke-dashoffset 0.4s ease' }} />;
                       offset += seg.pct;
                       return el;
                     })}
@@ -811,36 +811,35 @@ export default function TradingDashboardPage() {
               })()}
             </div>
 
-            {/* Legend */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
-              <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '2px' }}>Your Portfolio Mix</div>
+            {/* Legend — compact, closer spacing */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '2px' }}>Portfolio Mix</div>
               {(() => {
                 const displayAlloc = (allocations && allocations.length > 0)
                   ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#f5b544', '#a78bfa', '#f05b6f', '#6b6b8a'][i % 6] }))
                   : defaultAllocation;
                 return displayAlloc.map((seg) => (
-                  <div key={seg.label} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
-                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: seg.color, flexShrink: 0 }} />
-                    <span>{seg.label}</span>
-                    <span style={{ marginLeft: 'auto', fontWeight: 700, fontSize: '14px' }}>{seg.pct}%</span>
+                  <div key={seg.label} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: seg.color, flexShrink: 0 }} />
+                    <span style={{ whiteSpace: 'nowrap' }}>{seg.label}</span>
+                    <span style={{ marginLeft: 'auto', fontWeight: 700, fontSize: '13px', transition: 'all 0.3s' }}>{seg.pct}%</span>
                   </div>
                 ));
               })()}
-              <div style={{ fontSize: '11px', color: 'var(--muted)' }}>Adapts to your risk level</div>
 
               {/* TBO badge */}
               <button
                 onClick={() => setTboEnabled(prev => !prev)}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: '8px',
-                  padding: '5px 12px', borderRadius: '999px', alignSelf: 'flex-start',
+                  padding: '4px 10px', borderRadius: '999px', alignSelf: 'flex-start', marginTop: '4px',
                   background: tboEnabled ? 'rgba(74,222,128,0.06)' : 'rgba(123,125,255,0.08)',
                   border: `1px solid ${tboEnabled ? 'rgba(74,222,128,0.3)' : 'rgba(123,125,255,0.2)'}`,
-                  fontSize: '11px', color: tboEnabled ? '#4ade80' : 'var(--muted)',
+                  fontSize: '10px', color: tboEnabled ? '#4ade80' : 'var(--muted)',
                   cursor: 'pointer',
                 }}
               >
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: tboEnabled ? '#4ade80' : 'var(--muted)' }} />
+                <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: tboEnabled ? '#4ade80' : 'var(--muted)' }} />
                 TBO PRO
                 <ToggleSwitch on={tboEnabled} onChange={() => setTboEnabled(prev => !prev)} />
               </button>
@@ -851,32 +850,54 @@ export default function TradingDashboardPage() {
           <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '20px 24px' }}>
             <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '14px' }}>Trading Setup</div>
 
-            {/* Risk cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-              {([
-                { key: 'conservative' as RiskLevel, label: 'Safe', desc: 'BTC & ETH heavy', icon: '/icons/risk-safe-v3.png' },
-                { key: 'moderate' as RiskLevel, label: 'Balanced', desc: 'Top 20 mix', icon: '/icons/risk-balanced-v3.png' },
-                { key: 'aggressive' as RiskLevel, label: 'Bold', desc: 'Momentum plays', icon: '/icons/risk-bold-v3.png' },
-              ]).map(({ key, label, desc, icon }) => {
-                const isActive = riskLevel === key;
-                return (
-                  <button
-                    key={key}
-                    onClick={() => { setRiskLevel(key); pushToast(`Risk set to ${RISK_LEVELS[key].label}`, 'success'); }}
-                    style={{
-                      padding: '16px 12px', borderRadius: '14px', textAlign: 'center', cursor: 'pointer',
-                      border: `2px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
-                      background: isActive ? 'rgba(123,125,255,0.12)' : 'var(--panel-2)',
-                      color: 'var(--text)', transition: 'all 0.2s',
+            {/* Risk Slider */}
+            {(() => {
+              const RISK_SLIDER: { key: RiskLevel; label: string; desc: string; color: string }[] = [
+                { key: 'conservative', label: 'Safe', desc: 'BTC & ETH heavy', color: '#6366f1' },
+                { key: 'moderate', label: 'Balanced', desc: 'Top 20 mix', color: '#7b7dff' },
+                { key: 'aggressive', label: 'Bold', desc: 'Momentum plays', color: '#a855f7' },
+              ];
+              const activeIdx = RISK_SLIDER.findIndex(r => r.key === riskLevel) >= 0 ? RISK_SLIDER.findIndex(r => r.key === riskLevel) : 1;
+              const activeColor = RISK_SLIDER[activeIdx].color;
+              const pct = activeIdx * 50;
+              return (
+                <div>
+                  <div style={{ fontSize: '12px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600, marginBottom: '10px' }}>Risk Level</div>
+                  {/* Labels */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    {RISK_SLIDER.map((r, i) => {
+                      const isActive = i === activeIdx;
+                      return (
+                        <div key={r.key} onClick={() => { setRiskLevel(r.key); pushToast(`Risk set to ${r.label}`, 'success'); }} style={{ cursor: 'pointer', textAlign: i === 0 ? 'left' : i === 2 ? 'right' : 'center', transition: 'all 0.2s' }}>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: isActive ? r.color : 'var(--muted)', opacity: isActive ? 1 : 0.5, transition: 'all 0.25s' }}>{r.label}</div>
+                          <div style={{ fontSize: '10px', color: 'var(--muted)', opacity: isActive ? 0.8 : 0.4, transition: 'all 0.25s' }}>{r.desc}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Track */}
+                  <div
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const p = (e.clientX - rect.left) / rect.width;
+                      const idx = p < 0.33 ? 0 : p < 0.66 ? 1 : 2;
+                      setRiskLevel(RISK_SLIDER[idx].key);
+                      pushToast(`Risk set to ${RISK_SLIDER[idx].label}`, 'success');
                     }}
+                    style={{ position: 'relative', height: '8px', borderRadius: '99px', cursor: 'pointer', background: 'linear-gradient(90deg, #6366f1, #7b7dff, #a855f7)' }}
                   >
-                    <img src={icon} alt={label} style={{ width: '56px', height: '56px', marginBottom: '6px', borderRadius: '12px', background: 'var(--panel-2)', padding: '4px' }} />
-                    <div style={{ fontSize: '13px', fontWeight: 700, marginBottom: '4px' }}>{label}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--muted)', lineHeight: '1.3' }}>{desc}</div>
-                  </button>
-                );
-              })}
-            </div>
+                    <div style={{
+                      position: 'absolute', top: '50%', left: `${pct}%`,
+                      width: '22px', height: '22px', borderRadius: '50%',
+                      border: '3px solid #fff', background: activeColor,
+                      transform: 'translate(-50%, -50%)',
+                      boxShadow: `0 0 12px ${activeColor}80`,
+                      transition: 'left 0.25s ease, background 0.25s ease, box-shadow 0.25s ease',
+                    }} />
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Trading Amount */}
             <div style={{ marginTop: '16px' }}>

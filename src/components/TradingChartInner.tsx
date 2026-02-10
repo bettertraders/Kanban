@@ -38,12 +38,12 @@ export default function TradingChartInner({ pair, indicators = [] }: Props) {
   }, [symbol, studies]);
 
   return (
-    <div style={{ width: '100%', height: '100%', minHeight: '875px', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ flex: 1, minHeight: '875px', background: CHART_BG, borderRadius: '12px', overflow: 'hidden' }}>
+    <div style={{ width: '100%', height: '875px', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, background: CHART_BG, borderRadius: '12px', overflow: 'hidden', position: 'relative' }}>
         <iframe
           title="TradingView Chart"
           src={src}
-          style={{ width: '100%', height: '100%', border: 'none', background: CHART_BG }}
+          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none', background: CHART_BG }}
           loading="lazy"
           allow="clipboard-write; fullscreen"
         />

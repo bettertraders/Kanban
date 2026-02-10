@@ -23,6 +23,36 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// PATCH /api/trading/account — reset/update paper account balance
+export async function PATCH(request: NextRequest) {
+  try {
+    const user = await getAuthenticatedUser(request);
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const body = await request.json();
+    const boardId = Number(body.boardId || body.board_id);
+    const balance = Number(body.balance || body.starting_balance || body.current_balance);
+
+    if (!Number.isFinite(boardId) || !Number.isFinite(balance)) {
+      return NextResponse.json({ error: 'boardId and balance required' }, { status: 400 });
+    }
+
+    const result = await pool.query(
+      `UPDATE paper_accounts SET starting_balance = $1, current_balance = $1, updated_at = NOW() WHERE board_id = $2 AND user_id = $3 RETURNING *`,
+      [balance, boardId, user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ account: result.rows[0] });
+  } catch (error) {
+    console.error('PATCH /api/trading/account error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 // POST /api/trading/account — create paper account with initial balance
 export async function POST(request: NextRequest) {
   try {

@@ -130,7 +130,11 @@ function getBotQuote(pnlPct: number, _winRate: number, _activePositions: number,
   const noTrades = [
     "Let's make some trades 🎯",
     "Your first trade is just a toggle away ✨",
-    "The journey of a thousand trades starts with one 🚶",
+    '"The stock market is a device for transferring money from the impatient to the patient." — Warren Buffett',
+    '"In investing, what is comfortable is rarely profitable." — Robert Arnott',
+    '"The goal of a successful trader is to make the best trades. Money is secondary." — Alexander Elder',
+    '"Risk comes from not knowing what you\'re doing." — Warren Buffett',
+    '"Markets can remain irrational longer than you can remain solvent." — John Maynard Keynes',
   ];
 
   // Seeded random based on current hour so it changes hourly but not on re-render
@@ -138,7 +142,7 @@ function getBotQuote(pnlPct: number, _winRate: number, _activePositions: number,
   const pick = (arr: string[]) => arr[seed % arr.length];
 
   if (!isEngineOn) return { text: pick(engineOff), color: 'var(--muted)' };
-  if (totalTrades === 0) return { text: pick(noTrades), color: 'var(--accent, #7b7dff)' };
+  if (totalTrades === 0) return { text: pick(noTrades), color: '#4ade80' };
   if (pnlPct > 5) return { text: pick(onFire), color: '#4ade80' };
   if (pnlPct > 1) return { text: pick(doingWell), color: '#4ade80' };
   if (pnlPct >= -1) return { text: pick(flat), color: 'var(--muted)' };

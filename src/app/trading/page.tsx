@@ -647,7 +647,7 @@ export default function TradingDashboardPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <img src="/icons/clawdesk-mark.png" alt="" style={{ width: '48px', height: '48px', borderRadius: '10px' }} />
             <div>
-              <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4vw, 36px)' }}>Trading Command Center</h1>
+              <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4vw, 36px)' }}>The Better Traders Command Center</h1>
               <div style={{ color: 'var(--muted)', fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
                 Configure &amp; Monitor
               </div>
@@ -686,55 +686,11 @@ export default function TradingDashboardPage() {
               {(sentiment?.label || marketDetail?.overview?.fearGreed?.label) ? `Market: ${sentiment?.label ?? marketDetail?.overview?.fearGreed?.label} (${sentiment?.value ?? marketDetail?.overview?.fearGreed?.value ?? ''})` : 'Market'}
               {btcCoin && <> · BTC {formatCurrency(btcCoin.price)} <span style={{ color: btcCoin.change24h >= 0 ? '#4ade80' : '#f05b6f' }}>{btcCoin.change24h >= 0 ? '▲' : '▼'}{Math.abs(btcCoin.change24h).toFixed(1)}%</span></>}
               {ethCoin && <> · ETH {formatCurrency(ethCoin.price)} <span style={{ color: ethCoin.change24h >= 0 ? '#4ade80' : '#f05b6f' }}>{ethCoin.change24h >= 0 ? '▲' : '▼'}{Math.abs(ethCoin.change24h).toFixed(1)}%</span></>}
+              {tradeScore && <> · <span style={{ color: tradeScore.color, fontWeight: 600 }}>Trade Conditions: {tradeScore.label} ({tradeScore.score}/100)</span></>}
             </div>
             <Link href="/trading/market" style={{ fontSize: '12px', color: 'var(--accent)', textDecoration: 'none' }}>
               See full market →
             </Link>
-          </div>
-        </section>
-
-        {/* Trade Score */}
-        <section style={{ marginBottom: '16px' }}>
-          <div style={{
-            background: 'var(--panel)',
-            border: '1px solid var(--border)',
-            borderRadius: '14px',
-            padding: '14px 18px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '16px',
-          }}>
-            <div style={{
-              minWidth: '56px',
-              height: '56px',
-              borderRadius: '14px',
-              background: `${tradeScore.color}18`,
-              border: `2px solid ${tradeScore.color}`,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              ...(tradeScore.score >= 80 ? { boxShadow: `0 0 18px ${tradeScore.color}50` } : {}),
-            }}>
-              <span style={{ fontSize: '22px', fontWeight: 800, color: tradeScore.color, lineHeight: 1 }}>{tradeScore.score}</span>
-              <span style={{ fontSize: '8px', fontWeight: 700, color: tradeScore.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>/100</span>
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>🎯 Trade Conditions</span>
-                <span style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  color: tradeScore.color,
-                  background: `${tradeScore.color}18`,
-                  padding: '2px 8px',
-                  borderRadius: '999px',
-                }}>
-                  {tradeScore.label}
-                </span>
-              </div>
-              <div style={{ fontSize: '13px', color: 'var(--muted)' }}>{tradeScore.explanation}</div>
-            </div>
           </div>
         </section>
 

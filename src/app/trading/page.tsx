@@ -37,7 +37,7 @@ type PortfolioStats = {
     active_positions?: number;
     total_trades?: number;
   };
-  byCoin?: Array<{ coin_pair: string; total_pnl: number; allocation_pct?: number }>;
+  byCoin?: Array<{ coin_pair: string; total_pnl: number; total_trades?: number; allocation_pct?: number }>;
 };
 
 type Board = {
@@ -601,10 +601,10 @@ export default function TradingDashboardPage() {
       if (totalWithCash <= 0) return null;
 
       const coins = portfolio.byCoin
-        .filter(c => c.total_trades > 0)
+        .filter(c => (c.total_trades ?? 0) > 0)
         .map(c => ({
           coin: c.coin_pair.replace(/\/?(USDT?)$/i, ''),
-          pct: Math.round((Math.abs(c.total_pnl || totalValue / portfolio.byCoin.length) / totalWithCash) * 100),
+          pct: Math.round((Math.abs(c.total_pnl || totalValue / (portfolio?.byCoin?.length || 1)) / totalWithCash) * 100),
         }))
         .sort((a, b) => b.pct - a.pct);
 

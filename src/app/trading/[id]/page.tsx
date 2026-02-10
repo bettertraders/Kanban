@@ -1037,6 +1037,69 @@ export default function TradingBoardPage() {
       </header>
       <TradingNav activeTab="board" />
 
+      {/* Penny's Trades Update */}
+      <section style={{ marginTop: '20px', marginBottom: '16px' }}>
+        <div style={{
+          background: 'rgba(123,125,255,0.05)',
+          borderLeft: '3px solid rgba(123,125,255,0.5)',
+          borderRadius: '12px',
+          padding: '14px 18px',
+          display: 'flex',
+          gap: '14px',
+          alignItems: 'flex-start',
+        }}>
+          <img src="/icons/penny.png" alt="Penny" style={{ width: '72px', height: '72px', borderRadius: '50%', flexShrink: 0 }} />
+          <div>
+            <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', marginBottom: '6px', fontWeight: 600 }}>
+              Penny&apos;s Trades Update
+            </div>
+            <div style={{ fontSize: '17px', lineHeight: 1.6, color: 'var(--text)', fontWeight: 500 }}>
+              {(() => {
+                const analyzing = trades.filter(t => t.column_name === 'Analyzing');
+                const active = trades.filter(t => t.column_name === 'Active');
+                const wins = trades.filter(t => t.column_name === 'Wins');
+                const losses = trades.filter(t => t.column_name === 'Losses');
+
+                const quotes = [
+                  { text: 'The stock market is a device for transferring money from the impatient to the patient.', author: 'Warren Buffett' },
+                  { text: 'It\'s not about being right or wrong, but about how much money you make when you\'re right.', author: 'George Soros' },
+                  { text: 'The goal of a successful trader is to make the best trades. Money is secondary.', author: 'Alexander Elder' },
+                  { text: 'Patience is the key to success in trading. Wait for the fat pitch.', author: 'Warren Buffett' },
+                  { text: 'In trading, the impossible happens about twice a year.', author: 'Henri M. Simoes' },
+                  { text: 'The market can stay irrational longer than you can stay solvent.', author: 'John Maynard Keynes' },
+                  { text: 'Risk comes from not knowing what you\'re doing.', author: 'Warren Buffett' },
+                  { text: 'Plan your trade and trade your plan.', author: 'Trading Proverb' },
+                ];
+                const quote = quotes[new Date().getDate() % quotes.length];
+
+                let update = '';
+                if (active.length > 0) {
+                  const pairs = active.map(t => normalizePair(t.coin_pair).split('/')[0]).join(', ');
+                  update = `Currently in ${active.length} active trade${active.length > 1 ? 's' : ''}: ${pairs}. Watching exit signals closely — RSI overbought or hitting our take profit targets. `;
+                } else if (analyzing.length > 0) {
+                  const pairs = analyzing.map(t => normalizePair(t.coin_pair).split('/')[0]).join(', ');
+                  update = `Watching ${analyzing.length} coin${analyzing.length > 1 ? 's' : ''} in the Analyzing zone: ${pairs}. Waiting for RSI to dip below 35 with volume confirmation before entering. No rush — the setup needs to come to us. `;
+                } else {
+                  update = 'All quiet on the trading front. Scanning the market for setups but nothing meets our entry criteria yet. ';
+                }
+                if (wins.length > 0 || losses.length > 0) {
+                  update += `Record so far: ${wins.length}W / ${losses.length}L. `;
+                }
+
+                return (
+                  <>
+                    {update}
+                    <div style={{ marginTop: '10px', fontSize: '14px', fontStyle: 'italic', color: '#4ade80', lineHeight: 1.5 }}>
+                      &ldquo;{quote.text}&rdquo; — {quote.author}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Dashboard settings status bar */}
       <DashboardStatusBar />
 

@@ -168,7 +168,41 @@ export default function MarketDashboard() {
         </header>
         <TradingNav activeTab={'market' as any} />
 
-        {/* TBO toggle moved to board page */}
+        {/* Penny's Market Update */}
+        <section style={{ marginTop: '20px', marginBottom: '16px' }}>
+          <div style={{
+            background: 'rgba(123,125,255,0.05)',
+            borderLeft: '3px solid rgba(123,125,255,0.5)',
+            borderRadius: '12px',
+            padding: '14px 18px',
+            display: 'flex',
+            gap: '14px',
+            alignItems: 'flex-start',
+          }}>
+            <img src="/icons/penny.png" alt="Penny" style={{ width: '72px', height: '72px', borderRadius: '50%', flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', marginBottom: '6px', fontWeight: 600 }}>
+                Penny&apos;s Market Update
+              </div>
+              <div style={{ fontSize: '17px', lineHeight: 1.6, color: 'var(--text)', fontWeight: 500 }}>
+                {data ? (() => {
+                  const btc = data.overview.btc;
+                  const fng = data.overview.fearGreed;
+                  const gainers = data.movers.gainers.slice(0, 3).map(c => c.symbol.toUpperCase());
+                  const losers = data.movers.losers.slice(0, 2).map(c => c.symbol.toUpperCase());
+                  const btcDir = btc.change24h >= 0 ? 'up' : 'down';
+                  const btcAbs = Math.abs(btc.change24h).toFixed(1);
+
+                  if (fng.value < 25) return `Fear is running the show right now — index at ${fng.value} (${fng.label}). BTC is ${btcDir} ${btcAbs}% in the last 24h. ${losers.length > 0 ? `${losers.join(', ')} taking the biggest hits.` : ''} This is where patient traders start watching for opportunities. 👀`;
+                  if (fng.value < 45) return `Markets are cautious with the Fear & Greed at ${fng.value} (${fng.label}). BTC ${btcDir} ${btcAbs}% today. ${gainers.length > 0 ? `${gainers.join(', ')} leading the green.` : ''} Not much conviction either way — staying sharp. 🎯`;
+                  if (fng.value < 60) return `Balanced vibes in the market — Fear & Greed sitting at ${fng.value}. BTC ${btcDir} ${btcAbs}% on the day. ${gainers.length > 0 ? `Top movers: ${gainers.join(', ')}.` : ''} No panic, no FOMO — just the way I like it. 😎`;
+                  if (fng.value < 75) return `Getting greedy out there — index at ${fng.value} (${fng.label}). BTC ${btcDir} ${btcAbs}%. ${gainers.length > 0 ? `${gainers.join(', ')} on a tear.` : ''} Good times but this is when discipline matters most. 📈`;
+                  return `Extreme greed in the market — ${fng.value} on the Fear & Greed. BTC ${btcDir} ${btcAbs}%. Everyone's euphoric. Be careful — this is historically where tops form. Taking profits is never wrong. 🚨`;
+                })() : 'Loading market data...'}
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* Refresh bar */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>

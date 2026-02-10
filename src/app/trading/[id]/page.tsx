@@ -257,7 +257,8 @@ function computePnl(trade: Trade, livePrice?: number | null) {
 
   const isShort = String(trade.direction || '').toLowerCase() === 'short';
   const perUnit = isShort ? entry - current : current - entry;
-  const pnlDollar = size !== null ? perUnit * size : null;
+  // size is in dollars, not quantity — divide by entry to get quantity first
+  const pnlDollar = size !== null && entry !== 0 ? (perUnit / entry) * size : null;
   const pnlPercent = entry !== 0 ? (perUnit / entry) * 100 : 0;
   return { pnlDollar, pnlPercent };
 }

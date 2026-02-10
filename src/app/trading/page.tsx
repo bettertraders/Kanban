@@ -280,7 +280,7 @@ function calculateTradeScore(market: MarketDetail | null, pulse: CoinPulse[]): {
       const desc = btcChg > 0 ? `BTC up ${btcChg.toFixed(1)}%, ${upCoins}/${pulse.length} coins green 📊` : `BTC down ${Math.abs(btcChg).toFixed(1)}%, ${upCoins}/${pulse.length} coins green 📊`;
       return { score: s, label: lbl, color: clr, explanation: desc };
     }
-    return { score: 50, label: 'Fair', color: '#f5b544', explanation: '' };
+    return { score: 50, label: 'Fair', color: '#9ca3af', explanation: '' };
   }
 
   let score = 0;
@@ -328,7 +328,7 @@ function calculateTradeScore(market: MarketDetail | null, pulse: CoinPulse[]): {
   let label: string, color: string;
   if (score >= 80) { label = 'Excellent'; color = '#22c55e'; }
   else if (score >= 60) { label = 'Good'; color = '#4ade80'; }
-  else if (score >= 40) { label = 'Fair'; color = '#eab308'; }
+  else if (score >= 40) { label = 'Fair'; color = '#9ca3af'; }
   else if (score >= 20) { label = 'Poor'; color = '#f97316'; }
   else { label = 'Wait'; color = '#ef4444'; }
 

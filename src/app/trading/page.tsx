@@ -716,7 +716,7 @@ export default function TradingDashboardPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <img src="/icons/clawdesk-mark.png" alt="" style={{ width: '48px', height: '48px', borderRadius: '10px' }} />
             <div>
-              <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4vw, 36px)' }}>The Better Traders Command Center</h1>
+              <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4vw, 36px)' }}>ClawDesk Trading</h1>
               <div style={{ color: 'var(--muted)', fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
                 Configure &amp; Monitor
               </div>
@@ -1077,7 +1077,7 @@ export default function TradingDashboardPage() {
               cursor: 'pointer', color: 'var(--text)', fontSize: '13px', fontWeight: 600,
             }}
           >
-            <span>⚙️ Advanced Settings</span>
+            <span>⚙️ Advanced Settings — Coming Soon</span>
             <span style={{ fontSize: '11px', color: 'var(--muted)' }}>{advancedOpen ? '▲ Hide' : '▼ Show'}</span>
           </button>
           {advancedOpen && (
@@ -1096,39 +1096,7 @@ export default function TradingDashboardPage() {
             </div>
           )}</section>
 
-        {/* Risk Level Modal */}
-        {riskModalOpen && (
-          <div onClick={e => { if (e.target === e.currentTarget) setRiskModalOpen(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(5,5,15,0.78)', display: 'grid', placeItems: 'center', zIndex: 90 }}>
-            <div style={{ width: 'min(640px, 92vw)', background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '24px', boxShadow: 'var(--shadow)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-                <div style={{ fontSize: '18px', fontWeight: 700 }}>Choose Your Risk Level</div>
-                <button onClick={() => setRiskModalOpen(false)} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', fontSize: '20px', cursor: 'pointer' }}>×</button>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-                {(Object.entries(RISK_LEVELS) as [RiskLevel, typeof RISK_LEVELS[RiskLevel]][]).map(([key, val]) => (
-                  <button
-                    key={key}
-                    onClick={() => { setRiskLevel(key); setRiskModalOpen(false); pushToast(`Risk set to ${val.label}`, 'success'); }}
-                    style={{
-                      background: riskLevel === key ? 'rgba(123,125,255,0.15)' : 'var(--panel-2)',
-                      border: `2px solid ${riskLevel === key ? 'var(--accent)' : 'var(--border)'}`,
-                      borderRadius: '16px',
-                      padding: '20px 16px',
-                      cursor: 'pointer',
-                      textAlign: 'center',
-                      color: 'var(--text)',
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    <div style={{ fontSize: '32px', marginBottom: '8px' }}>{val.icon}</div>
-                    <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '6px' }}>{val.label}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--muted)', lineHeight: '1.4' }}>{val.description}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Risk modal removed — slider on dashboard is the control */}
 
         {/* Amount Modal */}
         {amountModalOpen && (

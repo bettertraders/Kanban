@@ -10,10 +10,10 @@ type TradingNavProps = {
 const tabs = [
   { key: 'dashboard', label: 'Dashboard', href: '/trading' },
   { key: 'market', label: 'Market', href: '/trading/market' },
-  { key: 'board', label: 'Trading Board', href: '/trading' },
+  { key: 'board', label: 'Trades', href: '/trading' },
   { key: 'bots', label: 'Active Bots', href: '/bots' },
   { key: 'leaderboard', label: 'Leaderboard', href: '/leaderboard' },
-  { key: 'journal', label: 'Journal', href: '/trading/journal' },
+  { key: 'journal', label: 'Trade History', href: '/trading/journal' },
 ];
 
 export function TradingNav({ activeTab }: TradingNavProps) {

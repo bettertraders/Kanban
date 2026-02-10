@@ -588,19 +588,38 @@ export default function TradingDashboardPage() {
   const btcCoin = pulse.find(c => c.pair?.includes('BTC'));
   const ethCoin = pulse.find(c => c.pair?.includes('ETH'));
 
-  // Portfolio allocation from byCoin data or mock
+  // Portfolio allocation: show actual holdings when actively trading, else null (use target)
+  const hasActivePositions = activePositions > 0;
   const allocations = useMemo(() => {
+    if (!hasActivePositions || !portfolio?.summary) return null;
+    // Build from actual position sizes — need to fetch active trades
+    // For now, use byCoin data filtered to active positions
     if (portfolio?.byCoin && portfolio.byCoin.length > 0) {
-      const total = portfolio.byCoin.reduce((s, c) => s + Math.abs(c.total_pnl), 0);
-      if (total > 0) {
-        return portfolio.byCoin.map(c => ({
-          coin: c.coin_pair.replace(/USDT?$/, ''),
-          pct: Math.round((Math.abs(c.total_pnl) / total) * 100),
-        })).sort((a, b) => b.pct - a.pct).slice(0, 5);
+      const totalValue = Number(portfolio.summary.total_portfolio_value) || 0;
+      const cash = Math.max(0, paperBalance - totalValue);
+      const totalWithCash = totalValue + cash;
+      if (totalWithCash <= 0) return null;
+
+      const coins = portfolio.byCoin
+        .filter(c => c.total_trades > 0)
+        .map(c => ({
+          coin: c.coin_pair.replace(/\/?(USDT?)$/i, ''),
+          pct: Math.round((Math.abs(c.total_pnl || totalValue / portfolio.byCoin.length) / totalWithCash) * 100),
+        }))
+        .sort((a, b) => b.pct - a.pct);
+
+      if (cash > 0) {
+        coins.push({ coin: 'Cash', pct: Math.round((cash / totalWithCash) * 100) });
       }
+
+      // Ensure sum = 100
+      const sum = coins.reduce((s, c) => s + c.pct, 0);
+      if (sum !== 100 && coins.length > 0) coins[0].pct += 100 - sum;
+
+      return coins.length > 0 ? coins : null;
     }
     return null;
-  }, [portfolio]);
+  }, [portfolio, hasActivePositions, paperBalance]);
 
   // Trade score: recalculate once per hour, not on every price tick
   const tradeScoreRef = useRef<{ score: number; label: string; color: string; explanation: string } | null>(null);
@@ -824,7 +843,7 @@ export default function TradingDashboardPage() {
 
             {/* Legend — compact, tight to percentages */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', minWidth: 0, flexShrink: 1 }}>
-              <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '1px' }}>Target Allocation</div>
+              <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '1px' }}>{allocations ? 'Current Holdings' : 'Target Allocation'}</div>
               {(() => {
                 const displayAlloc = (allocations && allocations.length > 0)
                   ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#f5b544', '#a78bfa', '#f05b6f', '#6b6b8a'][i % 6] }))

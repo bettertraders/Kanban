@@ -824,7 +824,7 @@ export default function TradingDashboardPage() {
 
             {/* Legend — compact, tight to percentages */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', minWidth: 0, flexShrink: 1 }}>
-              <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '1px' }}>Portfolio Mix</div>
+              <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '1px' }}>Target Allocation</div>
               {(() => {
                 const displayAlloc = (allocations && allocations.length > 0)
                   ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#f5b544', '#a78bfa', '#f05b6f', '#6b6b8a'][i % 6] }))

@@ -1861,16 +1861,7 @@ export default function TradingBoardPage() {
         <ShortcutsOverlay onClose={() => setShowShortcuts(false)} />
       )}
 
-      <ToastStack
-        toasts={toasts}
-        onDismiss={(id) => {
-          if (toastTimersRef.current[id]) {
-            clearTimeout(toastTimersRef.current[id]);
-            delete toastTimersRef.current[id];
-          }
-          setToasts(prev => prev.filter(t => t.id !== id));
-        }}
-      />
+      {/* Toasts hidden — too noisy for board view */}
 
       <style jsx global>{`
         @keyframes floatIn {

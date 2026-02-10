@@ -13,6 +13,7 @@ type PageMeta = {
 function getPageMeta(pathname: string): PageMeta {
   if (pathname === '/trading/market') return { title: 'Market Overview', subtitle: 'Live Data & Sentiment', activeTab: 'market' };
   if (pathname === '/trading/history') return { title: 'Trade History', subtitle: 'Past Trades & Notes', activeTab: 'journal' };
+  if (pathname === '/trading/leaderboard') return { title: 'Leaderboard', subtitle: 'Performance Overview', activeTab: 'leaderboard' };
   if (pathname.match(/^\/trading\/\d+$/) || pathname === '/trading/trades') return { title: 'Trades', subtitle: 'Signal Board & Execution', activeTab: 'board' };
   return { title: 'ClawDesk Trading', subtitle: 'Configure & Monitor', activeTab: 'dashboard' };
 }

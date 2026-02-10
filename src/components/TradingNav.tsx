@@ -11,7 +11,7 @@ const tabs = [
   { key: 'market', label: 'Market', href: '/trading/market' },
   { key: 'board', label: 'Trades', href: '/trading/trades' },
   // { key: 'bots', label: 'Active Bots', href: '/bots' },  // hidden for v1
-  { key: 'leaderboard', label: 'Leaderboard', href: '/leaderboard' },
+  { key: 'leaderboard', label: 'Leaderboard', href: '/trading/leaderboard' },
   { key: 'journal', label: 'Trade History', href: '/trading/history' },
 ];
 

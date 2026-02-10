@@ -45,7 +45,21 @@ export default function TradingJournalPage() {
     <div style={{ padding: '0 clamp(20px, 4vw, 48px) 40px', maxWidth: '1400px', margin: '0 auto' }}>
 
       <section style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '18px' }}>
-        {loading && <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Loading entries...</div>}
+        {loading && (
+          <div style={{ display: 'grid', gap: '14px' }}>
+            {[1,2,3,4].map(i => (
+              <div key={i} style={{ borderBottom: '1px solid var(--border)', paddingBottom: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                  <div style={{ width: '120px', height: '14px', borderRadius: '6px', background: 'var(--panel-2)', animation: 'pulse 1.5s ease infinite' }} />
+                  <div style={{ width: '80px', height: '12px', borderRadius: '6px', background: 'var(--panel-2)', animation: 'pulse 1.5s ease infinite' }} />
+                </div>
+                <div style={{ width: '180px', height: '14px', borderRadius: '6px', background: 'var(--panel-2)', marginTop: '8px', animation: 'pulse 1.5s ease infinite' }} />
+                <div style={{ width: '100%', height: '12px', borderRadius: '6px', background: 'var(--panel-2)', marginTop: '8px', animation: 'pulse 1.5s ease infinite' }} />
+              </div>
+            ))}
+            <style jsx>{`@keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 0.15; } }`}</style>
+          </div>
+        )}
         {!loading && entries.length === 0 && (
           <div style={{ fontSize: '12px', color: 'var(--muted)' }}>No journal entries yet.</div>
         )}

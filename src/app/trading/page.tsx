@@ -495,7 +495,7 @@ export default function TradingDashboardPage() {
   }, []);
 
   const paperBalance = Number(portfolio?.summary?.paper_balance ?? 0);
-  const dailyPnl = Number(portfolio?.summary?.daily_pnl ?? 0);
+  const dailyPnl = Number(portfolio?.summary?.daily_pnl ?? portfolio?.summary?.total_unrealized_pnl ?? 0);
   const dailyPnlPct = paperBalance > 0 ? (dailyPnl / (paperBalance - dailyPnl)) * 100 : 0;
   const winRate = Number(portfolio?.summary?.win_rate ?? 0);
   const activePositions = Number(portfolio?.summary?.active_positions ?? 0);

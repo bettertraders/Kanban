@@ -1489,10 +1489,12 @@ export default function TradingBoardPage() {
                     {totals.count}
                   </div>
                 </div>
+                {col.name === 'Active' && totals.pnl !== 0 && (
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--muted)' }}>P&amp;L</div>
                   <div style={{ fontSize: '12px', fontWeight: 700, color: pnlColor }}>{formatCurrency(totals.pnl)}</div>
                 </div>
+                )}
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -2667,7 +2669,14 @@ function DashboardStatusBar() {
           const current = parseFloat(data.account.current_balance);
           const starting = parseFloat(data.account.starting_balance);
           if (!isNaN(current) && !isNaN(starting)) {
-            setPnl(current - starting);
+            // Also fetch unrealized P&L from active trades
+            fetch(`/api/v1/portfolio`)
+              .then(r => r.json())
+              .then(portfolio => {
+                const unrealized = Number(portfolio?.summary?.total_unrealized_pnl ?? 0);
+                setPnl((current - starting) + unrealized);
+              })
+              .catch(() => setPnl(current - starting));
           }
         }
       })

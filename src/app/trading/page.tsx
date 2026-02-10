@@ -1,9 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { TradingNav } from '@/components/TradingNav';
 import { ToastStack, type ToastItem } from '@/components/ToastStack';
-import PriceTicker from '@/components/PriceTicker';
 import Link from 'next/link';
 
 type CoinPulse = {
@@ -710,20 +708,7 @@ export default function TradingDashboardPage() {
 
   return (
     <>
-      <PriceTicker />
-      <div style={{ padding: '32px clamp(20px, 4vw, 48px) 40px', maxWidth: '1400px', margin: '0 auto' }}>
-        <header style={{ marginBottom: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <img src="/icons/clawdesk-mark.png" alt="" style={{ width: '48px', height: '48px', borderRadius: '10px' }} />
-            <div>
-              <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4vw, 36px)' }}>ClawDesk Trading</h1>
-              <div style={{ color: 'var(--muted)', fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
-                Configure &amp; Monitor
-              </div>
-            </div>
-          </div>
-        </header>
-        <TradingNav activeTab="dashboard" />
+      <div style={{ padding: '0 clamp(20px, 4vw, 48px) 40px', maxWidth: '1400px', margin: '0 auto' }}>
 
         {/* Penny's Update — copilot message */}
         <section style={{ marginTop: '20px', marginBottom: '16px' }}>

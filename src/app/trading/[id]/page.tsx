@@ -6,9 +6,7 @@ import { UserMenu } from '@/components/UserMenu';
 import TradingChart from '@/components/TradingChart';
 import { ToastStack, type ToastItem } from '@/components/ToastStack';
 import { AlertsPanel } from '@/components/AlertsPanel';
-import { TradingNav } from '@/components/TradingNav';
 import { TboToggle } from '@/components/TboToggle';
-import PriceTicker from '@/components/PriceTicker';
 
 interface Trade {
   id: number;
@@ -1058,20 +1056,7 @@ export default function TradingBoardPage() {
 
   return (
     <>
-    <PriceTicker />
-    <div style={{ padding: '32px clamp(20px, 3vw, 32px) 40px', maxWidth: '1720px', margin: '0 auto' }}>
-      <header style={{ marginBottom: '10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <img src="/icons/clawdesk-mark.png" alt="" style={{ width: '48px', height: '48px', borderRadius: '10px' }} />
-          <div>
-            <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4vw, 36px)' }}>Trades</h1>
-            <div style={{ color: 'var(--muted)', fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
-              Signal Board &amp; Execution
-            </div>
-          </div>
-        </div>
-      </header>
-      <TradingNav activeTab="board" />
+    <div style={{ padding: '0 clamp(20px, 3vw, 32px) 40px', maxWidth: '1720px', margin: '0 auto' }}>
 
       {/* Penny's Trades Update */}
       <section style={{ marginTop: '20px', marginBottom: '16px' }}>

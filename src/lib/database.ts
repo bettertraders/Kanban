@@ -2653,6 +2653,31 @@ export async function getPortfolioStats(userId: number) {
   const paperBalance = parseNumeric(paperResult.rows[0]?.paper_balance) || 0;
   const startingBalance = parseNumeric(paperResult.rows[0]?.starting_balance) || 0;
 
+  // Active holdings: only coins currently held (Active column)
+  const activeHoldingsResult = await pool.query(
+    `
+      WITH accessible_boards AS (
+        SELECT b.id
+        FROM boards b
+        LEFT JOIN team_members tm ON b.team_id = tm.team_id AND tm.user_id = $1
+        WHERE (b.owner_id = $1 OR tm.user_id = $1)
+          AND b.board_type = 'trading'
+          AND (b.visibility IS NULL OR b.visibility <> 'admin_only' OR tm.role IN ('admin', 'owner') OR b.owner_id = $1)
+      )
+      SELECT t.coin_pair, COALESCE(t.position_size, 0) as position_size
+      FROM trades t
+      JOIN accessible_boards ab ON t.board_id = ab.id
+      WHERE t.column_name = 'Active' OR t.status = 'active'
+      ORDER BY t.position_size DESC NULLS LAST
+    `,
+    [userId]
+  );
+
+  const activeHoldings = activeHoldingsResult.rows.map((row) => ({
+    coin_pair: row.coin_pair,
+    position_size: parseNumeric(row.position_size) || 0,
+  }));
+
   return {
     summary: {
       total_portfolio_value: parseNumeric(summaryRow.total_position_size) || 0,
@@ -2665,6 +2690,7 @@ export async function getPortfolioStats(userId: number) {
       board_count: Number(summaryRow.board_count || 0)
     },
     byCoin,
+    activeHoldings,
     byDirection,
     equityCurve
   };

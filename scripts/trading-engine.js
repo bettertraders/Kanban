@@ -14,7 +14,7 @@ const path = require('path');
 // ─── Config ──────────────────────────────────────────────────────────────────
 
 const API_BASE = 'https://clawdesk.ai';
-const BOARD_ID = 15;
+const BOARD_ID = 15; // Paper Trading board (Michael's)
 const BOT_NAME = 'Penny Paper Trader';
 const STRATEGY_STYLE = 'swing';
 const STRATEGY_SUBSTYLE = 'momentum';
@@ -22,7 +22,7 @@ const MAX_POSITIONS = 5;
 const POSITION_SIZE_PCT = 20; // 20% of balance per trade
 const STOP_LOSS_PCT = 5;
 const TAKE_PROFIT_PCT = 10;
-const PINNED_COINS = ['BTC/USDT', 'ETH/USDT'];
+const PINNED_COINS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'ATOM/USDT', 'LINK/USDT'];
 
 // Load API key
 function loadApiKey() {
@@ -174,16 +174,17 @@ function shouldMoveToAnalyzing(ind) {
 
 function shouldMoveToActive(ind) {
   if (!ind || ind.rsi == null) return false;
-  // Signal 1: Oversold bounce near SMA20 with volume
+  // Signal 1: Oversold bounce near SMA20 (loosened — 5% from SMA20, vol optional)
   const oversoldBounce =
-    ind.rsi < 35 &&
+    ind.rsi < 40 &&
     ind.sma20 &&
-    Math.abs(ind.currentPrice - ind.sma20) / ind.sma20 < 0.02 &&
-    ind.volumeRatio > 1.2;
+    Math.abs(ind.currentPrice - ind.sma20) / ind.sma20 < 0.05;
   // Signal 2: Golden cross (SMA20 > SMA50)
   const goldenCross =
     ind.sma20 && ind.sma50 && ind.sma20 > ind.sma50 && ind.momentum > 0;
-  return oversoldBounce || goldenCross;
+  // Signal 3: Deeply oversold (RSI < 30 regardless of SMA)
+  const deeplyOversold = ind.rsi < 30;
+  return oversoldBounce || goldenCross || deeplyOversold;
 }
 
 function shouldExitTrade(ind, trade) {

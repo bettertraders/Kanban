@@ -38,6 +38,7 @@ type PortfolioStats = {
     total_trades?: number;
   };
   byCoin?: Array<{ coin_pair: string; total_pnl: number; total_trades?: number; allocation_pct?: number }>;
+  activeHoldings?: Array<{ coin_pair: string; position_size: number }>;
 };
 
 type Board = {
@@ -590,37 +591,32 @@ export default function TradingDashboardPage() {
   const btcCoin = pulse.find(c => c.pair?.includes('BTC'));
   const ethCoin = pulse.find(c => c.pair?.includes('ETH'));
 
-  // Portfolio allocation: show actual holdings when actively trading, else null (use target)
+  // Portfolio allocation: show only coins currently held (Active column)
   const hasActivePositions = activePositions > 0;
   const allocations = useMemo(() => {
     if (!hasActivePositions || !portfolio?.summary) return null;
-    // Build from actual position sizes — need to fetch active trades
-    // For now, use byCoin data filtered to active positions
-    if (portfolio?.byCoin && portfolio.byCoin.length > 0) {
-      const totalValue = Number(portfolio.summary.total_portfolio_value) || 0;
-      const cash = Math.max(0, paperBalance - totalValue);
-      const totalWithCash = totalValue + cash;
-      if (totalWithCash <= 0) return null;
+    const holdings = portfolio?.activeHoldings;
+    if (!holdings || holdings.length === 0) return null;
 
-      const coins = portfolio.byCoin
-        .filter(c => (c.total_trades ?? 0) > 0)
-        .map(c => ({
-          coin: c.coin_pair.replace(/\/?(USDT?)$/i, ''),
-          pct: Math.round((Math.abs(c.total_pnl || totalValue / (portfolio?.byCoin?.length || 1)) / totalWithCash) * 100),
-        }))
-        .sort((a, b) => b.pct - a.pct);
+    const totalPositionValue = holdings.reduce((s, h) => s + (h.position_size || 0), 0);
+    const cash = Math.max(0, paperBalance - totalPositionValue);
+    const totalWithCash = totalPositionValue + cash;
+    if (totalWithCash <= 0) return null;
 
-      if (cash > 0) {
-        coins.push({ coin: 'Cash', pct: Math.round((cash / totalWithCash) * 100) });
-      }
+    const coins = holdings.map(h => ({
+      coin: h.coin_pair.replace(/\/?(USDT?)$/i, ''),
+      pct: Math.round((h.position_size / totalWithCash) * 100),
+    })).sort((a, b) => b.pct - a.pct);
 
-      // Ensure sum = 100
-      const sum = coins.reduce((s, c) => s + c.pct, 0);
-      if (sum !== 100 && coins.length > 0) coins[0].pct += 100 - sum;
-
-      return coins.length > 0 ? coins : null;
+    if (cash > 0) {
+      coins.push({ coin: 'Cash', pct: Math.round((cash / totalWithCash) * 100) });
     }
-    return null;
+
+    // Ensure sum = 100
+    const sum = coins.reduce((s, c) => s + c.pct, 0);
+    if (sum !== 100 && coins.length > 0) coins[0].pct += 100 - sum;
+
+    return coins.length > 0 ? coins : null;
   }, [portfolio, hasActivePositions, paperBalance]);
 
   // Trade score: recalculate once per hour, not on every price tick

@@ -1040,19 +1040,18 @@ export default function TradingDashboardPage() {
             onClick={handleEngineToggle}
             disabled={!setupReady}
             style={{
-              width: '100%', padding: '18px', borderRadius: '16px', border: 'none',
+              width: '100%', padding: '14px', borderRadius: '14px', border: 'none',
               background: engineOn
-                ? 'linear-gradient(135deg, #4ade80, #22c55e)'
+                ? 'linear-gradient(135deg, #22c55e, #16a34a)'
                 : setupReady
                   ? 'linear-gradient(135deg, var(--accent), #9a9cff)'
                   : 'var(--panel-2)',
               color: engineOn || setupReady ? '#0d0d1f' : 'var(--muted)',
-              fontSize: '18px', fontWeight: 700, cursor: setupReady ? 'pointer' : 'not-allowed',
+              fontSize: '15px', fontWeight: 700, cursor: setupReady ? 'pointer' : 'not-allowed',
               letterSpacing: '0.02em', transition: 'all 0.2s',
-              boxShadow: engineOn ? '0 0 24px rgba(74,222,128,0.4)' : undefined,
             }}
           >
-            {engineOn ? '✅ Trading Active — Click to Pause' : '🚀 Start Trading'}
+            {engineOn ? 'Trading Active — Click to Pause' : 'Start Trading'}
           </button>
           <div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--muted)', marginTop: '8px' }}>
             {engineOn

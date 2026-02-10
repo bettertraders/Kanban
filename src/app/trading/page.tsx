@@ -732,6 +732,9 @@ export default function TradingDashboardPage() {
               <div style={{ fontSize: '17px', lineHeight: 1.6, color: 'var(--text)', fontWeight: 500 }}>
                 {pennyUpdate}
               </div>
+              <div style={{ fontSize: '14px', fontStyle: 'italic', fontWeight: 500, color: botQuote.color, marginTop: '8px' }}>
+                {botQuote.text}
+              </div>
             </div>
           </div>
         </section>
@@ -781,11 +784,6 @@ export default function TradingDashboardPage() {
             ))}
           </div>
         </section>
-
-        {/* Bot personality quote */}
-        <div style={{ padding: '0 4px 8px', fontSize: '15px', fontStyle: 'italic', fontWeight: 500, color: botQuote.color, letterSpacing: '0.01em' }}>
-          {botQuote.text}
-        </div>
 
         {/* Two-column: Portfolio Mix + Trading Setup */}
         <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
@@ -852,14 +850,16 @@ export default function TradingDashboardPage() {
 
             {/* Risk cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-              {(Object.entries(RISK_LEVELS) as [RiskLevel, typeof RISK_LEVELS[RiskLevel]][]).map(([key, val]) => {
+              {([
+                { key: 'conservative' as RiskLevel, label: 'Safe', desc: 'BTC & ETH heavy', icon: '/icons/risk-safe.png' },
+                { key: 'moderate' as RiskLevel, label: 'Balanced', desc: 'Top 20 mix', icon: '/icons/risk-balanced.png' },
+                { key: 'aggressive' as RiskLevel, label: 'Bold', desc: 'Momentum plays', icon: '/icons/risk-bold.png' },
+              ]).map(({ key, label, desc, icon }) => {
                 const isActive = riskLevel === key;
-                const labels: Record<RiskLevel, string> = { conservative: 'Safe', moderate: 'Balanced', aggressive: 'Bold' };
-                const descs: Record<RiskLevel, string> = { conservative: 'BTC & ETH heavy', moderate: 'Top 20 mix', aggressive: 'Momentum plays' };
                 return (
                   <button
                     key={key}
-                    onClick={() => { setRiskLevel(key); pushToast(`Risk set to ${val.label}`, 'success'); }}
+                    onClick={() => { setRiskLevel(key); pushToast(`Risk set to ${RISK_LEVELS[key].label}`, 'success'); }}
                     style={{
                       padding: '16px 12px', borderRadius: '14px', textAlign: 'center', cursor: 'pointer',
                       border: `2px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
@@ -867,9 +867,9 @@ export default function TradingDashboardPage() {
                       color: 'var(--text)', transition: 'all 0.2s',
                     }}
                   >
-                    <div style={{ fontSize: '28px', marginBottom: '6px' }}>{val.icon}</div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, marginBottom: '4px' }}>{labels[key]}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--muted)', lineHeight: '1.3' }}>{descs[key]}</div>
+                    <img src={icon} alt={label} style={{ width: '48px', height: '48px', marginBottom: '6px', borderRadius: '8px' }} />
+                    <div style={{ fontSize: '13px', fontWeight: 700, marginBottom: '4px' }}>{label}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--muted)', lineHeight: '1.3' }}>{desc}</div>
                   </button>
                 );
               })}

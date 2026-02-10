@@ -348,6 +348,7 @@ export default function TradingDashboardPage() {
 
   // Setup state (persisted to localStorage)
   const [riskLevel, setRiskLevel] = useState<RiskLevel | null>(null);
+  const [riskValue, setRiskValue] = useState(50); // 0=safe, 50=balanced, 100=bold — continuous slider
   const [tradingAmount, setTradingAmount] = useState<number | null>(null);
   const [timeframe, setTimeframe] = useState<Timeframe | null>(null);
   const [timeframeStartDate, setTimeframeStartDate] = useState<string | null>(null);
@@ -375,6 +376,7 @@ export default function TradingDashboardPage() {
     try {
       const saved = JSON.parse(localStorage.getItem('clawdesk-trading-setup') || '{}');
       if (saved.riskLevel) setRiskLevel(saved.riskLevel);
+      if (saved.riskValue != null) setRiskValue(saved.riskValue);
       if (saved.tradingAmount) setTradingAmount(saved.tradingAmount);
       if (saved.timeframe) setTimeframe(saved.timeframe);
       if (saved.timeframeStartDate) setTimeframeStartDate(saved.timeframeStartDate);
@@ -408,14 +410,14 @@ export default function TradingDashboardPage() {
     if (typeof window === 'undefined') return;
     // Skip saving if all values are still defaults (initial render before load)
     if (riskLevel === null && tradingAmount === null && !engineOn) return;
-    const data = { riskLevel, tradingAmount, timeframe, timeframeStartDate, tboEnabled, engineOn };
+    const data = { riskLevel, riskValue, tradingAmount, timeframe, timeframeStartDate, tboEnabled, engineOn };
     localStorage.setItem('clawdesk-trading-setup', JSON.stringify(data));
     fetch('/api/trading/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ settings: data }),
     }).catch(() => {});
-  }, [riskLevel, tradingAmount, timeframe, timeframeStartDate, tboEnabled, engineOn]);
+  }, [riskLevel, riskValue, tradingAmount, timeframe, timeframeStartDate, tboEnabled, engineOn]);
 
   const pushToast = useCallback((message: string, type: ToastItem['type'] = 'info') => {
     const id = toastIdRef.current++;
@@ -538,33 +540,43 @@ export default function TradingDashboardPage() {
     }
   };
 
-  // Default allocation based on risk level (pre-trading)
+  // Interpolated allocation based on continuous riskValue (0-100)
+  // 0=conservative, 50=moderate, 100=aggressive — values in between blend smoothly
   const defaultAllocation = useMemo(() => {
-    const allocs: Record<RiskLevel, Array<{ label: string; pct: number; color: string }>> = {
-      conservative: [
-        { label: 'BTC', pct: 45, color: '#7b7dff' },
-        { label: 'ETH', pct: 30, color: '#4ade80' },
-        { label: 'Top 10', pct: 15, color: '#f5b544' },
-        { label: 'Stablecoins', pct: 10, color: '#6b6b8a' },
-      ],
-      moderate: [
-        { label: 'BTC', pct: 35, color: '#7b7dff' },
-        { label: 'ETH', pct: 25, color: '#4ade80' },
-        { label: 'Top 10', pct: 20, color: '#f5b544' },
-        { label: 'Mid Caps', pct: 15, color: '#a78bfa' },
-        { label: 'Stablecoins', pct: 5, color: '#6b6b8a' },
-      ],
-      aggressive: [
-        { label: 'BTC', pct: 20, color: '#7b7dff' },
-        { label: 'ETH', pct: 15, color: '#4ade80' },
-        { label: 'Top 10', pct: 25, color: '#f5b544' },
-        { label: 'Mid Caps', pct: 25, color: '#a78bfa' },
-        { label: 'Small Caps', pct: 10, color: '#f05b6f' },
-        { label: 'Stablecoins', pct: 5, color: '#6b6b8a' },
-      ],
-    };
-    return allocs[riskLevel ?? 'moderate'];
-  }, [riskLevel]);
+    // Define allocations as arrays aligned by category
+    // Categories: BTC, ETH, Top 10, Mid Caps, Small Caps, Stablecoins
+    const CATS = [
+      { label: 'BTC',         color: '#7b7dff' },
+      { label: 'ETH',         color: '#4ade80' },
+      { label: 'Top 10',      color: '#f5b544' },
+      { label: 'Mid Caps',    color: '#a78bfa' },
+      { label: 'Small Caps',  color: '#f05b6f' },
+      { label: 'Stablecoins', color: '#6b6b8a' },
+    ];
+    //                          BTC  ETH  T10  Mid  Small Stable
+    const conservative = [      45,  30,  15,   0,   0,   10 ];
+    const moderate     = [      35,  25,  20,  15,   0,    5 ];
+    const aggressive   = [      20,  15,  25,  25,  10,    5 ];
+
+    const v = riskValue;
+    let raw: number[];
+    if (v <= 50) {
+      const t = v / 50; // 0..1
+      raw = conservative.map((c, i) => c + (moderate[i] - c) * t);
+    } else {
+      const t = (v - 50) / 50; // 0..1
+      raw = moderate.map((m, i) => m + (aggressive[i] - m) * t);
+    }
+
+    // Round and ensure sum = 100
+    const rounded = raw.map(r => Math.round(r));
+    const diff = 100 - rounded.reduce((a, b) => a + b, 0);
+    if (diff !== 0) rounded[0] += diff; // adjust BTC
+
+    return CATS
+      .map((cat, i) => ({ label: cat.label, pct: rounded[i], color: cat.color }))
+      .filter(s => s.pct > 0);
+  }, [riskValue]);
 
   const activeBots = bots.filter(b => b.status === 'running');
   const engineStatusText = engineOn
@@ -850,49 +862,79 @@ export default function TradingDashboardPage() {
           <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '20px 24px' }}>
             <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '14px' }}>Trading Setup</div>
 
-            {/* Risk Slider */}
+            {/* Risk Slider — continuous */}
             {(() => {
-              const RISK_SLIDER: { key: RiskLevel; label: string; desc: string; color: string }[] = [
-                { key: 'conservative', label: 'Safe', desc: 'BTC & ETH heavy', color: '#6366f1' },
-                { key: 'moderate', label: 'Balanced', desc: 'Top 20 mix', color: '#7b7dff' },
-                { key: 'aggressive', label: 'Bold', desc: 'Momentum plays', color: '#a855f7' },
+              const RISK_LABELS = [
+                { key: 'conservative' as RiskLevel, label: 'Safe', desc: 'BTC & ETH heavy', pos: 0, color: '#6366f1' },
+                { key: 'moderate' as RiskLevel, label: 'Balanced', desc: 'Top 20 mix', pos: 50, color: '#7b7dff' },
+                { key: 'aggressive' as RiskLevel, label: 'Bold', desc: 'Momentum plays', pos: 100, color: '#a855f7' },
               ];
-              const activeIdx = RISK_SLIDER.findIndex(r => r.key === riskLevel) >= 0 ? RISK_SLIDER.findIndex(r => r.key === riskLevel) : 1;
-              const activeColor = RISK_SLIDER[activeIdx].color;
-              const pct = activeIdx * 50;
+              // Interpolate color based on riskValue
+              const lerpColor = (a: string, b: string, t: number) => {
+                const pa = [parseInt(a.slice(1,3),16), parseInt(a.slice(3,5),16), parseInt(a.slice(5,7),16)];
+                const pb = [parseInt(b.slice(1,3),16), parseInt(b.slice(3,5),16), parseInt(b.slice(5,7),16)];
+                const r = pa.map((c, i) => Math.round(c + (pb[i] - c) * t));
+                return `rgb(${r[0]},${r[1]},${r[2]})`;
+              };
+              const thumbColor = riskValue <= 50
+                ? lerpColor('#6366f1', '#7b7dff', riskValue / 50)
+                : lerpColor('#7b7dff', '#a855f7', (riskValue - 50) / 50);
+
+              // Which label is closest
+              const closestIdx = riskValue < 25 ? 0 : riskValue < 75 ? 1 : 2;
+
+              const handleSliderInteraction = (clientX: number, rect: DOMRect) => {
+                const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+                setRiskValue(Math.round(pct));
+                // Also set discrete riskLevel for engine/API
+                const rl: RiskLevel = pct < 25 ? 'conservative' : pct < 75 ? 'moderate' : 'aggressive';
+                setRiskLevel(rl);
+              };
+
               return (
                 <div>
                   <div style={{ fontSize: '12px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600, marginBottom: '10px' }}>Risk Level</div>
                   {/* Labels */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                    {RISK_SLIDER.map((r, i) => {
-                      const isActive = i === activeIdx;
-                      return (
-                        <div key={r.key} onClick={() => { setRiskLevel(r.key); pushToast(`Risk set to ${r.label}`, 'success'); }} style={{ cursor: 'pointer', textAlign: i === 0 ? 'left' : i === 2 ? 'right' : 'center', transition: 'all 0.2s' }}>
-                          <div style={{ fontSize: '13px', fontWeight: 700, color: isActive ? r.color : 'var(--muted)', opacity: isActive ? 1 : 0.5, transition: 'all 0.25s' }}>{r.label}</div>
-                          <div style={{ fontSize: '10px', color: 'var(--muted)', opacity: isActive ? 0.8 : 0.4, transition: 'all 0.25s' }}>{r.desc}</div>
-                        </div>
-                      );
-                    })}
+                    {RISK_LABELS.map((r, i) => (
+                      <div key={r.key} onClick={() => { setRiskValue(r.pos); setRiskLevel(r.key); pushToast(`Risk set to ${r.label}`, 'success'); }} style={{ cursor: 'pointer', textAlign: i === 0 ? 'left' : i === 2 ? 'right' : 'center', transition: 'all 0.2s' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: i === closestIdx ? r.color : 'var(--muted)', opacity: i === closestIdx ? 1 : 0.5, transition: 'all 0.25s' }}>{r.label}</div>
+                        <div style={{ fontSize: '10px', color: 'var(--muted)', opacity: i === closestIdx ? 0.8 : 0.4, transition: 'all 0.25s' }}>{r.desc}</div>
+                      </div>
+                    ))}
                   </div>
                   {/* Track */}
                   <div
-                    onClick={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const p = (e.clientX - rect.left) / rect.width;
-                      const idx = p < 0.33 ? 0 : p < 0.66 ? 1 : 2;
-                      setRiskLevel(RISK_SLIDER[idx].key);
-                      pushToast(`Risk set to ${RISK_SLIDER[idx].label}`, 'success');
+                    ref={(el) => {
+                      if (!el) return;
+                      // Click
+                      el.onclick = (e) => handleSliderInteraction(e.clientX, el.getBoundingClientRect());
+                      // Drag
+                      el.onmousedown = (e) => {
+                        e.preventDefault();
+                        const move = (ev: MouseEvent) => handleSliderInteraction(ev.clientX, el.getBoundingClientRect());
+                        const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+                        window.addEventListener('mousemove', move);
+                        window.addEventListener('mouseup', up);
+                      };
+                      // Touch
+                      el.ontouchstart = (e) => {
+                        const move = (ev: TouchEvent) => handleSliderInteraction(ev.touches[0].clientX, el.getBoundingClientRect());
+                        const end = () => { window.removeEventListener('touchmove', move); window.removeEventListener('touchend', end); };
+                        window.addEventListener('touchmove', move);
+                        window.addEventListener('touchend', end);
+                      };
                     }}
-                    style={{ position: 'relative', height: '8px', borderRadius: '99px', cursor: 'pointer', background: 'linear-gradient(90deg, #6366f1, #7b7dff, #a855f7)' }}
+                    style={{ position: 'relative', height: '8px', borderRadius: '99px', cursor: 'pointer', background: 'linear-gradient(90deg, #6366f1, #7b7dff, #a855f7)', touchAction: 'none' }}
                   >
                     <div style={{
-                      position: 'absolute', top: '50%', left: `${pct}%`,
+                      position: 'absolute', top: '50%', left: `${riskValue}%`,
                       width: '22px', height: '22px', borderRadius: '50%',
-                      border: '3px solid #fff', background: activeColor,
+                      border: '3px solid #fff', background: thumbColor,
                       transform: 'translate(-50%, -50%)',
-                      boxShadow: `0 0 12px ${activeColor}80`,
-                      transition: 'left 0.25s ease, background 0.25s ease, box-shadow 0.25s ease',
+                      boxShadow: `0 0 12px ${thumbColor}`,
+                      transition: 'background 0.1s',
+                      pointerEvents: 'none',
                     }} />
                   </div>
                 </div>

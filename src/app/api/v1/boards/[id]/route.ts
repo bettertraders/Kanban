@@ -174,8 +174,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Board not found' }, { status: 404 });
     }
 
-    // Don't allow deleting personal boards
-    if (board.is_personal) {
+    // Don't allow deleting the default personal board (board_type = 'kanban' + is_personal)
+    if (board.is_personal && board.board_type !== 'trading') {
       return NextResponse.json({ error: 'Cannot delete personal boards' }, { status: 400 });
     }
 

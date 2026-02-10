@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/api-auth';
-import { getTradesForBoard, getBoard, updateTrade, getTrade } from '@/lib/database';
+import { getTradesForBoard, getBoard, updateTrade, getTrade, createTrade } from '@/lib/database';
 
 // GET /api/trading/trades?boardId=X&status=open|closed|all
 export async function GET(request: NextRequest) {
@@ -29,6 +29,39 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ trades });
   } catch (error) {
     console.error('GET /api/trading/trades error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// POST /api/trading/trades — create a new trade card
+export async function POST(request: NextRequest) {
+  try {
+    const user = await getAuthenticatedUser(request);
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const body = await request.json();
+    const boardId = Number(body?.board_id);
+    if (!Number.isFinite(boardId)) {
+      return NextResponse.json({ error: 'board_id required' }, { status: 400 });
+    }
+
+    const board = await getBoard(boardId, user.id);
+    if (!board) return NextResponse.json({ error: 'Board not found' }, { status: 404 });
+
+    const trade = await createTrade(boardId, user.id, {
+      coin_pair: body.coin_pair || 'UNKNOWN',
+      direction: body.direction || 'LONG',
+      column_name: body.column_name || 'Watchlist',
+      status: body.status || 'watching',
+      notes: body.notes || null,
+      entry_price: body.entry_price || null,
+      position_size: body.position_size || null,
+      bot_id: body.bot_id || null,
+    });
+
+    return NextResponse.json({ trade });
+  } catch (error) {
+    console.error('POST /api/trading/trades error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

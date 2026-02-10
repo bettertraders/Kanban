@@ -249,8 +249,28 @@ async function main() {
   const allTrades = [...watchlist, ...analyzing, ...active];
   const symbols = [...new Set(allTrades.map(t => normalizePair(t.coin_pair)))];
 
-  // Ensure pinned coins are represented
+  // Ensure pinned coins always have a Watchlist card (unless already on board)
+  const allSymbolsOnBoard = new Set(allTrades.map(t => normalizePair(t.coin_pair)));
   for (const pin of PINNED_COINS) {
+    if (!allSymbolsOnBoard.has(pin)) {
+      log(`  📌 Creating watchlist card for ${pin}`);
+      try {
+        const created = await apiPost('/api/trading/trades', {
+          board_id: BOARD_ID,
+          coin_pair: pin,
+          direction: 'LONG',
+          column_name: 'Watchlist',
+          status: 'watching',
+          notes: `Pinned coin — auto-added to watchlist`,
+        });
+        if (created?.trade) {
+          watchlist.push(created.trade);
+          allTrades.push(created.trade);
+        }
+      } catch (err) {
+        log(`  ⚠ Failed to create watchlist card for ${pin}: ${err.message}`);
+      }
+    }
     if (!symbols.includes(pin)) symbols.push(pin);
   }
 

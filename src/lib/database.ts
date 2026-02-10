@@ -2510,11 +2510,11 @@ export async function getPortfolioStats(userId: number) {
         COALESCE(SUM(CASE WHEN t.status IN ('closed', 'won', 'lost') OR t.column_name IN ('Wins', 'Losses') THEN COALESCE(t.pnl_dollar, 0) END), 0) as total_realized_pnl,
         COALESCE(SUM(CASE WHEN t.status = 'active' OR t.column_name = 'Active' THEN
           CASE
-            WHEN t.entry_price IS NOT NULL AND t.current_price IS NOT NULL AND t.position_size IS NOT NULL THEN
+            WHEN t.entry_price IS NOT NULL AND t.entry_price > 0 AND t.current_price IS NOT NULL AND t.position_size IS NOT NULL THEN
               (CASE WHEN LOWER(COALESCE(t.direction, '')) = 'short'
                 THEN t.entry_price - t.current_price
                 ELSE t.current_price - t.entry_price
-              END) * t.position_size
+              END) / t.entry_price * t.position_size
             ELSE 0
           END
         END), 0) as total_unrealized_pnl,

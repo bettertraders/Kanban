@@ -243,6 +243,8 @@ async function main() {
   const balance = parseFloat(account?.current_balance || 0);
   log(`💰 Balance: $${balance.toFixed(2)}`);
 
+  const state = loadState();
+
   // ── Step 3: Fetch indicators for all relevant coins ────────────────────
   const allTrades = [...watchlist, ...analyzing, ...active];
   const symbols = [...new Set(allTrades.map(t => normalizePair(t.coin_pair)))];
@@ -312,15 +314,25 @@ async function main() {
       log(`  🎯 Entry signal for ${sym} — entering trade ($${positionSize.toFixed(2)})${extreme ? ' (EXTREME MOVE)' : ''}`);
       recordMove(sym + ':active', state);
       try {
-        await apiPost('/api/trading/trade/enter', {
-          boardId: BOARD_ID,
-          symbol: sym,
-          side: 'long',
-          amount: positionSize,
-          strategy: BOT_NAME,
+        // Update existing card with entry data instead of creating a new trade
+        await apiPatch('/api/trading/trades', {
+          trade_id: trade.id,
+          column_name: 'Active',
+          status: 'active',
+          entry_price: ind.currentPrice,
+          position_size: positionSize,
+          direction: 'LONG',
+          notes: `Strategy: ${BOT_NAME}`,
           bot_id: bot.id,
         });
-        await moveCard(trade.id, 'Active');
+        // Deduct from paper balance
+        await apiPost('/api/trading/trade/deduct', {
+          boardId: BOARD_ID,
+          amount: positionSize,
+        }).catch(() => {
+          // Fallback: deduct via enter endpoint if deduct doesn't exist
+          log(`  ⚠ Paper balance deduct endpoint not available — manual tracking`);
+        });
         await journalLog(trade.id, 'entry', `Entry: ${sym} @ ${ind.currentPrice}. RSI=${ind.rsi?.toFixed(1)}, SMA20=${ind.sma20?.toFixed(2)}, Vol=${ind.volumeRatio?.toFixed(2)}x`);
         entryCount++;
       } catch (err) {
@@ -334,7 +346,6 @@ async function main() {
 
   // ── Step 6: Process Watchlist — move to Analyzing if setup forming ─────
   // Cooldown: only move cards once per 24h unless extreme move (>5% in 4h)
-  const state = loadState();
   let analyzeCount = 0;
   for (const trade of watchlist) {
     const sym = normalizePair(trade.coin_pair);

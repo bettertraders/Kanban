@@ -1059,7 +1059,7 @@ export default function TradingBoardPage() {
   return (
     <>
     <PriceTicker />
-    <div style={{ padding: '32px clamp(20px, 4vw, 48px) 40px', maxWidth: '1720px', margin: '0 auto' }}>
+    <div style={{ padding: '32px clamp(20px, 4vw, 48px) 40px', maxWidth: '1400px', margin: '0 auto' }}>
       <header style={{ marginBottom: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <img src="/icons/clawdesk-mark.png" alt="" style={{ width: '48px', height: '48px', borderRadius: '10px' }} />

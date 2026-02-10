@@ -2656,6 +2656,19 @@ function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
     } catch {
       setSettings(null);
     }
+    // Also try server settings (overrides localStorage if available)
+    fetch('/api/trading/settings').then(r => r.json()).then(({ settings: s }) => {
+      if (s && s.riskLevel) {
+        setSettings({
+          riskLevel: s.riskLevel || null,
+          tradingAmount: s.tradingAmount || null,
+          timeframe: s.timeframe || null,
+          timeframeStartDate: s.timeframeStartDate || null,
+          tboEnabled: !!s.tboEnabled,
+          engineOn: !!s.engineOn,
+        });
+      }
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {

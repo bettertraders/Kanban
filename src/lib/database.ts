@@ -2839,3 +2839,38 @@ export async function seedTradingBoard(userId: number) {
 }
 
 export { pool };
+
+// ── Trading Settings (per user, per board) ──────────────────────────────
+export async function ensureTradingSettingsTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS trading_settings (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      board_id INTEGER REFERENCES boards(id) ON DELETE CASCADE,
+      settings JSONB NOT NULL DEFAULT '{}',
+      updated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(user_id, board_id)
+    )
+  `);
+}
+
+export async function getTradingSettings(userId: number, boardId: number) {
+  await ensureTradingSettingsTable();
+  const result = await pool.query(
+    'SELECT settings FROM trading_settings WHERE user_id = $1 AND board_id = $2',
+    [userId, boardId]
+  );
+  return result.rows[0]?.settings || null;
+}
+
+export async function saveTradingSettings(userId: number, boardId: number, settings: Record<string, unknown>) {
+  await ensureTradingSettingsTable();
+  const result = await pool.query(
+    `INSERT INTO trading_settings (user_id, board_id, settings, updated_at)
+     VALUES ($1, $2, $3, NOW())
+     ON CONFLICT (user_id, board_id) DO UPDATE SET settings = $3, updated_at = NOW()
+     RETURNING settings`,
+    [userId, boardId, JSON.stringify(settings)]
+  );
+  return result.rows[0]?.settings;
+}

@@ -1,56 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/api-auth';
-import { pool } from '@/lib/database';
+import { getTradingSettings, saveTradingSettings, pool } from '@/lib/database';
 
-// Ensure table exists
-const ensureTable = pool.query(`
-  CREATE TABLE IF NOT EXISTS trading_settings (
-    user_id INTEGER PRIMARY KEY REFERENCES users(id),
-    settings JSONB NOT NULL DEFAULT '{}',
-    updated_at TIMESTAMP DEFAULT NOW()
-  )
-`).catch(() => {});
+async function findTradingBoardId(userId: number, requestedBoardId?: number): Promise<number | null> {
+  if (requestedBoardId) return requestedBoardId;
+  // Find first trading board the user has access to
+  const result = await pool.query(
+    `SELECT b.id FROM boards b
+     LEFT JOIN team_members tm ON b.team_id = tm.team_id AND tm.user_id = $1
+     WHERE (b.owner_id = $1 OR tm.user_id = $1) AND b.board_type = 'trading'
+     ORDER BY b.id LIMIT 1`,
+    [userId]
+  );
+  return result.rows[0]?.id || null;
+}
 
-// GET /api/trading/settings — load user's trading dashboard settings
+// GET /api/trading/settings?boardId=X (boardId optional — defaults to first trading board)
 export async function GET(request: NextRequest) {
   try {
     const user = await getAuthenticatedUser(request);
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    await ensureTable;
-    const result = await pool.query(
-      'SELECT settings FROM trading_settings WHERE user_id = $1',
-      [user.id]
-    );
+    const requestedId = Number(new URL(request.url).searchParams.get('boardId') || 0) || undefined;
+    const boardId = await findTradingBoardId(user.id, requestedId);
+    if (!boardId) return NextResponse.json({ settings: {} });
 
-    return NextResponse.json({ settings: result.rows[0]?.settings || {} });
+    const settings = await getTradingSettings(user.id, boardId);
+    return NextResponse.json({ settings: settings || {} });
   } catch (error) {
     console.error('GET /api/trading/settings error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// POST /api/trading/settings — save user's trading dashboard settings
-export async function POST(request: NextRequest) {
+// POST/PUT /api/trading/settings — save settings
+async function saveHandler(request: NextRequest) {
   try {
     const user = await getAuthenticatedUser(request);
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
-    const settings = body.settings || body;
+    const requestedId = Number(body?.boardId || 0) || undefined;
+    const boardId = await findTradingBoardId(user.id, requestedId);
+    if (!boardId) return NextResponse.json({ error: 'No trading board found' }, { status: 404 });
 
-    await ensureTable;
-    await pool.query(
-      `INSERT INTO trading_settings (user_id, settings, updated_at)
-       VALUES ($1, $2, NOW())
-       ON CONFLICT (user_id) DO UPDATE
-       SET settings = $2, updated_at = NOW()`,
-      [user.id, JSON.stringify(settings)]
-    );
-
-    return NextResponse.json({ ok: true });
+    const settings = body?.settings || {};
+    const saved = await saveTradingSettings(user.id, boardId, settings);
+    return NextResponse.json({ settings: saved });
   } catch (error) {
-    console.error('POST /api/trading/settings error:', error);
+    console.error('PUT /api/trading/settings error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export const PUT = saveHandler;
+export const POST = saveHandler;

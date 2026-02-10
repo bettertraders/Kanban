@@ -290,6 +290,41 @@ function confidenceColor(score: number | null) {
   return '#f05b6f';
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function deriveSentiment(trade: any): { label: string; color: string; bg: string } {
+  const rsi = Number(trade.rsi_value);
+  const confidence = Number(trade.confidence_score);
+  const change = Number(trade.pnl_percent ?? 0);
+  const notes = String(trade.notes ?? '').toLowerCase();
+
+  // Check notes for explicit signals from the trading engine
+  const notesBullish = notes.includes('bullish') || notes.includes('uptrend') || notes.includes('bounce') || notes.includes('breakout');
+  const notesBearish = notes.includes('bearish') || notes.includes('downtrend') || notes.includes('breakdown') || notes.includes('selling');
+
+  // RSI-based
+  const rsiBullish = Number.isFinite(rsi) && rsi < 40;
+  const rsiBearish = Number.isFinite(rsi) && rsi > 65;
+
+  // Confidence-based
+  const confBullish = Number.isFinite(confidence) && confidence >= 65;
+  const confBearish = Number.isFinite(confidence) && confidence < 35;
+
+  // Score: positive = bullish, negative = bearish
+  let score = 0;
+  if (notesBullish) score += 2;
+  if (notesBearish) score -= 2;
+  if (rsiBullish) score += 1; // Oversold = buying opportunity
+  if (rsiBearish) score -= 1; // Overbought = caution
+  if (confBullish) score += 1;
+  if (confBearish) score -= 1;
+  if (change > 2) score += 1;
+  if (change < -2) score -= 1;
+
+  if (score >= 2) return { label: 'Bullish', color: '#4ade80', bg: 'rgba(74,222,128,0.15)' };
+  if (score <= -2) return { label: 'Bearish', color: '#f05b6f', bg: 'rgba(240,91,111,0.15)' };
+  return { label: 'Neutral', color: 'var(--accent)', bg: 'rgba(123,125,255,0.15)' };
+}
+
 export default function TradingBoardPage() {
   const params = useParams();
   const router = useRouter();
@@ -1497,11 +1532,10 @@ export default function TradingBoardPage() {
                       const pnlDollar = toNumber(trade.pnl_dollar) ?? pnl?.pnlDollar ?? null;
                       const pnlPercent = toNumber(trade.pnl_percent) ?? pnl?.pnlPercent ?? null;
                       const pnlTone = pnlDollar !== null && pnlDollar < 0 ? '#f05b6f' : '#4ade80';
-                      const direction = String(trade.direction || '').toUpperCase();
-                      const directionTone = direction === 'SHORT' ? '#f05b6f' : '#4ade80';
                       const signal = signalBadge(trade.tbo_signal);
                       const confidence = toNumber(trade.confidence_score);
                       const confidenceTone = confidenceColor(confidence);
+                      const sentiment = deriveSentiment(trade);
                       const isExpanded = expandedCards[trade.id] ?? false;
 
                       return (
@@ -1526,58 +1560,56 @@ export default function TradingBoardPage() {
                           onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = col.color; }}
                           onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
                         >
-                          {/* Collapsed: pair + price + P&L + expand button on one row */}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setChartPair(toApiPair(pair));
-                              }}
-                              style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '0.02em', background: 'transparent', border: 'none', color: 'var(--text)', cursor: 'pointer', padding: 0 }}
-                              title="Open chart"
-                            >
-                              {pair.replace('/', ' / ')}
-                            </button>
+                          {/* Row 1: Pair + Sentiment badge + actions */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <div
-                                key={priceFlashMap[pair]?.token ?? 0}
-                                style={{
-                                  fontSize: '13px', fontWeight: 600,
-                                  animation: priceFlashMap[pair]?.direction === 'up' ? 'priceUp 0.6s ease' : priceFlashMap[pair]?.direction === 'down' ? 'priceDown 0.6s ease' : undefined,
-                                }}
-                              >
-                                {formatPrice(livePrice)}
-                              </div>
-                              <div style={{ fontSize: '12px', fontWeight: 700, color: pnlTone, minWidth: '48px', textAlign: 'right' }}>
-                                {formatPercent(pnlPercent)}
-                              </div>
-                              <div style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '999px', background: `${directionTone}22`, color: directionTone, fontWeight: 600 }}>
-                                {direction || '—'}
-                              </div>
                               <button
                                 type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setExpandedCards(prev => ({ ...prev, [trade.id]: !prev[trade.id] }));
-                                }}
+                                onClick={(event) => { event.stopPropagation(); setChartPair(toApiPair(pair)); }}
+                                style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '0.02em', background: 'transparent', border: 'none', color: 'var(--text)', cursor: 'pointer', padding: 0 }}
+                                title="Open chart"
+                              >
+                                {pair.replace('/', ' / ')}
+                              </button>
+                              <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '999px', background: sentiment.bg, color: sentiment.color, fontWeight: 600 }}>
+                                {sentiment.label}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <button
+                                type="button"
+                                onClick={(event) => { event.stopPropagation(); setExpandedCards(prev => ({ ...prev, [trade.id]: !prev[trade.id] })); }}
                                 style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '10px', padding: '2px 4px', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
                                 aria-label="Expand card"
-                              >
-                                ▼
-                              </button>
+                              >▼</button>
                               <button
                                 type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setActionMenu({ trade, x: event.clientX, y: event.clientY });
-                                }}
+                                onClick={(event) => { event.stopPropagation(); setActionMenu({ trade, x: event.clientX, y: event.clientY }); }}
                                 style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: '8px', padding: '2px 6px', cursor: 'pointer' }}
                                 aria-label="Quick actions"
-                              >
-                                ⋯
-                              </button>
+                              >⋯</button>
                             </div>
+                          </div>
+
+                          {/* Row 2: Price + P&L */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                            <div
+                              key={priceFlashMap[pair]?.token ?? 0}
+                              style={{
+                                fontSize: '14px', fontWeight: 600,
+                                animation: priceFlashMap[pair]?.direction === 'up' ? 'priceUp 0.6s ease' : priceFlashMap[pair]?.direction === 'down' ? 'priceDown 0.6s ease' : undefined,
+                              }}
+                            >
+                              {formatPrice(livePrice)}
+                            </div>
+                            <div style={{ fontSize: '13px', fontWeight: 700, color: pnlTone }}>
+                              {formatPercent(pnlPercent)}
+                            </div>
+                          </div>
+
+                          {/* Confidence bar */}
+                          <div style={{ height: '4px', borderRadius: '999px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, confidence ?? 0))}%`, background: confidenceTone, borderRadius: '999px', transition: 'width 0.3s' }} />
                           </div>
 
                           {/* Expanded details */}

@@ -184,6 +184,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'Only team admins can delete team boards' }, { status: 403 });
     }
 
+        // Clean up related data
+    await pool.query('DELETE FROM paper_accounts WHERE board_id = $1', [boardId]).catch(() => {});
+    await pool.query('DELETE FROM trades WHERE board_id = $1', [boardId]).catch(() => {});
     await pool.query('DELETE FROM boards WHERE id = $1', [boardId]);
 
     return NextResponse.json({ success: true, deleted: boardId });

@@ -810,7 +810,7 @@ export default function TradingDashboardPage() {
         <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
 
           {/* LEFT — Portfolio Mix (pie big, legend compact right) */}
-          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '16px 14px 16px 20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
             {/* Donut chart — bigger */}
             <div style={{ flexShrink: 0 }}>
               {(() => {

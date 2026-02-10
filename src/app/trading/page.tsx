@@ -359,6 +359,10 @@ export default function TradingDashboardPage() {
   const [amountModalOpen, setAmountModalOpen] = useState(false);
   const [amountInput, setAmountInput] = useState('500');
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [customAmountMode, setCustomAmountMode] = useState(false);
+  const [customAmountInput, setCustomAmountInput] = useState('');
+  const [customTimeframeMode, setCustomTimeframeMode] = useState(false);
+  const [customTimeframeInput, setCustomTimeframeInput] = useState('');
 
   const toastIdRef = useRef(1);
   const toastTimersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
@@ -508,6 +512,59 @@ export default function TradingDashboardPage() {
 
   const setupReady = riskLevel !== null && tradingAmount !== null;
   const allConfigured = setupReady && tboEnabled && engineOn;
+
+  const AMOUNT_PRESETS = [100, 500, 1000, 5000];
+
+  const handleAmountPreset = (val: number) => {
+    setCustomAmountMode(false);
+    setTradingAmount(val);
+    pushToast(`Amount set to ${formatCurrency(val)}`, 'success');
+  };
+
+  const handleCustomAmount = () => {
+    const parsed = Number(customAmountInput.replace(/[^0-9.]/g, ''));
+    if (Number.isFinite(parsed) && parsed > 0) {
+      setTradingAmount(parsed);
+      pushToast(`Amount set to ${formatCurrency(parsed)}`, 'success');
+    }
+  };
+
+  const handleCustomTimeframe = () => {
+    const parsed = parseInt(customTimeframeInput);
+    if (parsed > 0) {
+      setTimeframe(String(parsed) as Timeframe);
+      if (!timeframeStartDate) setTimeframeStartDate(new Date().toISOString());
+      pushToast(`Timeframe set to ${parsed} days`, 'success');
+    }
+  };
+
+  // Default allocation based on risk level (pre-trading)
+  const defaultAllocation = useMemo(() => {
+    const allocs: Record<RiskLevel, Array<{ label: string; pct: number; color: string }>> = {
+      conservative: [
+        { label: 'BTC', pct: 45, color: '#7b7dff' },
+        { label: 'ETH', pct: 30, color: '#4ade80' },
+        { label: 'Top 10', pct: 15, color: '#f5b544' },
+        { label: 'Stablecoins', pct: 10, color: '#6b6b8a' },
+      ],
+      moderate: [
+        { label: 'BTC', pct: 35, color: '#7b7dff' },
+        { label: 'ETH', pct: 25, color: '#4ade80' },
+        { label: 'Top 10', pct: 20, color: '#f5b544' },
+        { label: 'Mid Caps', pct: 15, color: '#a78bfa' },
+        { label: 'Stablecoins', pct: 5, color: '#6b6b8a' },
+      ],
+      aggressive: [
+        { label: 'BTC', pct: 20, color: '#7b7dff' },
+        { label: 'ETH', pct: 15, color: '#4ade80' },
+        { label: 'Top 10', pct: 25, color: '#f5b544' },
+        { label: 'Mid Caps', pct: 25, color: '#a78bfa' },
+        { label: 'Small Caps', pct: 10, color: '#f05b6f' },
+        { label: 'Stablecoins', pct: 5, color: '#6b6b8a' },
+      ],
+    };
+    return allocs[riskLevel ?? 'moderate'];
+  }, [riskLevel]);
 
   const activeBots = bots.filter(b => b.status === 'running');
   const engineStatusText = engineOn
@@ -730,189 +787,228 @@ export default function TradingDashboardPage() {
           {botQuote.text}
         </div>
 
-        {/* 3. Portfolio Allocation (simple badges) */}
-        <section style={{ marginBottom: '24px' }}>
-          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '14px', padding: '14px 16px' }}>
-            <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', marginBottom: '10px' }}>Portfolio Allocation</div>
-            {allocations && allocations.length > 0 ? (
-              <>
-                {/* Horizontal allocation bar */}
-                <div style={{ display: 'flex', borderRadius: '8px', overflow: 'hidden', height: '10px', marginBottom: '10px' }}>
-                  {allocations.map((a, i) => {
-                    const colors = ['#7b7dff', '#4ade80', '#f5b544', '#f05b6f', '#a78bfa'];
-                    return (
-                      <div key={a.coin} style={{ width: `${Math.max(a.pct, 3)}%`, background: colors[i % colors.length], transition: 'width 0.3s' }} />
-                    );
-                  })}
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {allocations.map((a, i) => {
-                    const colors = ['#7b7dff', '#4ade80', '#f5b544', '#f05b6f', '#a78bfa'];
-                    return (
-                      <span key={a.coin} style={{ fontSize: '12px', fontWeight: 600, color: colors[i % colors.length] }}>
-                        {a.coin} {a.pct}%
-                      </span>
-                    );
-                  })}
-                </div>
-              </>
-            ) : (
-              <div style={{ fontSize: '13px', color: 'var(--muted)' }}>No positions yet — start trading to see your allocation</div>
-            )}
+        {/* Two-column: Portfolio Mix + Trading Setup */}
+        <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+
+          {/* LEFT — Portfolio Mix */}
+          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '20px 24px' }}>
+            <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '14px' }}>Your Portfolio Mix</div>
+
+            {/* Donut chart */}
+            <div style={{ display: 'grid', placeItems: 'center' }}>
+              {(() => {
+                const displayAlloc = (allocations && allocations.length > 0)
+                  ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#f5b544', '#a78bfa', '#f05b6f', '#6b6b8a'][i % 6] }))
+                  : defaultAllocation;
+                let offset = 25;
+                return (
+                  <>
+                    <svg viewBox="0 0 36 36" style={{ width: '200px', height: '200px' }}>
+                      {displayAlloc.map((seg) => {
+                        const el = <circle key={seg.label} r="15.9" cx="18" cy="18" fill="none" stroke={seg.color} strokeWidth="3.5" strokeDasharray={`${seg.pct} ${100 - seg.pct}`} strokeDashoffset={`${-offset + 25}`} />;
+                        offset += seg.pct;
+                        return el;
+                      })}
+                      <text x="18" y="17" textAnchor="middle" fill="var(--text)" fontSize="4" fontWeight="700">{tradingAmount ? formatCurrency(tradingAmount) : '$1,000'}</text>
+                      <text x="18" y="21" textAnchor="middle" fill="var(--muted)" fontSize="2.5">paper balance</text>
+                    </svg>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginTop: '12px', justifyContent: 'center' }}>
+                      {displayAlloc.map((seg) => (
+                        <span key={seg.label} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: seg.color }} />
+                          {seg.label} {seg.pct}%
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--muted)', textAlign: 'center', marginTop: '10px' }}>Adapts to your risk level</div>
+
+            {/* TBO badge */}
+            <div style={{ textAlign: 'center', marginTop: '10px' }}>
+              <button
+                onClick={() => setTboEnabled(prev => !prev)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '8px',
+                  padding: '6px 14px', borderRadius: '999px',
+                  background: tboEnabled ? 'rgba(74,222,128,0.06)' : 'rgba(123,125,255,0.08)',
+                  border: `1px solid ${tboEnabled ? 'rgba(74,222,128,0.3)' : 'rgba(123,125,255,0.2)'}`,
+                  fontSize: '12px', color: tboEnabled ? '#4ade80' : 'var(--muted)',
+                  cursor: 'pointer',
+                }}
+              >
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: tboEnabled ? '#4ade80' : 'var(--muted)' }} />
+                TBO PRO Signal Layer
+                <ToggleSwitch on={tboEnabled} onChange={() => setTboEnabled(prev => !prev)} />
+              </button>
+            </div>
           </div>
-        </section>
 
-        {/* 4–7. Trading Setup (stepped flow) */}
-        <section style={{ marginBottom: '24px' }}>
-          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '20px 24px', display: 'grid', gap: '0' }}>
-            <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '4px' }}>Get Started in 4 Easy Steps</div>
-            <div style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '16px' }}>No experience needed — Penny handles the hard part ✨</div>
+          {/* RIGHT — Trading Setup */}
+          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '20px 24px' }}>
+            <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '14px' }}>Trading Setup</div>
 
-            {/* Step 1: Risk Level */}
-            <StepHeader step={1} total={4} label="Choose Your Risk Level" done={riskLevel !== null} />
-            <SetupRow
-              isSet={riskLevel !== null}
-              value={riskLevel ? (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>{RISK_LEVELS[riskLevel].icon}</span>
-                  <span style={{ fontWeight: 600 }}>{RISK_LEVELS[riskLevel].label}</span>
-                  <span style={{ color: 'var(--muted)', fontSize: '12px' }}>— {RISK_LEVELS[riskLevel].description}</span>
-                </span>
-              ) : (
-                <span style={{ color: '#f5b544' }}>⚠️ Not Set — Choose your risk level</span>
-              )}
-              onSet={() => setRiskModalOpen(true)}
-            />
-
-            <Divider />
-
-            {/* Step 2: Trading Amount */}
-            <StepHeader step={2} total={4} label="Set Your Trading Amount" done={tradingAmount !== null} />
-            <SetupRow
-              isSet={tradingAmount !== null}
-              value={tradingAmount !== null ? (
-                <span>
-                  <span style={{ fontWeight: 600 }}>{formatCurrency(tradingAmount)}</span>
-                  <span style={{ color: 'var(--muted)', fontSize: '12px', marginLeft: '8px' }}>Paper trading — no real money</span>
-                </span>
-              ) : (
-                <span style={{ color: '#f5b544' }}>⚠️ Not Set — Enter your trading amount</span>
-              )}
-              onSet={() => { setAmountInput(String(tradingAmount ?? 500)); setAmountModalOpen(true); }}
-            />
-
-            <Divider />
-
-            {/* Step 3: Timeframe */}
-            <StepHeader step={3} total={4} label="Set Your Timeframe" done={timeframe !== null} />
-            <div style={{ padding: '10px 0 14px' }}>
-              <div style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '10px' }}>How long do you want to trade?</div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {TIMEFRAME_OPTIONS.map(tf => (
+            {/* Risk cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+              {(Object.entries(RISK_LEVELS) as [RiskLevel, typeof RISK_LEVELS[RiskLevel]][]).map(([key, val]) => {
+                const isActive = riskLevel === key;
+                const labels: Record<RiskLevel, string> = { conservative: 'Safe', moderate: 'Balanced', aggressive: 'Bold' };
+                const descs: Record<RiskLevel, string> = { conservative: 'BTC & ETH heavy', moderate: 'Top 20 mix', aggressive: 'Momentum plays' };
+                return (
                   <button
-                    key={tf.value}
-                    onClick={() => handleTimeframeSelect(tf.value)}
+                    key={key}
+                    onClick={() => { setRiskLevel(key); pushToast(`Risk set to ${val.label}`, 'success'); }}
                     style={{
-                      padding: '8px 18px',
-                      borderRadius: '999px',
-                      border: `2px solid ${timeframe === tf.value ? 'var(--accent)' : 'var(--border)'}`,
-                      background: timeframe === tf.value ? 'rgba(123,125,255,0.15)' : 'var(--panel-2)',
-                      color: timeframe === tf.value ? 'var(--accent)' : 'var(--text)',
-                      fontSize: '13px',
-                      fontWeight: timeframe === tf.value ? 700 : 500,
-                      cursor: 'pointer',
-                      transition: 'all 0.15s',
+                      padding: '16px 12px', borderRadius: '14px', textAlign: 'center', cursor: 'pointer',
+                      border: `2px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+                      background: isActive ? 'rgba(123,125,255,0.12)' : 'var(--panel-2)',
+                      color: 'var(--text)', transition: 'all 0.2s',
                     }}
                   >
-                    {tf.label}{timeframe === tf.value ? ' ✓' : ''}
+                    <div style={{ fontSize: '28px', marginBottom: '6px' }}>{val.icon}</div>
+                    <div style={{ fontSize: '13px', fontWeight: 700, marginBottom: '4px' }}>{labels[key]}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--muted)', lineHeight: '1.3' }}>{descs[key]}</div>
                   </button>
-                ))}
-              </div>
-              {!timeframe && (
-                <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '6px', fontStyle: 'italic' }}>
-                  Pick a timeframe to track your trading progress
-                </div>
-              )}
+                );
+              })}
             </div>
 
-            <Divider />
-
-            {/* Step 4: Start Trading */}
-            <StepHeader step={4} total={4} label="Start Trading" done={tboEnabled && engineOn} />
-            <div style={{ padding: '10px 0 4px' }}>
-              {/* TBO Toggle */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
-                <div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '2px' }}>Intelligence Layer (TBO PRO)</div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted)' }}>AI signal enhancement from TBO indicators</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: tboEnabled ? '#4ade80' : 'var(--muted)' }}>
-                    {tboEnabled ? 'Active' : 'Off'}
-                  </span>
-                  <ToggleSwitch on={tboEnabled} onChange={() => setTboEnabled(prev => !prev)} />
-                </div>
+            {/* Trading Amount */}
+            <div style={{ marginTop: '16px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600, marginBottom: '8px' }}>Trading Amount</div>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {AMOUNT_PRESETS.map(val => {
+                  const isActive = !customAmountMode && tradingAmount === val;
+                  return (
+                    <button key={val} onClick={() => handleAmountPreset(val)} style={{
+                      flex: 1, padding: '10px 0', borderRadius: '12px', textAlign: 'center',
+                      border: `1px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+                      background: isActive ? 'rgba(123,125,255,0.15)' : 'var(--panel-2)',
+                      color: isActive ? 'var(--accent)' : 'var(--text)',
+                      fontSize: '14px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
+                    }}>
+                      ${val.toLocaleString()}
+                    </button>
+                  );
+                })}
+                <button onClick={() => { setCustomAmountMode(true); setCustomAmountInput(String(tradingAmount ?? '')); }} style={{
+                  flex: 1, padding: '10px 0', borderRadius: '12px', textAlign: 'center',
+                  border: `1px solid ${customAmountMode ? 'var(--accent)' : 'var(--border)'}`,
+                  background: customAmountMode ? 'rgba(123,125,255,0.15)' : 'var(--panel-2)',
+                  color: customAmountMode ? 'var(--accent)' : 'var(--muted)',
+                  fontSize: '12px', cursor: 'pointer', transition: 'all 0.15s',
+                }}>
+                  Custom
+                </button>
               </div>
-              {!tboEnabled && <SubtlePrompt text="Enable for smarter trading signals ↑" />}
-
-              {/* Engine Toggle */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0 8px' }}>
-                <div>
-                  <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '2px' }}>Bot Engine</div>
-                  <div style={{ fontSize: '12px', color: engineOn ? '#4ade80' : 'var(--muted)' }}>
-                    {engineStatusText}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <ToggleSwitch
-                    on={engineOn}
-                    onChange={handleEngineToggle}
-                    disabled={!setupReady}
-                    big
-                    glow={engineOn}
+              {customAmountMode && (
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    value={customAmountInput}
+                    onChange={e => setCustomAmountInput(e.target.value)}
+                    placeholder="Enter amount..."
+                    autoFocus
+                    onKeyDown={e => e.key === 'Enter' && handleCustomAmount()}
+                    style={{ flex: 1, background: 'var(--panel-2)', border: '1px solid var(--accent)', color: 'var(--text)', padding: '10px 14px', borderRadius: '12px', fontSize: '16px', fontWeight: 600, outline: 'none' }}
                   />
+                  <button onClick={handleCustomAmount} style={{ padding: '10px 16px', borderRadius: '12px', border: 'none', background: 'var(--accent)', color: '#0d0d1f', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}>Set</button>
                 </div>
+              )}
+              <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '6px' }}>Paper trading — no real money at risk</div>
+            </div>
+
+            {/* Duration */}
+            <div style={{ marginTop: '16px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600, marginBottom: '8px' }}>Duration</div>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {TIMEFRAME_OPTIONS.map(tf => {
+                  const isActive = !customTimeframeMode && timeframe === tf.value;
+                  const shortLabel = tf.value === 'unlimited' ? '∞' : tf.value + 'd';
+                  return (
+                    <button key={tf.value} onClick={() => { setCustomTimeframeMode(false); handleTimeframeSelect(tf.value); }} style={{
+                      flex: 1, padding: '8px 0', borderRadius: '10px', textAlign: 'center',
+                      border: `1px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+                      background: isActive ? 'rgba(123,125,255,0.15)' : 'var(--panel-2)',
+                      color: isActive ? 'var(--accent)' : 'var(--text)',
+                      fontSize: '12px', fontWeight: isActive ? 700 : 400, cursor: 'pointer', transition: 'all 0.15s',
+                    }}>
+                      {shortLabel}
+                    </button>
+                  );
+                })}
+                <button onClick={() => { setCustomTimeframeMode(true); setCustomTimeframeInput(''); }} style={{
+                  flex: 1, padding: '8px 0', borderRadius: '10px', textAlign: 'center',
+                  border: `1px solid ${customTimeframeMode ? 'var(--accent)' : 'var(--border)'}`,
+                  background: customTimeframeMode ? 'rgba(123,125,255,0.15)' : 'var(--panel-2)',
+                  color: customTimeframeMode ? 'var(--accent)' : 'var(--muted)',
+                  fontSize: '11px', cursor: 'pointer', transition: 'all 0.15s',
+                }}>
+                  Custom
+                </button>
               </div>
-              {!setupReady && (
-                <div style={{ fontSize: '11px', color: 'var(--muted)', fontStyle: 'italic', paddingBottom: '4px' }}>
-                  Complete steps 1 &amp; 2 to enable the engine
+              {customTimeframeMode && (
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    value={customTimeframeInput}
+                    onChange={e => setCustomTimeframeInput(e.target.value)}
+                    placeholder="45"
+                    autoFocus
+                    onKeyDown={e => e.key === 'Enter' && handleCustomTimeframe()}
+                    style={{ width: '80px', background: 'var(--panel-2)', border: '1px solid var(--accent)', color: 'var(--text)', padding: '8px 12px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, outline: 'none', textAlign: 'center' }}
+                  />
+                  <span style={{ fontSize: '13px', color: 'var(--muted)' }}>days</span>
+                  <button onClick={handleCustomTimeframe} style={{ padding: '8px 14px', borderRadius: '10px', border: 'none', background: 'var(--accent)', color: '#0d0d1f', fontWeight: 700, cursor: 'pointer', fontSize: '12px' }}>Set</button>
                 </div>
               )}
             </div>
-
-            {/* Success state */}
-            {allConfigured && (
-              <div style={{ marginTop: '12px', padding: '12px 16px', borderRadius: '12px', background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', fontSize: '13px', color: '#4ade80' }}>
-                ✅ You&apos;re all set!{' '}
-                {boardId ? (
-                  <Link href={`/trading/${boardId}`} style={{ color: '#4ade80', textDecoration: 'underline' }}>
-                    Head to the Board to watch your trades →
-                  </Link>
-                ) : (
-                  'Head to the Board to watch your trades.'
-                )}
-              </div>
-            )}
           </div>
         </section>
 
-        {/* 8. Advanced (collapsed) */}
+        {/* Start Trading Button */}
+        <section style={{ marginBottom: '20px' }}>
+          <button
+            onClick={handleEngineToggle}
+            disabled={!setupReady}
+            style={{
+              width: '100%', padding: '18px', borderRadius: '16px', border: 'none',
+              background: engineOn
+                ? 'linear-gradient(135deg, #4ade80, #22c55e)'
+                : setupReady
+                  ? 'linear-gradient(135deg, var(--accent), #9a9cff)'
+                  : 'var(--panel-2)',
+              color: engineOn || setupReady ? '#0d0d1f' : 'var(--muted)',
+              fontSize: '18px', fontWeight: 700, cursor: setupReady ? 'pointer' : 'not-allowed',
+              letterSpacing: '0.02em', transition: 'all 0.2s',
+              boxShadow: engineOn ? '0 0 24px rgba(74,222,128,0.4)' : undefined,
+            }}
+          >
+            {engineOn ? '✅ Trading Active — Click to Pause' : '🚀 Start Trading'}
+          </button>
+          <div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--muted)', marginTop: '8px' }}>
+            {engineOn
+              ? boardId
+                ? <Link href={`/trading/${boardId}`} style={{ color: 'var(--accent)', textDecoration: 'none' }}>Watch your trades on the Board →</Link>
+                : 'Penny is managing your portfolio'
+              : setupReady
+                ? 'Penny handles everything. You can pause anytime.'
+                : 'Choose a risk level and amount to get started'}
+          </div>
+        </section>
+
+        {/* Advanced Settings */}
         <section style={{ marginBottom: '24px' }}>
           <button
             onClick={() => setAdvancedOpen(prev => !prev)}
             style={{
-              background: 'var(--panel)',
-              border: '1px solid var(--border)',
+              background: 'var(--panel)', border: '1px solid var(--border)',
               borderRadius: advancedOpen ? '14px 14px 0 0' : '14px',
-              padding: '12px 16px',
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              cursor: 'pointer',
-              color: 'var(--text)',
-              fontSize: '13px',
-              fontWeight: 600,
+              padding: '12px 16px', width: '100%',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              cursor: 'pointer', color: 'var(--text)', fontSize: '13px', fontWeight: 600,
             }}
           >
             <span>⚙️ Advanced Settings</span>
@@ -932,35 +1028,7 @@ export default function TradingDashboardPage() {
                 <ToggleSwitch on={true} onChange={() => {}} />
               </div>
             </div>
-          )}
-        </section>
-
-        {/* Your Bots section (compact) */}
-        {bots.length > 0 && (
-          <section style={{ marginTop: '18px' }}>
-            <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '12px' }}>
-              Your Bots
-            </div>
-            <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '8px' }}>
-              {bots.map((bot) => {
-                const statusColor = bot.status === 'running' ? 'var(--green, #4ade80)' : bot.status === 'paused' ? '#f5b544' : 'var(--muted)';
-                const returnPct = Number(bot.return_pct ?? bot.performance?.return_pct ?? 0);
-                return (
-                  <div key={bot.id} style={{ minWidth: '200px', height: '100px', borderRadius: '16px', border: '1px solid var(--border)', background: 'var(--panel)', padding: '12px', display: 'grid', gap: '4px' }}>
-                    <div style={{ fontWeight: 700, fontSize: '13px' }}>{bot.name}</div>
-                    <div style={{ fontSize: '18px', fontWeight: 700, color: returnPct >= 0 ? '#4ade80' : '#f05b6f' }}>
-                      {returnPct >= 0 ? '+' : ''}{returnPct.toFixed(2)}%
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--muted)' }}>
-                      <span style={{ width: '8px', height: '8px', borderRadius: '999px', background: statusColor }} />
-                      {bot.status}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
+          )}</section>
 
         {/* Risk Level Modal */}
         {riskModalOpen && (

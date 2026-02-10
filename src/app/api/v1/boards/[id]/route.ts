@@ -184,13 +184,21 @@ export async function DELETE(
       return NextResponse.json({ error: 'Only team admins can delete team boards' }, { status: 403 });
     }
 
-        // Clean up all related data before deleting board
-    await pool.query('DELETE FROM trade_alerts WHERE board_id = $1', [boardId]).catch(() => {});
-    await pool.query('DELETE FROM journal_entries WHERE trade_id IN (SELECT id FROM trades WHERE board_id = $1)', [boardId]).catch(() => {});
-    await pool.query('DELETE FROM trades WHERE board_id = $1', [boardId]).catch(() => {});
-    await pool.query('DELETE FROM paper_accounts WHERE board_id = $1', [boardId]).catch(() => {});
-    await pool.query('DELETE FROM bots WHERE board_id = $1', [boardId]).catch(() => {});
-    await pool.query('DELETE FROM tasks WHERE board_id = $1', [boardId]).catch(() => {});
+        // Clean up all related data before deleting board — order matters for FK deps
+    // 1. Delete things that reference trades first
+    await pool.query(`DELETE FROM trade_journal WHERE trade_id IN (SELECT id FROM trades WHERE board_id = $1)`, [boardId]).catch(() => {});
+    await pool.query(`DELETE FROM trade_comments WHERE trade_id IN (SELECT id FROM trades WHERE board_id = $1)`, [boardId]).catch(() => {});
+    await pool.query(`DELETE FROM trade_activity WHERE trade_id IN (SELECT id FROM trades WHERE board_id = $1)`, [boardId]).catch(() => {});
+    await pool.query(`DELETE FROM journal_entries WHERE trade_id IN (SELECT id FROM trades WHERE board_id = $1)`, [boardId]).catch(() => {});
+    // 2. Delete board-level tables
+    const cleanupTables = [
+      'trade_alerts', 'bot_executions', 'bot_leaderboard', 'portfolio_snapshots',
+      'trading_stats', 'tbo_signals', 'tbo_config', 'trades', 'trading_bots',
+      'paper_accounts', 'board_invites', 'task_files', 'comments', 'tasks'
+    ];
+    for (const table of cleanupTables) {
+      await pool.query(`DELETE FROM ${table} WHERE board_id = $1`, [boardId]).catch(() => {});
+    }
     await pool.query('DELETE FROM boards WHERE id = $1', [boardId]);
 
     return NextResponse.json({ success: true, deleted: boardId });

@@ -788,57 +788,60 @@ export default function TradingDashboardPage() {
         {/* Two-column: Portfolio Mix + Trading Setup */}
         <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
 
-          {/* LEFT — Portfolio Mix */}
-          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '20px 24px' }}>
-            <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '14px' }}>Your Portfolio Mix</div>
-
+          {/* LEFT — Portfolio Mix (pie left, legend right) */}
+          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '20px' }}>
             {/* Donut chart */}
-            <div style={{ display: 'grid', placeItems: 'center' }}>
+            <div style={{ flexShrink: 0 }}>
               {(() => {
                 const displayAlloc = (allocations && allocations.length > 0)
                   ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#f5b544', '#a78bfa', '#f05b6f', '#6b6b8a'][i % 6] }))
                   : defaultAllocation;
                 let offset = 25;
                 return (
-                  <>
-                    <svg viewBox="0 0 36 36" style={{ width: '200px', height: '200px' }}>
-                      {displayAlloc.map((seg) => {
-                        const el = <circle key={seg.label} r="15.9" cx="18" cy="18" fill="none" stroke={seg.color} strokeWidth="3.5" strokeDasharray={`${seg.pct} ${100 - seg.pct}`} strokeDashoffset={`${-offset + 25}`} />;
-                        offset += seg.pct;
-                        return el;
-                      })}
-                      <text x="18" y="17" textAnchor="middle" fill="var(--text)" fontSize="4" fontWeight="700">{tradingAmount ? formatCurrency(tradingAmount) : '$1,000'}</text>
-                      <text x="18" y="21" textAnchor="middle" fill="var(--muted)" fontSize="2.5">paper balance</text>
-                    </svg>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', marginTop: '12px', justifyContent: 'center' }}>
-                      {displayAlloc.map((seg) => (
-                        <span key={seg.label} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
-                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: seg.color }} />
-                          {seg.label} {seg.pct}%
-                        </span>
-                      ))}
-                    </div>
-                  </>
+                  <svg viewBox="0 0 36 36" style={{ width: '180px', height: '180px' }}>
+                    {displayAlloc.map((seg) => {
+                      const el = <circle key={seg.label} r="15.9" cx="18" cy="18" fill="none" stroke={seg.color} strokeWidth="4" strokeDasharray={`${seg.pct} ${100 - seg.pct}`} strokeDashoffset={`${-offset + 25}`} />;
+                      offset += seg.pct;
+                      return el;
+                    })}
+                    <text x="18" y="17" textAnchor="middle" fill="var(--text)" fontSize="4.5" fontWeight="700">{tradingAmount ? formatCurrency(tradingAmount) : '$1,000'}</text>
+                    <text x="18" y="21" textAnchor="middle" fill="var(--muted)" fontSize="2.5">paper balance</text>
+                  </svg>
                 );
               })()}
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--muted)', textAlign: 'center', marginTop: '10px' }}>Adapts to your risk level</div>
 
-            {/* TBO badge */}
-            <div style={{ textAlign: 'center', marginTop: '10px' }}>
+            {/* Legend */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
+              <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '2px' }}>Your Portfolio Mix</div>
+              {(() => {
+                const displayAlloc = (allocations && allocations.length > 0)
+                  ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#f5b544', '#a78bfa', '#f05b6f', '#6b6b8a'][i % 6] }))
+                  : defaultAllocation;
+                return displayAlloc.map((seg) => (
+                  <div key={seg.label} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: seg.color, flexShrink: 0 }} />
+                    <span>{seg.label}</span>
+                    <span style={{ marginLeft: 'auto', fontWeight: 700, fontSize: '14px' }}>{seg.pct}%</span>
+                  </div>
+                ));
+              })()}
+              <div style={{ fontSize: '11px', color: 'var(--muted)' }}>Adapts to your risk level</div>
+
+              {/* TBO badge */}
               <button
                 onClick={() => setTboEnabled(prev => !prev)}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: '8px',
-                  padding: '6px 14px', borderRadius: '999px',
+                  padding: '5px 12px', borderRadius: '999px', alignSelf: 'flex-start',
                   background: tboEnabled ? 'rgba(74,222,128,0.06)' : 'rgba(123,125,255,0.08)',
                   border: `1px solid ${tboEnabled ? 'rgba(74,222,128,0.3)' : 'rgba(123,125,255,0.2)'}`,
-                  fontSize: '12px', color: tboEnabled ? '#4ade80' : 'var(--muted)',
+                  fontSize: '11px', color: tboEnabled ? '#4ade80' : 'var(--muted)',
                   cursor: 'pointer',
                 }}
               >
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: tboEnabled ? '#4ade80' : 'var(--muted)' }} />
-                TBO PRO Signal Layer
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: tboEnabled ? '#4ade80' : 'var(--muted)' }} />
+                TBO PRO
                 <ToggleSwitch on={tboEnabled} onChange={() => setTboEnabled(prev => !prev)} />
               </button>
             </div>

@@ -278,13 +278,13 @@ export default function MarketDashboard() {
                         <p style={{ margin: 0, fontStyle: 'italic', color: 'var(--accent)', fontSize: '12px', textAlign: 'right', paddingTop: '4px' }}>
                           {(() => {
                             const signoffs = [
-                              'Stay sharp, stay patient, and let the charts do the talking. 🐱',
-                              'Trade the plan, not the emotion. I\'ll be watching so you don\'t have to. 🐱',
-                              'Remember — the best trade is the one you don\'t rush into. 🐱',
-                              'Markets reward the patient. I\'ll keep my eyes on the screens. 🐱',
-                              'Protect your capital, trust your setups, and let the winners run. 🐱',
-                              'The market will always be here tomorrow. Trade smart, not hard. 🐱',
-                              'Discipline today, gains tomorrow. That\'s the Penny way. 🐱',
+                              'Stay sharp, stay patient, and let the charts do the talking.',
+                              'Trade the plan, not the emotion. I\'ll be watching so you don\'t have to.',
+                              'Remember — the best trade is the one you don\'t rush into.',
+                              'Markets reward the patient. I\'ll keep my eyes on the screens.',
+                              'Protect your capital, trust your setups, and let the winners run.',
+                              'The market will always be here tomorrow. Trade smart, not hard.',
+                              'Discipline today, gains tomorrow. That\'s the Penny way.',
                             ];
                             // Use day of year as seed for consistent daily rotation
                             const now = new Date();

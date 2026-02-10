@@ -763,6 +763,23 @@ export default function TradingDashboardPage() {
           <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '10px' }}>
             {[
               { label: 'Bot Status', value: engineOn ? '● Active' : '● Paused', color: engineOn ? '#22c55e' : '#ef4444' },
+              { label: 'Market', value: (() => {
+                const fng = sentiment?.value ?? marketDetail?.overview?.fearGreed?.value;
+                if (fng == null) return 'Loading...';
+                if (fng < 30) return '🐻 Bearish';
+                if (fng < 45) return '📉 Cautious';
+                if (fng <= 55) return '⚖️ Neutral';
+                if (fng <= 70) return '📈 Bullish';
+                return '🐂 Very Bullish';
+              })(), color: (() => {
+                const fng = sentiment?.value ?? marketDetail?.overview?.fearGreed?.value;
+                if (fng == null) return undefined;
+                if (fng < 30) return '#f05b6f';
+                if (fng < 45) return '#9ca3af';
+                if (fng <= 55) return '#9ca3af';
+                if (fng <= 70) return '#4ade80';
+                return '#22c55e';
+              })() },
               { label: 'Paper Balance', value: formatCurrency(paperBalance) },
               { label: "Today's P&L", value: `${dailyPnl >= 0 ? '+' : ''}${formatCurrency(dailyPnl)} (${dailyPnlPct >= 0 ? '+' : ''}${dailyPnlPct.toFixed(1)}%)`, color: dailyPnl >= 0 ? '#4ade80' : '#f05b6f' },
               { label: 'Win Rate', value: `${winRate.toFixed(0)}%`, color: winRate >= 50 ? '#4ade80' : winRate > 0 ? '#f05b6f' : undefined },

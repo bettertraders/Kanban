@@ -38,8 +38,8 @@ export default function TradingChartInner({ pair, indicators = [] }: Props) {
   }, [symbol, studies]);
 
   return (
-    <div style={{ width: '100%', height: '100%', minHeight: '350px', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ flex: 1, minHeight: '350px', background: CHART_BG, borderRadius: '12px', overflow: 'hidden' }}>
+    <div style={{ width: '100%', height: '100%', minHeight: '875px', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, minHeight: '875px', background: CHART_BG, borderRadius: '12px', overflow: 'hidden' }}>
         <iframe
           title="TradingView Chart"
           src={src}

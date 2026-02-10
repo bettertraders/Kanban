@@ -2406,7 +2406,7 @@ export async function getEquityCurve(boardId: number) {
   });
 }
 
-export async function getPaperAccount(boardId: number, userId: number, startingBalance: number = 10000) {
+export async function getPaperAccount(boardId: number, userId: number, startingBalance: number = 1000) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

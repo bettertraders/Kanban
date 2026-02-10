@@ -13,6 +13,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'boardId required' }, { status: 400 });
     }
 
+    // One-time fix: reset any board-15 accounts still at 10000 default
+    await pool.query(`UPDATE paper_accounts SET starting_balance = 1000, current_balance = 1000 WHERE board_id = 15 AND starting_balance = 10000`).catch(() => {});
+
     const account = await getPaperAccount(boardId, user.id);
     const stats = await getPortfolioStats(user.id);
 
@@ -61,7 +64,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const boardId = Number(body.boardId);
-    const initialBalance = Number(body.initialBalance) || 10000;
+    const initialBalance = Number(body.initialBalance) || 1000;
 
     if (!Number.isFinite(boardId)) {
       return NextResponse.json({ error: 'boardId required' }, { status: 400 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { TradingNav } from '@/components/TradingNav';
 import PriceTicker from '@/components/PriceTicker';
 // TboToggle moved to board page
@@ -114,6 +114,7 @@ export default function MarketDashboard() {
   const [error, setError] = useState('');
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [newsError, setNewsError] = useState(false);
+  const [analysisOpen, setAnalysisOpen] = useState(false);
 
   const loadNews = useCallback(async () => {
     try {
@@ -200,6 +201,80 @@ export default function MarketDashboard() {
                   return `Extreme greed in the market — ${fng.value} on the Fear & Greed. BTC ${btcDir} ${btcAbs}%. Everyone's euphoric. Be careful — this is historically where tops form. Taking profits is never wrong. 🚨`;
                 })() : 'Loading market data...'}
               </div>
+
+              {/* Read More / Full Analysis */}
+              {data && (
+                <>
+                  <button
+                    onClick={() => setAnalysisOpen(prev => !prev)}
+                    style={{
+                      background: 'none', border: 'none', color: 'var(--accent)', fontSize: '12px',
+                      fontWeight: 600, cursor: 'pointer', padding: '6px 0 0', display: 'inline-flex',
+                      alignItems: 'center', gap: '4px',
+                    }}
+                  >
+                    {analysisOpen ? 'Show less ▲' : 'Read full analysis ▼'}
+                  </button>
+
+                  {analysisOpen && (() => {
+                    const btc = data.overview.btc;
+                    const eth = data.overview.eth;
+                    const fng = data.overview.fearGreed;
+                    const totalMcap = data.overview.totalMarketCap;
+                    const btcDom = data.overview.btcDominance;
+                    const gainers = data.movers.gainers.slice(0, 5);
+                    const losers = data.movers.losers.slice(0, 5);
+                    const volatile = data.movers.volatile?.slice(0, 3) ?? [];
+                    const trending = data.discovery.trending.slice(0, 5);
+
+                    const btcDir = btc.change24h >= 0 ? 'up' : 'down';
+                    const ethDir = eth.change24h >= 0 ? 'up' : 'down';
+
+                    // BTC 7d context
+                    const btc7d = btc.change7d != null ? `${btc.change7d >= 0 ? 'up' : 'down'} ${Math.abs(btc.change7d).toFixed(1)}% on the week` : '';
+
+                    // Dominance analysis
+                    const domText = btcDom > 55 ? 'BTC dominance is elevated — capital is consolidating into Bitcoin, which usually means altcoins are underperforming relative to BTC. This often happens during risk-off periods or early bull phases.'
+                      : btcDom > 45 ? 'BTC dominance is in a neutral range — money is flowing across the market fairly evenly. Altcoins have breathing room here.'
+                      : 'BTC dominance is low — altcoins are seeing significant rotation and outperformance. This typically happens in mid-to-late bull markets when risk appetite is high.';
+
+                    // Fear & Greed context
+                    const fngText = fng.value < 25 ? 'Extreme fear usually marks the best buying opportunities historically, but it can persist for weeks. Watch for capitulation volume spikes as a potential reversal signal.'
+                      : fng.value < 45 ? 'The market is cautious but not panicking. This is a wait-and-see zone — momentum traders should wait for confirmation before entering.'
+                      : fng.value < 60 ? 'Sentiment is neutral, which is actually healthy. Markets can trend in either direction from here. Focus on individual coin setups rather than macro bets.'
+                      : fng.value < 75 ? 'Greed is building, and while the trend may have room to run, this is where smart money starts scaling out of positions. Tighten your stop losses.'
+                      : 'Extreme greed is historically where major tops form. This doesn\'t mean sell everything, but consider taking profits on positions that have run significantly. Protect your gains.';
+
+                    // Volume context
+                    const btcVolStr = btc.volume > 50e9 ? 'Massive BTC volume today — institutions are active.' : btc.volume > 30e9 ? 'Healthy BTC volume indicating real participation.' : 'BTC volume is relatively light — moves may lack conviction.';
+
+                    return (
+                      <div style={{ marginTop: '12px', fontSize: '13px', lineHeight: 1.7, color: 'var(--muted)', display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
+                        <p style={{ margin: 0 }}>
+                          <strong style={{ color: 'var(--text)' }}>Price Action:</strong>{' '}
+                          Bitcoin is trading at {fmt(btc.price)}, {btcDir} {Math.abs(btc.change24h).toFixed(1)}% in the last 24 hours{btc7d ? ` and ${btc7d}` : ''}. Ethereum sits at {fmt(eth.price)}, {ethDir} {Math.abs(eth.change24h).toFixed(1)}% on the day.
+                          Total crypto market cap stands at {fmt(totalMcap)} with BTC dominance at {btcDom.toFixed(1)}%. {domText} {btcVolStr}
+                        </p>
+                        <p style={{ margin: 0 }}>
+                          <strong style={{ color: 'var(--text)' }}>Movers & Sentiment:</strong>{' '}
+                          {gainers.length > 0 && <>Today&apos;s top gainers are {gainers.map(c => `${c.symbol.toUpperCase()} (${pct(c.change24h)})`).join(', ')}. </>}
+                          {losers.length > 0 && <>On the downside, {losers.map(c => `${c.symbol.toUpperCase()} (${pct(c.change24h)})`).join(', ')} are seeing the most selling pressure. </>}
+                          {volatile.length > 0 && <>Most volatile: {volatile.map(c => c.symbol.toUpperCase()).join(', ')} — expect wide swings. </>}
+                          The Fear &amp; Greed Index reads {fng.value} ({fng.label}). {fngText}
+                        </p>
+                        <p style={{ margin: 0 }}>
+                          <strong style={{ color: 'var(--text)' }}>What I&apos;m Watching:</strong>{' '}
+                          {trending.length > 0 && <>Trending coins right now: {trending.map(t => t.symbol.toUpperCase()).join(', ')}. </>}
+                          {fng.value < 40 ? 'In this fearful environment, I\'m watching for oversold bounces on quality assets — BTC and ETH near support levels are the highest-probability setups. Don\'t try to catch falling knives on small caps.' :
+                           fng.value < 60 ? 'With neutral sentiment, I\'m focused on individual chart setups rather than directional bets. Look for coins with clear support levels and accumulation patterns. This is a stock-picker\'s market.' :
+                           'With elevated sentiment, I\'m being selective. If you\'re entering new positions, keep them small and use tight stops. This is the time to let winners ride but lock in gains on extended moves.'}
+                          {' '}Keep an eye on macro — Fed commentary, bond yields, and equity markets all influence crypto risk appetite. Gold and the dollar index are key correlation plays right now.
+                        </p>
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
             </div>
           </div>
         </section>

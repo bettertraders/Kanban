@@ -2518,6 +2518,7 @@ export async function getPortfolioStats(userId: number) {
             ELSE 0
           END
         END), 0) as total_unrealized_pnl,
+        COUNT(*)::int as total_trades,
         COUNT(*) FILTER (WHERE t.column_name = 'Wins')::int as wins,
         COUNT(*) FILTER (WHERE t.column_name = 'Losses')::int as losses
       FROM trades t
@@ -2687,6 +2688,7 @@ export async function getPortfolioStats(userId: number) {
       starting_balance: startingBalance,
       win_rate: Math.round(winRate * 100) / 100,
       active_positions: Number(summaryRow.active_positions || 0),
+      total_trades: Number(summaryRow.total_trades || 0),
       board_count: Number(summaryRow.board_count || 0)
     },
     byCoin,

@@ -38,7 +38,7 @@ type PortfolioStats = {
     total_trades?: number;
   };
   byCoin?: Array<{ coin_pair: string; total_pnl: number; total_trades?: number; allocation_pct?: number }>;
-  activeHoldings?: Array<{ coin_pair: string; position_size: number }>;
+  activeHoldings?: Array<{ coin_pair: string; position_size: number; entry_price: number }>;
 };
 
 type Board = {
@@ -495,7 +495,27 @@ export default function TradingDashboardPage() {
   }, []);
 
   const paperBalance = Number(portfolio?.summary?.paper_balance ?? 0);
-  const dailyPnl = Number(portfolio?.summary?.daily_pnl ?? portfolio?.summary?.total_unrealized_pnl ?? 0);
+  // Compute live unrealized P&L from pulse prices + active holdings
+  const livePnl = useMemo(() => {
+    const holdings = portfolio?.activeHoldings;
+    if (!holdings || holdings.length === 0 || pulse.length === 0) return null;
+    let total = 0;
+    let matched = 0;
+    for (const h of holdings) {
+      if (!h.entry_price || h.entry_price === 0) continue;
+      const norm = h.coin_pair.replace(/\/USDT$/i, '').replace(/\/USD$/i, '').toUpperCase();
+      const coin = pulse.find(c => {
+        const p = (c.pair || '').replace(/\/USDT$/i, '').replace(/\/USD$/i, '').toUpperCase();
+        return p === norm;
+      });
+      if (!coin) continue;
+      matched++;
+      const qty = h.position_size / h.entry_price;
+      total += (coin.price - h.entry_price) * qty;
+    }
+    return matched > 0 ? total : null;
+  }, [portfolio, pulse]);
+  const dailyPnl = livePnl ?? Number(portfolio?.summary?.daily_pnl ?? portfolio?.summary?.total_unrealized_pnl ?? 0);
   const dailyPnlPct = paperBalance > 0 ? (dailyPnl / (paperBalance - dailyPnl)) * 100 : 0;
   const winRate = Number(portfolio?.summary?.win_rate ?? 0);
   const activePositions = Number(portfolio?.summary?.active_positions ?? 0);

@@ -2665,7 +2665,7 @@ export async function getPortfolioStats(userId: number) {
           AND b.board_type = 'trading'
           AND (b.visibility IS NULL OR b.visibility <> 'admin_only' OR tm.role IN ('admin', 'owner') OR b.owner_id = $1)
       )
-      SELECT t.coin_pair, COALESCE(t.position_size, 0) as position_size
+      SELECT t.coin_pair, COALESCE(t.position_size, 0) as position_size, t.entry_price
       FROM trades t
       JOIN accessible_boards ab ON t.board_id = ab.id
       WHERE t.column_name = 'Active' OR t.status = 'active'
@@ -2677,6 +2677,7 @@ export async function getPortfolioStats(userId: number) {
   const activeHoldings = activeHoldingsResult.rows.map((row) => ({
     coin_pair: row.coin_pair,
     position_size: parseNumeric(row.position_size) || 0,
+    entry_price: parseNumeric(row.entry_price) || 0,
   }));
 
   return {

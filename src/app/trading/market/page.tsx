@@ -182,8 +182,13 @@ export default function MarketDashboard() {
           }}>
             <img src="/icons/penny.png" alt="Penny" style={{ width: '72px', height: '72px', borderRadius: '50%', flexShrink: 0 }} />
             <div>
-              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', marginBottom: '6px', fontWeight: 600 }}>
-                Penny&apos;s Market Update
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600 }}>
+                  Penny&apos;s Market Update
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--muted)', opacity: 0.7 }}>
+                  {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                </div>
               </div>
               <div style={{ fontSize: '17px', lineHeight: 1.6, color: 'var(--text)', fontWeight: 500 }}>
                 {data ? (() => {
@@ -269,6 +274,26 @@ export default function MarketDashboard() {
                            fng.value < 60 ? 'With neutral sentiment, I\'m focused on individual chart setups rather than directional bets. Look for coins with clear support levels and accumulation patterns. This is a stock-picker\'s market.' :
                            'With elevated sentiment, I\'m being selective. If you\'re entering new positions, keep them small and use tight stops. This is the time to let winners ride but lock in gains on extended moves.'}
                           {' '}Keep an eye on macro — Fed commentary, bond yields, and equity markets all influence crypto risk appetite. Gold and the dollar index are key correlation plays right now.
+                        </p>
+                        <p style={{ margin: 0, fontStyle: 'italic', color: 'var(--accent)', fontSize: '12px', textAlign: 'right', paddingTop: '4px' }}>
+                          {(() => {
+                            const signoffs = [
+                              'Stay sharp, stay patient, and let the charts do the talking. 🐱',
+                              'Trade the plan, not the emotion. I\'ll be watching so you don\'t have to. 🐱',
+                              'Remember — the best trade is the one you don\'t rush into. 🐱',
+                              'Markets reward the patient. I\'ll keep my eyes on the screens. 🐱',
+                              'Protect your capital, trust your setups, and let the winners run. 🐱',
+                              'The market will always be here tomorrow. Trade smart, not hard. 🐱',
+                              'Discipline today, gains tomorrow. That\'s the Penny way. 🐱',
+                            ];
+                            // Use day of year as seed for consistent daily rotation
+                            const now = new Date();
+                            const start = new Date(now.getFullYear(), 0, 0);
+                            const dayOfYear = Math.floor((now.getTime() - start.getTime()) / 86400000);
+                            return signoffs[dayOfYear % signoffs.length];
+                          })()}
+                          <br />
+                          <span style={{ fontWeight: 600, fontStyle: 'normal' }}>— Penny 🐱</span>
                         </p>
                       </div>
                     );

@@ -854,9 +854,9 @@ export default function TradingDashboardPage() {
             {/* Risk cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
               {([
-                { key: 'conservative' as RiskLevel, label: 'Safe', desc: 'BTC & ETH heavy', icon: '/icons/risk-safe.png' },
-                { key: 'moderate' as RiskLevel, label: 'Balanced', desc: 'Top 20 mix', icon: '/icons/risk-balanced.png' },
-                { key: 'aggressive' as RiskLevel, label: 'Bold', desc: 'Momentum plays', icon: '/icons/risk-bold.png' },
+                { key: 'conservative' as RiskLevel, label: 'Safe', desc: 'BTC & ETH heavy', icon: '/icons/risk-safe-v3.png' },
+                { key: 'moderate' as RiskLevel, label: 'Balanced', desc: 'Top 20 mix', icon: '/icons/risk-balanced-v3.png' },
+                { key: 'aggressive' as RiskLevel, label: 'Bold', desc: 'Momentum plays', icon: '/icons/risk-bold-v3.png' },
               ]).map(({ key, label, desc, icon }) => {
                 const isActive = riskLevel === key;
                 return (
@@ -870,7 +870,7 @@ export default function TradingDashboardPage() {
                       color: 'var(--text)', transition: 'all 0.2s',
                     }}
                   >
-                    <img src={icon} alt={label} style={{ width: '48px', height: '48px', marginBottom: '6px', borderRadius: '8px' }} />
+                    <img src={icon} alt={label} style={{ width: '56px', height: '56px', marginBottom: '6px', borderRadius: '12px', background: 'var(--panel-2)', padding: '4px' }} />
                     <div style={{ fontSize: '13px', fontWeight: 700, marginBottom: '4px' }}>{label}</div>
                     <div style={{ fontSize: '11px', color: 'var(--muted)', lineHeight: '1.3' }}>{desc}</div>
                   </button>

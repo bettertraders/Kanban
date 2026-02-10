@@ -766,11 +766,11 @@ export default function TradingDashboardPage() {
               { label: 'Market', value: (() => {
                 const fng = sentiment?.value ?? marketDetail?.overview?.fearGreed?.value;
                 if (fng == null) return 'Loading...';
-                if (fng < 30) return '🐻 Bearish';
-                if (fng < 45) return '📉 Cautious';
-                if (fng <= 55) return '⚖️ Neutral';
-                if (fng <= 70) return '📈 Bullish';
-                return '🐂 Very Bullish';
+                if (fng < 30) return 'Bearish';
+                if (fng < 45) return 'Cautious';
+                if (fng <= 55) return 'Neutral';
+                if (fng <= 70) return 'Bullish';
+                return 'Very Bullish';
               })(), color: (() => {
                 const fng = sentiment?.value ?? marketDetail?.overview?.fearGreed?.value;
                 if (fng == null) return undefined;

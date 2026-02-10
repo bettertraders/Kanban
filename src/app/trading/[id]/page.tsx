@@ -1552,7 +1552,7 @@ export default function TradingBoardPage() {
                             background: 'var(--panel-2)',
                             border: '1px solid var(--border)',
                             borderRadius: '14px',
-                            padding: '10px 12px',
+                            padding: '8px 10px',
                             cursor: 'pointer',
                             boxShadow: '0 10px 20px rgba(0,0,0,0.18)',
                             transition: 'transform 0.2s ease, border-color 0.2s ease',
@@ -1561,54 +1561,54 @@ export default function TradingBoardPage() {
                           onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
                         >
                           {/* Row 1: Pair + Sentiment badge + actions */}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', gap: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
                               <button
                                 type="button"
                                 onClick={(event) => { event.stopPropagation(); setChartPair(toApiPair(pair)); }}
-                                style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '0.02em', background: 'transparent', border: 'none', color: 'var(--text)', cursor: 'pointer', padding: 0 }}
+                                style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '0.02em', background: 'transparent', border: 'none', color: 'var(--text)', cursor: 'pointer', padding: 0, whiteSpace: 'nowrap' }}
                                 title="Open chart"
                               >
-                                {pair.replace('/', ' / ')}
+                                {pair}
                               </button>
-                              <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '999px', background: sentiment.bg, color: sentiment.color, fontWeight: 600 }}>
+                              <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '999px', background: sentiment.bg, color: sentiment.color, fontWeight: 600, whiteSpace: 'nowrap' }}>
                                 {sentiment.label}
                               </span>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                               <button
                                 type="button"
                                 onClick={(event) => { event.stopPropagation(); setExpandedCards(prev => ({ ...prev, [trade.id]: !prev[trade.id] })); }}
-                                style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '10px', padding: '2px 4px', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                                style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '10px', padding: '2px 3px', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
                                 aria-label="Expand card"
                               >▼</button>
                               <button
                                 type="button"
                                 onClick={(event) => { event.stopPropagation(); setActionMenu({ trade, x: event.clientX, y: event.clientY }); }}
-                                style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: '8px', padding: '2px 6px', cursor: 'pointer' }}
+                                style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: '6px', padding: '1px 5px', cursor: 'pointer', fontSize: '11px' }}
                                 aria-label="Quick actions"
                               >⋯</button>
                             </div>
                           </div>
 
                           {/* Row 2: Price + P&L */}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                             <div
                               key={priceFlashMap[pair]?.token ?? 0}
                               style={{
-                                fontSize: '14px', fontWeight: 600,
+                                fontSize: '13px', fontWeight: 600,
                                 animation: priceFlashMap[pair]?.direction === 'up' ? 'priceUp 0.6s ease' : priceFlashMap[pair]?.direction === 'down' ? 'priceDown 0.6s ease' : undefined,
                               }}
                             >
                               {formatPrice(livePrice)}
                             </div>
-                            <div style={{ fontSize: '13px', fontWeight: 700, color: pnlTone }}>
+                            <div style={{ fontSize: '12px', fontWeight: 700, color: pnlTone }}>
                               {formatPercent(pnlPercent)}
                             </div>
                           </div>
 
                           {/* Confidence bar */}
-                          <div style={{ height: '4px', borderRadius: '999px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                          <div style={{ height: '3px', borderRadius: '999px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
                             <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, confidence ?? 0))}%`, background: confidenceTone, borderRadius: '999px', transition: 'width 0.3s' }} />
                           </div>
 

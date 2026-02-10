@@ -41,6 +41,7 @@ export default function TradingChartInner({ pair, indicators = [] }: Props) {
     <div style={{ width: '100%', height: '875px', display: 'flex', flexDirection: 'column' }}>
       <div style={{ flex: 1, background: CHART_BG, borderRadius: '12px', overflow: 'hidden', position: 'relative' }}>
         <iframe
+          key={src}
           title="TradingView Chart"
           src={src}
           style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none', background: CHART_BG }}

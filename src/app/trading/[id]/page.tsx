@@ -1120,202 +1120,6 @@ export default function TradingBoardPage() {
         </div>
       </div>
 
-      <div style={{ margin: '16px 0' }}>
-        <TboToggle />
-      </div>
-
-      <section style={{ marginBottom: '22px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '10px' }}>
-          <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'var(--muted)' }}>
-            Bot Scans
-          </div>
-          <button
-            onClick={() => setBotScansExpanded((prev) => !prev)}
-            style={{
-              background: 'transparent',
-              color: 'var(--text)',
-              border: '1px solid var(--border)',
-              padding: '6px 12px',
-              borderRadius: '999px',
-              cursor: 'pointer',
-              fontSize: '11px',
-              fontWeight: 600,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-            }}
-          >
-            {botScansExpanded ? 'Hide' : 'Show'}
-          </button>
-        </div>
-        <div
-          style={{
-            overflow: 'hidden',
-            maxHeight: botScansExpanded ? '260px' : '0px',
-            opacity: botScansExpanded ? 1 : 0,
-            transition: 'max-height 0.4s ease, opacity 0.25s ease',
-            pointerEvents: botScansExpanded ? 'auto' : 'none',
-          }}
-        >
-          <div style={{ ...glassCard, padding: '14px 16px' }}>
-            {botActivityLoading ? (
-              <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Loading bot activity...</div>
-            ) : botActivity.length === 0 ? (
-              <div style={{ fontSize: '12px', color: 'var(--muted)' }}>No recent bot scans yet.</div>
-            ) : (
-              <div style={{ display: 'grid', gap: '10px' }}>
-                {botActivity.map((item) => {
-                  const confidence = toNumber(item.confidence_score);
-                  const confidenceTone = confidenceColor(confidence);
-                  return (
-                    <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                      <div>
-                        <div style={{ fontSize: '12px', fontWeight: 600 }}>
-                          {item.action} · {item.coin_pair ? normalizePair(item.coin_pair) : '—'}
-                        </div>
-                        <div style={{ fontSize: '10px', color: 'var(--muted)' }}>
-                          {new Date(item.created_at).toLocaleString()}
-                        </div>
-                      </div>
-                      <div style={{ width: '120px' }}>
-                        <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '4px', textAlign: 'right' }}>
-                          Confidence {confidence ?? '—'}
-                        </div>
-                        <div style={{ height: '6px', borderRadius: '999px', background: 'var(--panel-3)', overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, confidence ?? 0))}%`, background: confidenceTone }} />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      <section style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
-          <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'var(--muted)' }}>
-            Performance Dashboard
-          </div>
-          <button
-            onClick={() => setStatsExpanded((prev) => !prev)}
-            style={{
-              background: 'transparent',
-              color: 'var(--text)',
-              border: '1px solid var(--border)',
-              padding: '8px 14px',
-              borderRadius: '999px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: 600,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-            }}
-          >
-            Stats {statsExpanded ? '▲' : '▼'}
-          </button>
-        </div>
-
-        <div
-          style={{
-            overflow: 'hidden',
-            maxHeight: statsExpanded ? '520px' : '0px',
-            opacity: statsExpanded ? 1 : 0,
-            transition: 'max-height 0.45s ease, opacity 0.3s ease',
-            pointerEvents: statsExpanded ? 'auto' : 'none',
-          }}
-        >
-          <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '14px', marginBottom: '14px' }}>
-            <div style={glassCard}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '34px', height: '34px', borderRadius: '12px', background: 'rgba(123,125,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)', fontSize: '18px' }}>📊</div>
-                <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--muted)' }}>Total Trades</div>
-              </div>
-              <div style={{ fontSize: '28px', fontWeight: 700, marginTop: '10px' }}>{stats?.total_trades ?? 0}</div>
-              <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px' }}>All board entries</div>
-            </div>
-            <div style={glassCard}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '34px', height: '34px', borderRadius: '12px', background: 'rgba(245,181,68,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f5b544', fontSize: '18px' }}>⚡</div>
-                <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--muted)' }}>Active Trades</div>
-              </div>
-              <div style={{ fontSize: '28px', fontWeight: 700, marginTop: '10px' }}>{stats?.active_trades ?? 0}</div>
-              <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px' }}>Currently open</div>
-            </div>
-            <div style={glassCard}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '34px', height: '34px', borderRadius: '12px', background: 'rgba(74,222,128,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4ade80', fontSize: '18px' }}>🏆</div>
-                <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--muted)' }}>Win Rate</div>
-              </div>
-              <div style={{ fontSize: '28px', fontWeight: 700, marginTop: '10px', color: winRateColor }}>
-                {winRateValue === null ? '—' : `${winRateValue.toFixed(1)}%`}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px' }}>
-                {stats ? `${stats.wins} wins / ${stats.losses} losses` : 'No closed trades'}
-              </div>
-            </div>
-            <div style={glassCard}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '34px', height: '34px', borderRadius: '12px', background: 'rgba(74,222,128,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4ade80', fontSize: '18px' }}>💵</div>
-                <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--muted)' }}>Total P&amp;L</div>
-              </div>
-              <div style={{ fontSize: '28px', fontWeight: 700, marginTop: '10px', color: totalPnlColor }}>
-                {totalPnlValue === null ? '—' : formatCurrency(totalPnlValue)}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px' }}>Net performance</div>
-            </div>
-            <div style={glassCard}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '34px', height: '34px', borderRadius: '12px', background: `${bestTradeColor}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: bestTradeColor, fontSize: '18px' }}>🚀</div>
-                <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--muted)' }}>Best Trade</div>
-              </div>
-              <div style={{ fontSize: '26px', fontWeight: 700, marginTop: '10px', color: bestTradeColor }}>
-                {bestWorstTrades.best ? formatCurrency(bestWorstTrades.best.pnl) : '—'}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px' }}>
-                {bestWorstTrades.best ? normalizePair(bestWorstTrades.best.trade.coin_pair) : 'No wins yet'}
-              </div>
-            </div>
-            <div style={glassCard}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '34px', height: '34px', borderRadius: '12px', background: `${worstTradeColor}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: worstTradeColor, fontSize: '18px' }}>🧊</div>
-                <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--muted)' }}>Worst Trade</div>
-              </div>
-              <div style={{ fontSize: '26px', fontWeight: 700, marginTop: '10px', color: worstTradeColor }}>
-                {bestWorstTrades.worst ? formatCurrency(bestWorstTrades.worst.pnl) : '—'}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px' }}>
-                {bestWorstTrades.worst ? normalizePair(bestWorstTrades.worst.trade.coin_pair) : 'No losses yet'}
-              </div>
-            </div>
-          </div>
-
-          <div style={{ ...glassCard, padding: '14px 16px' }}>
-            <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'var(--muted)', marginBottom: '8px' }}>
-              Equity Curve
-            </div>
-            {equityChart ? (
-              <svg width="100%" viewBox={`0 0 ${equityChart.w} ${equityChart.h}`} style={{ display: 'block', height: '110px' }}>
-                {[0, 0.5, 1].map((pct, i) => {
-                  const y = equityChart.pad + equityChart.chartH - pct * equityChart.chartH;
-                  return <line key={i} x1={equityChart.pad} x2={equityChart.w - equityChart.pad} y1={y} y2={y} stroke="var(--border)" strokeWidth="0.6" />;
-                })}
-                <polyline points={equityChart.linePoints} fill="none" stroke={equityChart.lineColor} strokeWidth="2" />
-                {(stats?.equityCurve ?? []).map((point, i) => {
-                  const { x, y } = equityChart.toPoint(point.cumulative, i);
-                  return <circle key={point.date + i} cx={x} cy={y} r="3" fill={equityChart.lineColor} />;
-                })}
-              </svg>
-            ) : (
-              <div style={{ height: '110px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: '13px', borderRadius: '12px', border: '1px dashed var(--border)', background: 'rgba(15, 15, 30, 0.4)' }}>
-                No closed trades yet
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
       <section
         className="chart-panel"
         style={{
@@ -2705,6 +2509,7 @@ function NewTradeModal({
 
 function DashboardStatusBar() {
   const [settings, setSettings] = useState<{ riskLevel: string | null; tradingAmount: number | null; timeframe: string | null; timeframeStartDate: string | null; tboEnabled: boolean; engineOn: boolean } | null>(null);
+  const [pnl, setPnl] = useState<number | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -2723,6 +2528,23 @@ function DashboardStatusBar() {
     }
   }, []);
 
+  useEffect(() => {
+    const boardId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('boardId') || window.location.pathname.split('/trading/')[1]?.split('/')[0] || '' : '';
+    if (!boardId) return;
+    fetch(`/api/trading/account?boardId=${boardId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data?.account) {
+          const current = parseFloat(data.account.current_balance);
+          const starting = parseFloat(data.account.starting_balance);
+          if (!isNaN(current) && !isNaN(starting)) {
+            setPnl(current - starting);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   if (!settings) return null;
 
   const riskLabel = settings.riskLevel ? settings.riskLevel.charAt(0).toUpperCase() + settings.riskLevel.slice(1) : 'Not Set';
@@ -2737,9 +2559,11 @@ function DashboardStatusBar() {
     dayLabel = `Day ${dayNum}`;
   }
 
-  const tboLabel = settings.tboEnabled ? 'TBO ON' : 'TBO OFF';
   const engineLabel = settings.engineOn ? 'Engine Active' : 'Engine Off';
   const engineColor = settings.engineOn ? '#4ade80' : 'var(--muted)';
+
+  const pnlColor = pnl === null ? 'var(--muted)' : pnl >= 0 ? '#4ade80' : '#f05b6f';
+  const pnlLabel = pnl === null ? '' : `${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}`;
 
   return (
     <div style={{
@@ -2754,12 +2578,10 @@ function DashboardStatusBar() {
     }}>
       <span>{riskLabel}</span>
       <span style={{ opacity: 0.4 }}>·</span>
-      <span>{amountLabel}</span>
+      <span>{amountLabel}{pnlLabel && <span style={{ color: pnlColor, marginLeft: '4px' }}>({pnlLabel})</span>}</span>
       <span style={{ opacity: 0.4 }}>·</span>
       <span>{timeframeLabel}</span>
       {dayLabel && <><span style={{ opacity: 0.4 }}>·</span><span>{dayLabel}</span></>}
-      <span style={{ opacity: 0.4 }}>·</span>
-      <span>{tboLabel}</span>
       <span style={{ opacity: 0.4 }}>·</span>
       <span style={{ color: engineColor }}>{engineLabel}</span>
     </div>

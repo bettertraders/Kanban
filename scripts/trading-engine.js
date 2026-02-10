@@ -22,7 +22,16 @@ const MAX_POSITIONS = 5;
 const POSITION_SIZE_PCT = 20; // 20% of balance per trade
 const STOP_LOSS_PCT = 5;
 const TAKE_PROFIT_PCT = 10;
-const PINNED_COINS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'ATOM/USDT', 'LINK/USDT'];
+const PINNED_COINS = [
+  // Core holdings
+  'BTC/USDT', 'ETH/USDT', 'SOL/USDT',
+  // Large caps
+  'XRP/USDT', 'ADA/USDT', 'AVAX/USDT', 'DOT/USDT', 'LINK/USDT', 'ATOM/USDT', 'MATIC/USDT',
+  // Mid caps with volume
+  'NEAR/USDT', 'FTM/USDT', 'INJ/USDT', 'SUI/USDT', 'APT/USDT',
+  // Momentum plays
+  'RENDER/USDT', 'FET/USDT', 'ARB/USDT', 'OP/USDT', 'TIA/USDT',
+];
 
 // Load API key
 function loadApiKey() {

@@ -334,6 +334,7 @@ export default function TradingBoardPage() {
   const [autoTradeBalance, setAutoTradeBalance] = useState(100);
   const [autoTradeCreating, setAutoTradeCreating] = useState(false);
   const [watchlistSidebarOpen, setWatchlistSidebarOpen] = useState(false);
+  const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>({});
   // Start a Trade removed — trades configured from dashboard
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [alertBadgeCount, setAlertBadgeCount] = useState(0);
@@ -1499,16 +1500,15 @@ export default function TradingBoardPage() {
                       const direction = String(trade.direction || '').toUpperCase();
                       const directionTone = direction === 'SHORT' ? '#f05b6f' : '#4ade80';
                       const signal = signalBadge(trade.tbo_signal);
-                      const botName = getBotDisplayName(trade.created_by_name);
                       const confidence = toNumber(trade.confidence_score);
                       const confidenceTone = confidenceColor(confidence);
+                      const isExpanded = expandedCards[trade.id] ?? false;
 
                       return (
                         <article
                           key={trade.id}
                           draggable
                           onDragStart={() => handleDragStart(trade.id)}
-                          onClick={() => setEditingTrade(trade)}
                           onContextMenu={(event) => {
                             event.preventDefault();
                             setActionMenu({ trade, x: event.clientX, y: event.clientY });
@@ -1518,7 +1518,7 @@ export default function TradingBoardPage() {
                             background: 'var(--panel-2)',
                             border: '1px solid var(--border)',
                             borderRadius: '14px',
-                            padding: '12px',
+                            padding: '10px 12px',
                             cursor: 'pointer',
                             boxShadow: '0 10px 20px rgba(0,0,0,0.18)',
                             transition: 'transform 0.2s ease, border-color 0.2s ease',
@@ -1526,27 +1526,46 @@ export default function TradingBoardPage() {
                           onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = col.color; }}
                           onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
                         >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                          {/* Collapsed: pair + price + P&L + expand button on one row */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <button
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 setChartPair(toApiPair(pair));
                               }}
-                              style={{ fontSize: '16px', fontWeight: 700, letterSpacing: '0.02em', background: 'transparent', border: 'none', color: 'var(--text)', cursor: 'pointer', padding: 0 }}
+                              style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '0.02em', background: 'transparent', border: 'none', color: 'var(--text)', cursor: 'pointer', padding: 0 }}
                               title="Open chart"
                             >
                               {pair.replace('/', ' / ')}
                             </button>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              {botName && (
-                                <div style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(123,125,255,0.2)', color: 'var(--accent)', border: '1px solid rgba(123,125,255,0.4)', fontWeight: 600 }}>
-                                  🤖 {botName}
-                                </div>
-                              )}
-                              <div style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '999px', background: `${directionTone}22`, color: directionTone, border: `1px solid ${directionTone}44`, fontWeight: 600 }}>
+                              <div
+                                key={priceFlashMap[pair]?.token ?? 0}
+                                style={{
+                                  fontSize: '13px', fontWeight: 600,
+                                  animation: priceFlashMap[pair]?.direction === 'up' ? 'priceUp 0.6s ease' : priceFlashMap[pair]?.direction === 'down' ? 'priceDown 0.6s ease' : undefined,
+                                }}
+                              >
+                                {formatPrice(livePrice)}
+                              </div>
+                              <div style={{ fontSize: '12px', fontWeight: 700, color: pnlTone, minWidth: '48px', textAlign: 'right' }}>
+                                {formatPercent(pnlPercent)}
+                              </div>
+                              <div style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '999px', background: `${directionTone}22`, color: directionTone, fontWeight: 600 }}>
                                 {direction || '—'}
                               </div>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setExpandedCards(prev => ({ ...prev, [trade.id]: !prev[trade.id] }));
+                                }}
+                                style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '10px', padding: '2px 4px', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                                aria-label="Expand card"
+                              >
+                                ▼
+                              </button>
                               <button
                                 type="button"
                                 onClick={(event) => {
@@ -1560,63 +1579,56 @@ export default function TradingBoardPage() {
                               </button>
                             </div>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
-                            <div>
-                              <div style={{ fontSize: '11px', color: 'var(--muted)' }}>Current</div>
-                              <div
-                                key={priceFlashMap[pair]?.token ?? 0}
-                                style={{
-                                  fontSize: '15px',
-                                  fontWeight: 600,
-                                  animation: priceFlashMap[pair]?.direction === 'up'
-                                    ? 'priceUp 0.6s ease'
-                                    : priceFlashMap[pair]?.direction === 'down'
-                                      ? 'priceDown 0.6s ease'
-                                      : undefined,
-                                }}
-                              >
-                                {formatPrice(livePrice)}
+
+                          {/* Expanded details */}
+                          {isExpanded && (
+                            <div style={{ marginTop: '10px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
+                                <div>
+                                  <div style={{ fontSize: '11px', color: 'var(--muted)' }}>Current</div>
+                                  <div style={{ fontSize: '15px', fontWeight: 600 }}>{formatPrice(livePrice)}</div>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                  <div style={{ fontSize: '11px', color: 'var(--muted)' }}>P&L</div>
+                                  <div style={{ fontSize: '14px', fontWeight: 700, color: pnlTone }}>{formatCurrency(pnlDollar)}</div>
+                                  <div style={{ fontSize: '11px', color: pnlTone }}>{formatPercent(pnlPercent)}</div>
+                                </div>
+                              </div>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px', marginBottom: '10px' }}>
+                                <div>
+                                  <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Entry</div>
+                                  <div style={{ fontSize: '12px' }}>{formatPrice(toNumber(trade.entry_price))}</div>
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Size</div>
+                                  <div style={{ fontSize: '12px' }}>{toNumber(trade.position_size) ?? '—'}</div>
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Stop</div>
+                                  <div style={{ fontSize: '12px' }}>{formatPrice(toNumber(trade.stop_loss))}</div>
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Target</div>
+                                  <div style={{ fontSize: '12px' }}>{formatPrice(toNumber(trade.take_profit))}</div>
+                                </div>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                                <div style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: signal.bg, color: signal.color, border: `1px solid ${signal.color}44`, fontWeight: 600 }}>
+                                  {signal.label}
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '4px' }}>Confidence</div>
+                                  <div style={{ height: '6px', borderRadius: '999px', background: 'var(--panel-3)', overflow: 'hidden' }}>
+                                    <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, confidence ?? 0))}%`, background: confidenceTone }} />
+                                  </div>
+                                </div>
+                                <div style={{ fontSize: '10px', color: 'var(--muted)', minWidth: '38px', textAlign: 'right' }}>RSI {toNumber(trade.rsi_value) ?? '—'}</div>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px', color: 'var(--muted)', fontSize: '12px' }}>
+                                <span style={{ cursor: 'grab' }}>⠿</span>
                               </div>
                             </div>
-                            <div style={{ textAlign: 'right' }}>
-                              <div style={{ fontSize: '11px', color: 'var(--muted)' }}>P&L</div>
-                              <div style={{ fontSize: '14px', fontWeight: 700, color: pnlTone }}>{formatCurrency(pnlDollar)}</div>
-                              <div style={{ fontSize: '11px', color: pnlTone }}>{formatPercent(pnlPercent)}</div>
-                            </div>
-                          </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px', marginBottom: '10px' }}>
-                            <div>
-                              <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Entry</div>
-                              <div style={{ fontSize: '12px' }}>{formatPrice(toNumber(trade.entry_price))}</div>
-                            </div>
-                            <div>
-                              <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Size</div>
-                              <div style={{ fontSize: '12px' }}>{toNumber(trade.position_size) ?? '—'}</div>
-                            </div>
-                            <div>
-                              <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Stop</div>
-                              <div style={{ fontSize: '12px' }}>{formatPrice(toNumber(trade.stop_loss))}</div>
-                            </div>
-                            <div>
-                              <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Target</div>
-                              <div style={{ fontSize: '12px' }}>{formatPrice(toNumber(trade.take_profit))}</div>
-                            </div>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                            <div style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: signal.bg, color: signal.color, border: `1px solid ${signal.color}44`, fontWeight: 600 }}>
-                              {signal.label}
-                            </div>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: '10px', color: 'var(--muted)', marginBottom: '4px' }}>Confidence</div>
-                              <div style={{ height: '6px', borderRadius: '999px', background: 'var(--panel-3)', overflow: 'hidden' }}>
-                                <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, confidence ?? 0))}%`, background: confidenceTone }} />
-                              </div>
-                            </div>
-                            <div style={{ fontSize: '10px', color: 'var(--muted)', minWidth: '38px', textAlign: 'right' }}>RSI {toNumber(trade.rsi_value) ?? '—'}</div>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px', color: 'var(--muted)', fontSize: '12px' }}>
-                            <span style={{ cursor: 'grab' }}>⠿</span>
-                          </div>
+                          )}
                         </article>
                       );
                     })}

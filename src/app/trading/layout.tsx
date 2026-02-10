@@ -25,31 +25,31 @@ export default function TradingLayout({ children }: { children: React.ReactNode 
   return (
     <>
       <PriceTicker />
-      <div style={{ opacity: 0, animation: 'fadeIn 0.2s ease forwards' }}>
-        <div style={{
-          padding: '32px clamp(20px, 4vw, 48px) 0',
-          maxWidth: pathname.match(/^\/trading\/\d+$/) ? '1720px' : '1400px',
-          margin: '0 auto',
-        }}>
-          <header style={{ marginBottom: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <img src="/icons/clawdesk-mark.png" alt="" style={{ width: '48px', height: '48px', borderRadius: '10px' }} />
-              <div>
-                <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4vw, 36px)' }}>{title}</h1>
-                <div style={{ color: 'var(--muted)', fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
-                  {subtitle}
-                </div>
+      <div style={{
+        padding: '32px clamp(20px, 4vw, 48px) 0',
+        maxWidth: pathname.match(/^\/trading\/\d+$/) ? '1720px' : '1400px',
+        margin: '0 auto',
+      }}>
+        <header style={{ marginBottom: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <img src="/icons/clawdesk-mark.png" alt="" style={{ width: '48px', height: '48px', borderRadius: '10px' }} />
+            <div>
+              <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4vw, 36px)' }}>{title}</h1>
+              <div style={{ color: 'var(--muted)', fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
+                {subtitle}
               </div>
             </div>
-          </header>
-          <TradingNav activeTab={activeTab} />
-        </div>
+          </div>
+        </header>
+        <TradingNav activeTab={activeTab} />
+      </div>
+      <div key={pathname} style={{ opacity: 0, animation: 'pageFade 0.25s ease forwards' }}>
         {children}
       </div>
       <style jsx global>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(4px); }
-          to { opacity: 1; transform: translateY(0); }
+        @keyframes pageFade {
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
       `}</style>
     </>

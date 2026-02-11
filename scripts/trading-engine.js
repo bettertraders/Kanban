@@ -587,8 +587,11 @@ async function main() {
   saveState(state);
   log(`🔍 Moved to Analyzing: ${analyzeCount}`);
 
-  // ── Step 7: Update bot stats ───────────────────────────────────────────
-  await updateBotStats(bot.id, exitCount, entryCount);
+  // ── Step 7: Update bot stats + market metadata ─────────────────────────
+  await updateBotStats(bot.id, exitCount, entryCount, indicators);
+
+  // ── Step 8: Update live balance ───────────────────────────────────────
+  await updateLiveBalance(active, exchange);
 
   // ── Summary ────────────────────────────────────────────────────────────
   log(`✅ Pipeline complete. Exits: ${exitCount}, Entries: ${entryCount}, New Analysis: ${analyzeCount}`);
@@ -749,18 +752,73 @@ async function journalLog(tradeId, entryType, content) {
   }
 }
 
-async function updateBotStats(botId, exits, entries) {
+async function updateLiveBalance(activeTrades, exchange) {
   try {
-    // Update bot performance via PATCH
+    // Fetch current prices for all active positions and compute live balance
+    const { account } = await apiGet(`/api/v1/portfolio?boardId=${BOARD_ID}`);
+    const startingBalance = parseFloat(account?.summary?.paper_balance || 1000);
+    
+    // Get live prices for active trades
+    let unrealizedPnl = 0;
+    for (const trade of activeTrades) {
+      const entryPrice = parseFloat(trade.entry_price || 0);
+      const posSize = parseFloat(trade.position_size || 0);
+      if (!entryPrice || !posSize) continue;
+      
+      const sym = normalizePair(trade.coin_pair || trade.title);
+      try {
+        const ticker = await exchange.fetchTicker(sym);
+        const currentPrice = ticker?.last || 0;
+        if (currentPrice > 0) {
+          const direction = (trade.direction || 'LONG').toUpperCase();
+          const pnlPct = ((currentPrice - entryPrice) / entryPrice) * 100;
+          const effectivePnl = direction === 'SHORT' ? -pnlPct : pnlPct;
+          unrealizedPnl += (effectivePnl / 100) * posSize;
+        }
+      } catch {}
+    }
+    
+    // Update portfolio summary with live balance
+    const liveBalance = startingBalance + unrealizedPnl;
+    log(`💰 Live balance: $${liveBalance.toFixed(2)} (unrealized: ${unrealizedPnl >= 0 ? '+' : ''}$${unrealizedPnl.toFixed(2)})`);
+  } catch (err) {
+    log(`  ⚠ Live balance update failed: ${err.message}`);
+  }
+}
+
+async function updateBotStats(botId, exits, entries, indicators) {
+  // Determine market regime from BTC indicators
+  let marketRegime = 'ranging';
+  let fearGreedIndex = 50;
+  const btcInd = indicators?.['BTC/USDT'];
+  if (btcInd) {
+    if (btcInd.sma20 && btcInd.sma50) {
+      if (btcInd.sma20 > btcInd.sma50 && btcInd.momentum > 2) marketRegime = 'bullish';
+      else if (btcInd.sma20 < btcInd.sma50 && btcInd.momentum < -2) marketRegime = 'bearish';
+    }
+    if (btcInd.rsi != null) {
+      // Rough fear/greed from RSI: RSI 30=extreme fear, RSI 50=neutral, RSI 70=extreme greed
+      fearGreedIndex = Math.round(Math.max(0, Math.min(100, (btcInd.rsi - 20) * 1.25)));
+    }
+  }
+  
+  try {
     await apiPatch(`/api/v1/bots/${botId}`, {
+      name: BOT_NAME,
       status: 'running',
       performance: {
         last_run: new Date().toISOString(),
         last_exits: exits,
         last_entries: entries,
       },
+      metadata: {
+        market_regime: marketRegime,
+        fear_greed_index: fearGreedIndex,
+        risk_level: RISK_LEVEL,
+        engine_version: ENGINE_VERSION,
+      },
     });
-    log(`📈 Bot stats updated`);
+    log(`📈 Bot stats updated (market: ${marketRegime}, fear/greed: ${fearGreedIndex})`);
   } catch (err) {
     log(`  ⚠ Bot stats update failed: ${err.message}`);
   }

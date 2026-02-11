@@ -1,0 +1,24 @@
+{
+  "timestamp": 1770844501280,
+  "alerts": [],
+  "fearGreed": {
+    "value": 11,
+    "label": "Extreme Fear",
+    "change24h": 2
+  },
+  "btcDominance": {
+    "current": 56.83,
+    "trend": "stable"
+  },
+  "totalMarketCap": {
+    "usd": 2379168215642,
+    "change24h": -1.16
+  },
+  "gold": {
+    "paxgPrice": 5102.02,
+    "change1h": 0.04,
+    "change4h": 0.04,
+    "btcCorrelation": "neutral"
+  },
+  "newsFlags": []
+}

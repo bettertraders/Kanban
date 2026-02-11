@@ -16,7 +16,7 @@ const path = require('path');
 const API_BASE = 'https://clawdesk.ai';
 const BOARD_ID = 15; // Paper Trading board (Michael's)
 const BOT_NAME = 'Penny Paper Trader';
-const ENGINE_VERSION = '3.2';
+const ENGINE_VERSION = '3.3';
 const isPennyReview = process.argv.includes('--penny-review');
 const STRATEGY_STYLE = 'swing';
 const STRATEGY_SUBSTYLE = 'momentum';
@@ -258,6 +258,151 @@ function calcVWAP(ohlcv) {
   return cumVol > 0 ? cumTPV / cumVol : null;
 }
 
+// ─── Funding Rate (On-Chain Data) ────────────────────────────────────────────
+
+async function fetchFundingRate(exchange, symbol) {
+  try {
+    const pair = symbol.replace('/', '');
+    const res = await fetch(`https://fapi.binance.com/fapi/v1/fundingRate?symbol=${pair}&limit=1`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data && data.length > 0) {
+      return parseFloat(data[0].fundingRate);
+    }
+  } catch {}
+  return null;
+}
+
+// ─── Multi-Timeframe Confluence Scoring ──────────────────────────────────────
+
+function calcMultiTimeframeScore(ind) {
+  let bullSignals = 0;
+  let bearSignals = 0;
+
+  if (ind.rsi < 40) bullSignals++;
+  if (ind.rsi > 60) bearSignals++;
+  if (ind.sma20 && ind.sma50 && ind.sma20 > ind.sma50) bullSignals++;
+  if (ind.sma20 && ind.sma50 && ind.sma20 < ind.sma50) bearSignals++;
+  if (ind.macdHistogram > 0) bullSignals++;
+  if (ind.macdHistogram < 0) bearSignals++;
+  if (ind.momentum > 0) bullSignals++;
+  if (ind.momentum < 0) bearSignals++;
+  if (ind.adx && ind.adx.adx > 25) {
+    if (ind.adx.plusDI > ind.adx.minusDI) bullSignals++;
+    else bearSignals++;
+  }
+  if (ind.bollingerBands) {
+    if (ind.bollingerBands.percentB < 0.2) bullSignals++;
+    if (ind.bollingerBands.percentB > 0.8) bearSignals++;
+  }
+
+  const total = bullSignals + bearSignals;
+  if (total === 0) return { score: 50, direction: 'neutral', confluence: 0 };
+
+  const bullPct = bullSignals / total * 100;
+  const direction = bullSignals > bearSignals ? 'bullish' : bearSignals > bullSignals ? 'bearish' : 'neutral';
+  const confluence = Math.abs(bullSignals - bearSignals);
+
+  return { score: Math.round(bullPct), direction, confluence, bullSignals, bearSignals };
+}
+
+// ─── Execution Quality Monitoring ────────────────────────────────────────────
+
+function calcExecutionQuality(trade, currentPrice) {
+  const meta = typeof trade.metadata === 'string' ? JSON.parse(trade.metadata || '{}') : (trade.metadata || {});
+  if (!meta.execution?.signalPrice) return null;
+
+  const slippage = ((parseFloat(trade.entry_price) - meta.execution.signalPrice) / meta.execution.signalPrice) * 100;
+  const direction = (trade.direction || 'LONG').toUpperCase();
+  const effectiveSlippage = direction === 'SHORT' ? -slippage : slippage;
+
+  return {
+    signalPrice: meta.execution.signalPrice,
+    entryPrice: parseFloat(trade.entry_price),
+    slippagePct: Math.round(effectiveSlippage * 100) / 100,
+    quality: effectiveSlippage < 0.1 ? 'excellent' : effectiveSlippage < 0.5 ? 'good' : effectiveSlippage < 1 ? 'fair' : 'poor'
+  };
+}
+
+// ─── Adaptive Cycle Frequency ────────────────────────────────────────────────
+
+function suggestCycleFrequency(indicators) {
+  const btc = indicators['BTC/USDT'];
+  if (!btc) return { suggestedMinutes: 120, reason: 'Default — no BTC data' };
+
+  const atrPct = btc.atr ? (btc.atr / btc.currentPrice) * 100 : 2;
+  const volatility = Math.abs(btc.momentum4h || 0);
+
+  if (volatility > 5 || atrPct > 5) {
+    return { suggestedMinutes: 30, reason: `High volatility (ATR ${atrPct.toFixed(1)}%, 4h move ${volatility.toFixed(1)}%) — review more frequently` };
+  }
+  if (volatility > 3 || atrPct > 3.5) {
+    return { suggestedMinutes: 60, reason: `Elevated volatility — hourly reviews recommended` };
+  }
+  if (volatility < 1 && atrPct < 2) {
+    return { suggestedMinutes: 240, reason: `Low volatility (ATR ${atrPct.toFixed(1)}%) — less frequent reviews save cost` };
+  }
+  return { suggestedMinutes: 120, reason: `Normal volatility — standard 2h cycle` };
+}
+
+// ─── Portfolio Exposure ──────────────────────────────────────────────────────
+
+function calcPortfolioExposure(activeTrades) {
+  const exposure = { long: 0, short: 0, groups: {} };
+
+  for (const t of activeTrades) {
+    const dir = (t.direction || 'LONG').toUpperCase();
+    const size = parseFloat(t.position_size || 0);
+    const group = getCorrelationGroup(normalizePair(t.coin_pair));
+
+    if (dir === 'LONG') exposure.long += size;
+    else exposure.short += size;
+
+    if (!exposure.groups[group]) exposure.groups[group] = { long: 0, short: 0, coins: [] };
+    exposure.groups[group][dir.toLowerCase()] += size;
+    exposure.groups[group].coins.push(normalizePair(t.coin_pair));
+  }
+
+  exposure.netExposure = exposure.long - exposure.short;
+  exposure.grossExposure = exposure.long + exposure.short;
+  exposure.longPct = exposure.grossExposure > 0 ? (exposure.long / exposure.grossExposure * 100) : 0;
+  exposure.isBalanced = Math.abs(exposure.longPct - 50) < 20;
+
+  return exposure;
+}
+
+// ─── News-Aware Risk Adjustment ──────────────────────────────────────────────
+
+function calcNewsRiskAdjustment(macroPulse) {
+  if (!macroPulse?.newsFlags?.length) return { adjustment: 'none', reason: 'No significant news' };
+
+  const highRiskKeywords = ['hack', 'SEC', 'ban', 'crash', 'sanctions', 'lawsuit'];
+  const medRiskKeywords = ['regulation', 'Fed', 'rate', 'inflation', 'recession'];
+  const positiveKeywords = ['ETF', 'rally', 'adoption'];
+
+  let riskLevel = 'none';
+  let reasons = [];
+
+  for (const flag of macroPulse.newsFlags) {
+    const kw = flag.keyword?.toLowerCase() || '';
+    if (highRiskKeywords.some(k => kw.includes(k))) {
+      riskLevel = 'high';
+      reasons.push(`${flag.source}: ${flag.title}`);
+    } else if (medRiskKeywords.some(k => kw.includes(k))) {
+      if (riskLevel !== 'high') riskLevel = 'medium';
+      reasons.push(`${flag.source}: ${flag.title}`);
+    } else if (positiveKeywords.some(k => kw.includes(k))) {
+      reasons.push(`[POSITIVE] ${flag.source}: ${flag.title}`);
+    }
+  }
+
+  let recommendation = 'Normal trading';
+  if (riskLevel === 'high') recommendation = 'Reduce position sizes, tighten stops, consider exiting speculative trades';
+  else if (riskLevel === 'medium') recommendation = 'Caution — monitor closely, avoid new entries until clarity';
+
+  return { adjustment: riskLevel, recommendation, headlines: reasons };
+}
+
 // ─── Binance OHLCV ──────────────────────────────────────────────────────────
 
 async function fetchOHLCV(exchange, symbol) {
@@ -269,6 +414,18 @@ async function fetchOHLCV(exchange, symbol) {
 
     const macd = calcMACD(closes);
     const atr = calcATR(ohlcv, 14);
+    const fundingRate = await fetchFundingRate(exchange, symbol);
+
+    const partialInd = {
+      rsi: calcRSI(closes, 14),
+      sma20: calcSMA(closes, 20),
+      sma50: calcSMA(closes, 50),
+      macdHistogram: macd.histogram,
+      momentum: calcMomentum(closes, 10),
+      adx: calcADX(ohlcv),
+      bollingerBands: calcBollingerBands(closes),
+    };
+    const multiTimeframe = calcMultiTimeframeScore(partialInd);
 
     return {
       symbol,
@@ -289,6 +446,8 @@ async function fetchOHLCV(exchange, symbol) {
       bollingerBands: calcBollingerBands(closes),
       adx: calcADX(ohlcv),
       vwap: calcVWAP(ohlcv),
+      fundingRate,
+      multiTimeframe,
     };
   } catch (err) {
     log(`  ⚠ Failed to fetch OHLCV for ${symbol}: ${err.message}`);
@@ -838,6 +997,9 @@ async function pennyReviewMode(exchange) {
       } : {},
       trailingStop: meta.trailingStopPrice || null,
       partialExitTaken: !!meta.partialExitTaken,
+      executionQuality: calcExecutionQuality(t, ind?.currentPrice || 0),
+      fundingRate: ind?.fundingRate || null,
+      multiTimeframe: ind?.multiTimeframe || null,
       dcaOpportunity: (
         pnlPct > 3 &&
         ind?.sma20 && 
@@ -858,6 +1020,8 @@ async function pennyReviewMode(exchange) {
       currentPrice: ind?.currentPrice || 0,
       owenScore: c.score || 0,
       owenReason: c.reason || '',
+      fundingRate: ind?.fundingRate || null,
+      multiTimeframe: ind?.multiTimeframe || null,
       indicators: ind ? {
         rsi: ind.rsi ? Math.round(ind.rsi * 10) / 10 : null,
         sma20: ind.sma20 ? Math.round(ind.sma20 * 100) / 100 : null,
@@ -915,6 +1079,9 @@ async function pennyReviewMode(exchange) {
     activeTrades: activeOutput,
     watchlist: watchlistOutput,
     availableStrategies: getAvailableStrategies(),
+    suggestedCycle: suggestCycleFrequency(indicators),
+    portfolioExposure: calcPortfolioExposure(activeTrades),
+    newsRiskAdjustment: calcNewsRiskAdjustment(macroPulse),
   };
 
   // Output JSON to stdout for Penny to consume
@@ -1016,7 +1183,7 @@ async function main() {
     return;
   }
 
-  log('🚀 TBO Trading Engine v3.2 — Monitor Mode');
+  log('🚀 TBO Trading Engine v3.3 — Monitor Mode');
 
   // ── Step -1: Fetch risk level from trading settings ────────────────────
   // Try DB direct read (API requires user auth, engine uses API key)
@@ -1138,6 +1305,10 @@ async function main() {
                 direction: flipDir,
                 strategy: decision.flipReason,
                 flippedFrom: trade.id,
+                execution: {
+                  signalPrice: ind.currentPrice,
+                  signalTime: new Date().toISOString(),
+                },
               }),
             });
             await journalLog(flipTrade?.trade?.id || trade.id, 'entry', `Flip ${origDir} → ${flipDir}: ${sym} @ ${ind.currentPrice} ($${flipSize.toFixed(2)})`);
@@ -1258,6 +1429,10 @@ async function main() {
             entry_reason: entrySignal.reason,
             direction: dir,
             strategy: entrySignal.reason,
+            execution: {
+              signalPrice: ind.currentPrice,
+              signalTime: new Date().toISOString(),
+            },
           }),
         });
         // Deduct from paper balance

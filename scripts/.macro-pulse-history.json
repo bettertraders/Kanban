@@ -1,0 +1,15 @@
+{
+  "btcDominance": 56.83254242870447,
+  "paxgPriceLog": [
+    {
+      "price": 5100,
+      "ts": 1770844372367
+    },
+    {
+      "price": 5102.02,
+      "ts": 1770844501280
+    }
+  ],
+  "paxgPrice1h": 5100,
+  "paxgPrice4h": 5100
+}

@@ -1307,8 +1307,8 @@ export default function TradingDashboardPage() {
                       offset += seg.pct;
                       return el;
                     })}
-                    <text x="18" y="17" textAnchor="middle" fill="var(--text)" fontSize="4.5" fontWeight="700">{tradingAmount ? formatCurrency(tradingAmount) : '$1,000'}</text>
-                    <text x="18" y="21" textAnchor="middle" fill="var(--muted)" fontSize="2.5">{allocationView ? 'allocation' : 'paper balance'}</text>
+                    <text x="18" y="17" textAnchor="middle" fill="var(--text)" fontSize="4.5" fontWeight="700">{formatCurrency(paperBalance || startingBalance)}</text>
+                    <text x="18" y="21" textAnchor="middle" fill="var(--muted)" fontSize="2.5">{allocationView ? 'allocation' : 'balance'}</text>
                   </svg>
                 );
               })()}

@@ -32,12 +32,12 @@ export default function TradingLayout({ children }: { children: React.ReactNode 
         margin: '0 auto',
         transition: 'max-width 0.3s ease',
       }}>
-        <header style={{ marginBottom: '10px' }}>
+        <header style={{ marginBottom: '10px', minHeight: '58px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <img src="/icons/clawdesk-mark.png" alt="" style={{ width: '48px', height: '48px', borderRadius: '10px' }} />
             <div>
-              <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4vw, 36px)' }}>{title}</h1>
-              <div style={{ color: 'var(--muted)', fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
+              <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4vw, 36px)', lineHeight: 1.1 }}>{title}</h1>
+              <div style={{ color: 'var(--muted)', fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase', lineHeight: 1.2 }}>
                 {subtitle}
               </div>
             </div>
@@ -45,15 +45,9 @@ export default function TradingLayout({ children }: { children: React.ReactNode 
         </header>
         <TradingNav activeTab={activeTab} />
       </div>
-      <div style={{ animation: 'pageFade 0.2s ease' }}>
+      <div style={{ minHeight: '60vh' }}>
         {children}
       </div>
-      <style jsx global>{`
-        @keyframes pageFade {
-          from { opacity: 0; transform: translateY(4px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </>
   );
 }

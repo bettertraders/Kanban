@@ -36,10 +36,10 @@ function fmtHold(seconds: number | null) {
 }
 
 const RANK_COLORS = ['#f5b544', '#9aa4b8', '#c57c4b'];
-const AVATARS: Record<string, string> = {
-  'Penny 🐱': '🐱',
-  'TBO Scalper Bot': '🤖',
-  'Swing Sentinel': '⚔️',
+const AVATARS: Record<string, { type: 'emoji' | 'img'; src: string }> = {
+  'Penny 🐱': { type: 'img', src: '/icons/penny.png' },
+  'TBO Scalper Bot': { type: 'emoji', src: '🤖' },
+  'Swing Sentinel': { type: 'emoji', src: '⚔️' },
 };
 
 /* ── Stat Card ───────────────────────────────────────── */
@@ -59,7 +59,7 @@ function StatCard({ label, value, sub, color }: { label: string; value: string; 
 /* ── Trader Card (Top 3) ─────────────────────────────── */
 function TraderCard({ trader, place }: { trader: Trader; place: number }) {
   const color = RANK_COLORS[place] || 'var(--muted)';
-  const avatar = trader.avatar || AVATARS[trader.trader_name] || '👤';
+  const avatarInfo = AVATARS[trader.trader_name] || { type: 'emoji' as const, src: trader.avatar || '👤' };
   const positive = trader.total_pnl >= 0;
 
   return (
@@ -88,9 +88,11 @@ function TraderCard({ trader, place }: { trader: Trader; place: number }) {
         <div style={{
           width: '48px', height: '48px', borderRadius: '14px',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '24px', background: `${color}20`,
+          fontSize: '24px', background: `${color}20`, overflow: 'hidden',
         }}>
-          {avatar}
+          {avatarInfo.type === 'img'
+            ? <img src={avatarInfo.src} alt="" style={{ width: '48px', height: '48px', borderRadius: '14px', objectFit: 'cover' }} />
+            : avatarInfo.src}
         </div>
         <div>
           <div style={{ fontSize: '17px', fontWeight: 700 }}>{trader.trader_name}</div>
@@ -164,19 +166,8 @@ export default function LeaderboardPage() {
         const json = await res.json();
         let list: Trader[] = Array.isArray(json?.leaderboard) ? json.leaderboard : [];
 
-        // Ensure Penny is present with emoji
-        list = list.map(t => t.trader_name === 'Penny' ? { ...t, trader_name: 'Penny 🐱', avatar: '🐱' } : t);
-        const hasPenny = list.some(t => t.trader_name.includes('Penny'));
-
-        if (!hasPenny) {
-          list.unshift({
-            rank: 1, trader_id: 3, trader_name: 'Penny 🐱', board_name: 'Paper Trading Challenge',
-            board_id: 15, total_trades: 5, wins: 3, losses: 2, open_trades: 5,
-            win_rate: 60, total_pnl: 12.40, total_volume: 1000, avg_trade: 2.48,
-            best_trade: 8.20, worst_trade: -4.60, avg_hold_seconds: 14400,
-            last_trade_at: new Date().toISOString(), return_pct: 1.24, avatar: '🐱',
-          });
-        }
+        // Rename Penny with emoji
+        list = list.map(t => t.trader_name === 'Penny' ? { ...t, trader_name: 'Penny 🐱' } : t);
 
         // Dummy bots with realistic data
         const dummyBots: Trader[] = [

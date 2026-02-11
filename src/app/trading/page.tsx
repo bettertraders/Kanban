@@ -927,11 +927,11 @@ export default function TradingDashboardPage() {
 
             {/* Penny Card */}
             <div style={{ background: '#141428', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                <img src="/icons/penny.png" alt="Penny" style={{ width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0 }} />
-                <span style={{ fontSize: '12px', color: '#7b7dff', fontWeight: 600 }}>Penny</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                <img src="/icons/penny.png" alt="Penny" style={{ width: '52px', height: '52px', borderRadius: '50%', flexShrink: 0 }} />
+                <span style={{ fontSize: '14px', color: '#7b7dff', fontWeight: 600 }}>Penny</span>
               </div>
-              <div style={{ fontSize: '14px', lineHeight: 1.5, color: '#ccc' }}>{pennyUpdate}</div>
+              <div style={{ fontSize: '15px', lineHeight: 1.6, color: '#ddd' }}>{pennyUpdate}</div>
             </div>
           </div>
 
@@ -961,38 +961,63 @@ export default function TradingDashboardPage() {
 
           {/* Two-column: Holdings + How It Works */}
           <div className="simple-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-            {/* What You Own */}
+            {/* What You Own — Pie + Legend */}
             <div style={{ background: '#141428', borderRadius: '16px', padding: '20px' }}>
-              <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', color: 'var(--text)' }}>What You Own Right Now</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '14px', color: 'var(--text)' }}>What You Own Right Now</div>
               {(() => {
                 const holdings = portfolio?.activeHoldings ?? [];
                 const totalPositionValue = holdings.reduce((s, h) => s + (h.position_size || 0), 0);
                 const cash = Math.max(0, paperBalance - totalPositionValue);
-                const rows = holdings.map(h => {
+                const total = totalPositionValue + cash;
+                const pieColors = ['#7b7dff', '#00e676', '#f5b544', '#e040fb', '#ff5252', '#4ade80', '#6b6b8a'];
+                const rows = holdings.map((h, i) => {
                   const sym = h.coin_pair.replace(/\/?(USDT?)$/i, '');
                   const coin = getCoinDisplay(sym);
                   const pulseCoin = pulse.find(c => c.pair?.includes(sym));
                   const change = pulseCoin?.change24h ?? 0;
-                  return { name: coin.name, icon: coin.icon, iconBg: coin.iconBg, iconColor: coin.iconColor, value: h.position_size, change, desc: 'A small piece' };
+                  const pct = total > 0 ? (h.position_size / total) * 100 : 0;
+                  return { name: coin.name, icon: coin.icon, iconBg: coin.iconBg, iconColor: coin.iconColor, value: h.position_size, change, pct, color: pieColors[i % pieColors.length] };
                 });
-                rows.push({ name: 'Cash', icon: '$', iconBg: '#44444422', iconColor: '#888', value: cash, change: 0, desc: 'Ready to invest' });
-                return rows.map(row => (
-                  <div key={row.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #1a1a2e' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div style={{ width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700, background: row.iconBg, color: row.iconColor }}>{row.icon}</div>
-                      <div>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>{row.name}</div>
-                        <div style={{ fontSize: '11px', color: '#666' }}>{row.desc}</div>
+                const cashPct = total > 0 ? (cash / total) * 100 : 100;
+                rows.push({ name: 'Cash', icon: '$', iconBg: '#44444422', iconColor: '#888', value: cash, change: 0, pct: cashPct, color: '#444' });
+
+                // Build pie chart
+                let offset = 25;
+                return (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      {/* Pie */}
+                      <div style={{ flexShrink: 0 }}>
+                        <svg viewBox="0 0 36 36" style={{ width: '140px', height: '140px' }}>
+                          {rows.map((seg) => {
+                            const el = <circle key={seg.name} r="15.9" cx="18" cy="18" fill="none" stroke={seg.color} strokeWidth="3.5" strokeDasharray={`${seg.pct} ${100 - seg.pct}`} strokeDashoffset={`${-offset + 25}`} style={{ transition: 'all 0.4s ease' }} />;
+                            offset += seg.pct;
+                            return el;
+                          })}
+                          <text x="18" y="17.5" textAnchor="middle" fill="var(--text)" fontSize="4" fontWeight="700">{formatCurrency(paperBalance)}</text>
+                          <text x="18" y="21" textAnchor="middle" fill="#888" fontSize="2.2">balance</text>
+                        </svg>
+                      </div>
+                      {/* Legend */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        {rows.map(row => (
+                          <div key={row.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #1a1a2e' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: row.color, flexShrink: 0 }} />
+                              <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text)' }}>{row.name}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '12px', color: row.name === 'Cash' ? '#888' : row.change >= 0 ? '#00e676' : '#ff5252' }}>
+                                {row.name === 'Cash' ? 'safe' : `${row.change >= 0 ? '▲' : '▼'}${Math.abs(row.change).toFixed(1)}%`}
+                              </span>
+                              <span style={{ fontSize: '12px', color: '#888', minWidth: '32px', textAlign: 'right' }}>{row.pct.toFixed(0)}%</span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>{formatCurrency(row.value)}</div>
-                      <div style={{ fontSize: '11px', color: row.name === 'Cash' ? '#888' : row.change >= 0 ? '#00e676' : '#ff5252' }}>
-                        {row.name === 'Cash' ? 'safe' : `${row.change >= 0 ? '▲' : '▼'} ${Math.abs(row.change).toFixed(1)}%`}
-                      </div>
-                    </div>
-                  </div>
-                ));
+                  </>
+                );
               })()}
             </div>
 

@@ -131,13 +131,18 @@ function CumulativePnlChart({ trades }: { trades: Trade[] }) {
   );
 }
 
-/* ── Pattern Detection ───────────────────────────────── */
-function detectPatterns(closed: Trade[]) {
-  const patterns: { icon: string; label: string; detail: string; color: string }[] = [];
-  if (closed.length < 3) return patterns;
+/* ── Pattern Detection (Advanced) ────────────────────── */
+type Pattern = { icon: string; label: string; detail: string; color: string; tag: string };
 
-  // Winning/losing streak
+function detectPatterns(closed: Trade[]) {
+  const patterns: Pattern[] = [];
+  if (closed.length < 2) return patterns;
+
+  const wins = closed.filter(t => t.column_name === 'Wins');
+  const losses = closed.filter(t => t.column_name === 'Losses');
   const sorted = [...closed].sort((a, b) => new Date(a.exited_at || a.created_at).getTime() - new Date(b.exited_at || b.created_at).getTime());
+
+  // ── 1. Win/Loss Streak ──
   let streak = 0; let streakType = '';
   for (let i = sorted.length - 1; i >= 0; i--) {
     const isWin = sorted[i].column_name === 'Wins';
@@ -147,11 +152,110 @@ function detectPatterns(closed: Trade[]) {
   }
   if (streak >= 2) {
     patterns.push(streakType === 'win'
-      ? { icon: '🔥', label: `${streak}-Trade Win Streak`, detail: 'Momentum is on your side', color: 'var(--green)' }
-      : { icon: '❄️', label: `${streak}-Trade Loss Streak`, detail: 'Consider pausing to reassess', color: 'var(--red)' });
+      ? { icon: '🔥', label: `${streak}-Trade Win Streak`, detail: 'Momentum is on your side', color: 'var(--green)', tag: 'Streak' }
+      : { icon: '❄️', label: `${streak}-Trade Loss Streak`, detail: 'Consider pausing to reassess', color: 'var(--red)', tag: 'Streak' });
   }
 
-  // Best performing coin
+  // ── 2. MACD Confirmation Edge ──
+  const withMacd = closed.filter(t => t.macd_status);
+  if (withMacd.length >= 3) {
+    const macdBullish = withMacd.filter(t => (t.macd_status || '').toLowerCase().includes('bull') || (t.macd_status || '').toLowerCase().includes('positive') || (t.macd_status || '').toLowerCase().includes('above'));
+    const macdOther = withMacd.filter(t => !macdBullish.includes(t));
+    const bullWinRate = macdBullish.length ? (macdBullish.filter(t => t.column_name === 'Wins').length / macdBullish.length) * 100 : 0;
+    const otherWinRate = macdOther.length ? (macdOther.filter(t => t.column_name === 'Wins').length / macdOther.length) * 100 : 0;
+    const improvement = bullWinRate - otherWinRate;
+    if (macdBullish.length >= 2 && improvement > 10) {
+      patterns.push({
+        icon: '📊', tag: 'Actionable',
+        label: `MACD confirmation improves win rate by ${improvement.toFixed(0)}%`,
+        detail: `Trades with bullish MACD at entry won ${bullWinRate.toFixed(0)}% vs ${otherWinRate.toFixed(0)}% without.`,
+        color: 'var(--green)',
+      });
+    }
+  }
+
+  // ── 3. Loss Hold Time vs Win Hold Time ──
+  const winHolds = wins.map(t => holdTimeMs(t.entered_at, t.exited_at)).filter((v): v is number => v !== null);
+  const lossHolds = losses.map(t => holdTimeMs(t.entered_at, t.exited_at)).filter((v): v is number => v !== null);
+  if (winHolds.length >= 2 && lossHolds.length >= 2) {
+    const avgWinHold = winHolds.reduce((a, b) => a + b, 0) / winHolds.length;
+    const avgLossHold = lossHolds.reduce((a, b) => a + b, 0) / lossHolds.length;
+    const ratio = avgLossHold / (avgWinHold || 1);
+    const fmtH = (ms: number) => { const h = ms / 3600000; return h >= 24 ? `${(h / 24).toFixed(1)}d` : `${h.toFixed(1)}h`; };
+    if (ratio > 1.5) {
+      patterns.push({
+        icon: '⚠️', tag: 'Warning',
+        label: `Losses hold ${ratio.toFixed(1)}x longer than wins`,
+        detail: `Average loss held ${fmtH(avgLossHold)} vs ${fmtH(avgWinHold)} for wins. Consider tighter time-based stops.`,
+        color: '#f5b544',
+      });
+    } else if (ratio < 0.7) {
+      patterns.push({
+        icon: '✅', tag: 'Positive',
+        label: 'Quick loss cutting',
+        detail: `Losses exit in ${fmtH(avgLossHold)} vs ${fmtH(avgWinHold)} for wins. Good discipline.`,
+        color: 'var(--green)',
+      });
+    }
+  }
+
+  // ── 4. Oversold Bounce — Large Cap vs Small Cap ──
+  const LARGE_CAPS = ['BTC', 'ETH', 'SOL', 'XRP', 'BNB'];
+  const oversold = closed.filter(t => n(t.rsi_value) > 0 && n(t.rsi_value) < 40);
+  if (oversold.length >= 3) {
+    const largeCap = oversold.filter(t => LARGE_CAPS.includes(coinBase(t.coin_pair)));
+    const smallCap = oversold.filter(t => !LARGE_CAPS.includes(coinBase(t.coin_pair)));
+    const lcWinRate = largeCap.length ? (largeCap.filter(t => t.column_name === 'Wins').length / largeCap.length) * 100 : 0;
+    const scWinRate = smallCap.length ? (smallCap.filter(t => t.column_name === 'Wins').length / smallCap.length) * 100 : 0;
+    if (largeCap.length >= 2 && smallCap.length >= 1 && lcWinRate - scWinRate > 15) {
+      const lcCoins = [...new Set(largeCap.map(t => coinBase(t.coin_pair)))].join('/');
+      patterns.push({
+        icon: '📊', tag: 'Insight',
+        label: 'Oversold bounces work best on large caps',
+        detail: `${lcCoins} oversold entries: ${lcWinRate.toFixed(0)}% win. Mid/small caps: ${scWinRate.toFixed(0)}% win.`,
+        color: '#7b7dff',
+      });
+    }
+  }
+
+  // ── 5. Short vs Long Performance ──
+  const shorts = closed.filter(t => (t.direction || '').toUpperCase() === 'SHORT');
+  const longs = closed.filter(t => (t.direction || '').toUpperCase() === 'LONG');
+  if (shorts.length >= 1 && longs.length >= 1) {
+    const shortWR = shorts.length ? (shorts.filter(t => t.column_name === 'Wins').length / shorts.length) * 100 : 0;
+    const longWR = longs.length ? (longs.filter(t => t.column_name === 'Wins').length / longs.length) * 100 : 0;
+    if (shortWR > longWR && shortWR >= 60) {
+      patterns.push({
+        icon: '🩳', tag: 'Insight',
+        label: 'Short trades show promise in current regime',
+        detail: `Shorts: ${shortWR.toFixed(0)}% win rate (${shorts.length} trade${shorts.length > 1 ? 's' : ''}). Longs: ${longWR.toFixed(0)}%. Market may be bearish — lean into shorts.`,
+        color: '#7b7dff',
+      });
+    } else if (longWR > shortWR && longWR >= 60) {
+      patterns.push({
+        icon: '📈', tag: 'Insight',
+        label: 'Long bias is working',
+        detail: `Longs: ${longWR.toFixed(0)}% win rate (${longs.length} trades). Shorts: ${shortWR.toFixed(0)}%. Stick with the trend.`,
+        color: 'var(--green)',
+      });
+    }
+  }
+
+  // ── 6. Risk/Reward Ratio ──
+  const winAmts = wins.map(t => n(t.pnl_dollar));
+  const lossAmts = losses.map(t => Math.abs(n(t.pnl_dollar)));
+  if (winAmts.length && lossAmts.length) {
+    const avgWin = winAmts.reduce((a, b) => a + b, 0) / winAmts.length;
+    const avgLoss = lossAmts.reduce((a, b) => a + b, 0) / lossAmts.length;
+    const rr = avgWin / (avgLoss || 1);
+    patterns.push(rr >= 1.5
+      ? { icon: '📐', tag: 'Positive', label: `${rr.toFixed(1)}:1 Risk/Reward`, detail: 'Wins outsize losses — strong edge', color: 'var(--green)' }
+      : rr < 1
+        ? { icon: '⚠️', tag: 'Warning', label: `${rr.toFixed(1)}:1 Risk/Reward`, detail: 'Losses bigger than wins — tighten stops', color: 'var(--red)' }
+        : { icon: '📐', tag: 'Neutral', label: `${rr.toFixed(1)}:1 Risk/Reward`, detail: 'Decent but room to improve', color: '#f5b544' });
+  }
+
+  // ── 7. Best Performing Coin ──
   const coinPnl = new Map<string, number>();
   for (const t of closed) {
     const c = coinBase(t.coin_pair);
@@ -159,24 +263,27 @@ function detectPatterns(closed: Trade[]) {
   }
   const bestCoin = [...coinPnl.entries()].sort((a, b) => b[1] - a[1])[0];
   if (bestCoin && bestCoin[1] > 0) {
-    patterns.push({ icon: '⭐', label: `${bestCoin[0]} is your best coin`, detail: `${fmt$(bestCoin[1])} total profit`, color: 'var(--green)' });
+    patterns.push({ icon: '⭐', tag: 'Insight', label: `${bestCoin[0]} is your best coin`, detail: `${fmt$(bestCoin[1])} total profit`, color: 'var(--green)' });
   }
 
-  // Average win vs loss size
-  const winAmts = closed.filter(t => t.column_name === 'Wins').map(t => n(t.pnl_dollar));
-  const lossAmts = closed.filter(t => t.column_name === 'Losses').map(t => Math.abs(n(t.pnl_dollar)));
-  if (winAmts.length && lossAmts.length) {
-    const avgWin = winAmts.reduce((a, b) => a + b, 0) / winAmts.length;
-    const avgLoss = lossAmts.reduce((a, b) => a + b, 0) / lossAmts.length;
-    const rr = avgWin / (avgLoss || 1);
-    patterns.push(rr >= 1.5
-      ? { icon: '📐', label: `${rr.toFixed(1)}:1 Risk/Reward`, detail: 'Wins outsize losses — strong edge', color: 'var(--green)' }
-      : rr < 1
-        ? { icon: '⚠️', label: `${rr.toFixed(1)}:1 Risk/Reward`, detail: 'Losses bigger than wins — tighten stops', color: 'var(--red)' }
-        : { icon: '📐', label: `${rr.toFixed(1)}:1 Risk/Reward`, detail: 'Decent but room to improve', color: '#f5b544' });
+  // ── 8. Confidence Score Edge ──
+  const withConf = closed.filter(t => t.confidence_score != null);
+  if (withConf.length >= 4) {
+    const highConf = withConf.filter(t => (t.confidence_score || 0) >= 70);
+    const lowConf = withConf.filter(t => (t.confidence_score || 0) < 70);
+    const highWR = highConf.length ? (highConf.filter(t => t.column_name === 'Wins').length / highConf.length) * 100 : 0;
+    const lowWR = lowConf.length ? (lowConf.filter(t => t.column_name === 'Wins').length / lowConf.length) * 100 : 0;
+    if (highConf.length >= 2 && highWR - lowWR > 15) {
+      patterns.push({
+        icon: '🎯', tag: 'Actionable',
+        label: `High-confidence trades win ${(highWR - lowWR).toFixed(0)}% more`,
+        detail: `Score ≥70: ${highWR.toFixed(0)}% win rate (${highConf.length} trades). Below 70: ${lowWR.toFixed(0)}%. Trust your signals.`,
+        color: 'var(--green)',
+      });
+    }
   }
 
-  // Time-of-day edge
+  // ── 9. Time-of-Day Edge ──
   const hourWins = new Map<number, number>();
   const hourTotal = new Map<number, number>();
   for (const t of closed) {
@@ -191,9 +298,26 @@ function detectPatterns(closed: Trade[]) {
     const wr = (hourWins.get(h) || 0) / total;
     if (wr > bestWR) { bestWR = wr; bestHour = h; bestCount = total; }
   }
-  if (bestHour >= 0 && bestWR > 0.6 && bestCount >= 3) {
-    const period = bestHour < 12 ? `${bestHour}AM` : bestHour === 12 ? '12PM' : `${bestHour - 12}PM`;
-    patterns.push({ icon: '🕐', label: `Best entries around ${period}`, detail: `${(bestWR * 100).toFixed(0)}% win rate (${bestCount} trades)`, color: '#7b7dff' });
+  if (bestHour >= 0 && bestWR > 0.6 && bestCount >= 2) {
+    const period = bestHour < 12 ? `${bestHour === 0 ? 12 : bestHour}AM` : bestHour === 12 ? '12PM' : `${bestHour - 12}PM`;
+    patterns.push({ icon: '🕐', tag: 'Insight', label: `Best entries around ${period}`, detail: `${(bestWR * 100).toFixed(0)}% win rate (${bestCount} trades)`, color: '#7b7dff' });
+  }
+
+  // ── 10. Volume Assessment Edge ──
+  const withVol = closed.filter(t => t.volume_assessment);
+  if (withVol.length >= 3) {
+    const highVol = withVol.filter(t => (t.volume_assessment || '').toLowerCase().includes('high') || (t.volume_assessment || '').toLowerCase().includes('strong'));
+    const lowVol = withVol.filter(t => !highVol.includes(t));
+    const hvWR = highVol.length ? (highVol.filter(t => t.column_name === 'Wins').length / highVol.length) * 100 : 0;
+    const lvWR = lowVol.length ? (lowVol.filter(t => t.column_name === 'Wins').length / lowVol.length) * 100 : 0;
+    if (highVol.length >= 2 && hvWR - lvWR > 10) {
+      patterns.push({
+        icon: '📊', tag: 'Actionable',
+        label: `High volume entries win ${(hvWR - lvWR).toFixed(0)}% more`,
+        detail: `Strong volume: ${hvWR.toFixed(0)}% win rate. Low volume: ${lvWR.toFixed(0)}%. Wait for volume confirmation.`,
+        color: 'var(--green)',
+      });
+    }
   }
 
   return patterns;
@@ -438,19 +562,41 @@ export default function TradeHistoryPage() {
 
       {/* ── Patterns Detected ────────────────────────── */}
       {patterns.length > 0 && (
-        <section style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '24px' }}>
-          {patterns.map((p, i) => (
-            <div key={i} style={{
-              background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px',
-              padding: '14px 18px', flex: '1 1 200px', minWidth: '200px',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                <span style={{ fontSize: '18px' }}>{p.icon}</span>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: p.color }}>{p.label}</span>
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{p.detail}</div>
-            </div>
-          ))}
+        <section style={{ marginBottom: '24px' }}>
+          <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            🧠 Patterns Detected
+            <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 400 }}>Auto-analyzed from your trade data</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
+            {patterns.map((p, i) => {
+              const tagColors: Record<string, string> = {
+                'Actionable': '#00e676', 'Warning': '#f5b544', 'Positive': '#00e676',
+                'Insight': '#7b7dff', 'Streak': p.color, 'Neutral': '#9aa4b8',
+              };
+              return (
+                <div key={i} style={{
+                  background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px',
+                  padding: '16px 18px', position: 'relative', overflow: 'hidden',
+                }}>
+                  {/* Tag pill */}
+                  <div style={{
+                    position: 'absolute', top: '12px', right: '14px',
+                    padding: '2px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 600,
+                    background: `${tagColors[p.tag] || 'var(--muted)'}18`,
+                    color: tagColors[p.tag] || 'var(--muted)',
+                    textTransform: 'uppercase', letterSpacing: '0.05em',
+                  }}>
+                    {p.tag}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '20px' }}>{p.icon}</span>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: p.color, paddingRight: '60px' }}>{p.label}</span>
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--muted)', lineHeight: 1.5 }}>{p.detail}</div>
+                </div>
+              );
+            })}
+          </div>
         </section>
       )}
 

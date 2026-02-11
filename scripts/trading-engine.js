@@ -23,7 +23,7 @@ const MAX_POSITIONS = 5;
 const POSITION_SIZE_PCT = 20; // 20% of balance per trade
 const STOP_LOSS_PCT = 5;
 const TAKE_PROFIT_PCT = 10;
-const PINNED_COINS = [
+let PINNED_COINS = [
   // Core holdings
   'BTC/USDT', 'ETH/USDT', 'SOL/USDT',
   // Large caps
@@ -49,6 +49,25 @@ function loadApiKey() {
 }
 
 const API_KEY = loadApiKey();
+
+function loadOwenWatchlist() {
+  const resultsPath = path.join(__dirname, '.owen-scanner-results.json');
+  try {
+    if (fs.existsSync(resultsPath)) {
+      const data = JSON.parse(fs.readFileSync(resultsPath, 'utf8'));
+      if (data.timestamp && Date.now() - data.timestamp < 12 * 60 * 60 * 1000) {
+        log(`🦉 Owen watchlist loaded: ${data.watchlist.length} coins (scanned ${data.totalScanned} pairs)`);
+        return data.watchlist.map(c => c.symbol);
+      } else {
+        log(`🦉 Owen watchlist stale (>12h old), using default`);
+      }
+    }
+  } catch (e) { log(`🦉 Owen watchlist not found, using default`); }
+  return null;
+}
+
+const owenCoins = loadOwenWatchlist();
+if (owenCoins) PINNED_COINS = owenCoins;
 
 // ─── API helpers ─────────────────────────────────────────────────────────────
 

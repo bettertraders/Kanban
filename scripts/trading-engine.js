@@ -16,7 +16,7 @@ const path = require('path');
 const API_BASE = 'https://clawdesk.ai';
 const BOARD_ID = 15; // Paper Trading board (Michael's)
 const BOT_NAME = 'Penny Paper Trader';
-const ENGINE_VERSION = '3.3';
+const ENGINE_VERSION = '3.4';
 const isPennyReview = process.argv.includes('--penny-review');
 const STRATEGY_STYLE = 'swing';
 const STRATEGY_SUBSTYLE = 'momentum';
@@ -51,6 +51,94 @@ function loadApiKey() {
 
 const API_KEY = loadApiKey();
 
+// ─── API Circuit Breaker ─────────────────────────────────────────────────────
+
+const circuitBreaker = {
+  failures: [],
+  isOpen: false,
+  openedAt: null,
+  THRESHOLD: 3,
+  WINDOW_MS: 60000,
+  COOLDOWN_MS: 5 * 60 * 1000,
+  record(err) {
+    this.failures.push(Date.now());
+    this.failures = this.failures.filter(t => Date.now() - t < this.WINDOW_MS);
+    if (this.failures.length >= this.THRESHOLD) {
+      this.isOpen = true;
+      this.openedAt = Date.now();
+      log('🔴 CIRCUIT BREAKER OPEN — pausing new operations for 5 minutes');
+    }
+  },
+  check() {
+    if (!this.isOpen) return true;
+    if (Date.now() - this.openedAt > this.COOLDOWN_MS) {
+      this.isOpen = false;
+      this.failures = [];
+      log('🟢 Circuit breaker reset — resuming operations');
+      return true;
+    }
+    return false;
+  }
+};
+
+// ─── Data Staleness Detection ────────────────────────────────────────────────
+
+function isDataFresh(owenData, maxAgeMs = 5 * 60 * 1000) {
+  if (!owenData?.timestamp) return false;
+  return (Date.now() - owenData.timestamp) < maxAgeMs;
+}
+
+function checkDataFreshness() {
+  const scannerPath = path.join(__dirname, '.owen-scanner-results.json');
+  const crashPath = path.join(__dirname, '.crash-alert.json');
+  const macroPath = path.join(__dirname, '.owen-macro-pulse.json');
+  const sentinelPath = path.join(__dirname, '.position-sentinel-alert.json');
+
+  function getFreshness(filePath, maxAgeMs = 5 * 60 * 1000) {
+    try {
+      if (fs.existsSync(filePath)) {
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        const age = data.timestamp ? Date.now() - data.timestamp : Infinity;
+        return { fresh: age < maxAgeMs, ageMinutes: Math.round(age / 60000 * 10) / 10 };
+      }
+    } catch {}
+    return { fresh: false, ageMinutes: null };
+  }
+
+  return {
+    scanner: getFreshness(scannerPath, 60 * 60 * 1000),       // 60 min for scanner
+    crashAlert: getFreshness(crashPath, 5 * 60 * 1000),       // 5 min for crash
+    macroPulse: getFreshness(macroPath, 30 * 60 * 1000),      // 30 min for macro
+    positionSentinel: getFreshness(sentinelPath, 5 * 60 * 1000), // 5 min for sentinel
+  };
+}
+
+// ─── Regime Transition Detection ─────────────────────────────────────────────
+
+function detectRegimeTransition(indicators) {
+  const state = loadState();
+  const btcInd = indicators['BTC/USDT'];
+  if (!btcInd?.adx?.adx) return null;
+
+  const currentADX = btcInd.adx.adx;
+  const lastADX = state.lastADX;
+  let result = null;
+
+  if (lastADX != null) {
+    if (lastADX < 20 && currentADX > 25) {
+      log('📊 REGIME SHIFT: Range → Trend');
+      result = { transition: true, from: 'range', to: 'trend' };
+    } else if (lastADX > 30 && currentADX < 20) {
+      log('📊 REGIME SHIFT: Trend → Range');
+      result = { transition: true, from: 'trend', to: 'range' };
+    }
+  }
+
+  state.lastADX = currentADX;
+  saveState(state);
+  return result;
+}
+
 function loadOwenWatchlist() {
   const resultsPath = path.join(__dirname, '.owen-scanner-results.json');
   try {
@@ -83,12 +171,19 @@ async function api(method, endpoint, body) {
   };
   if (body) opts.body = JSON.stringify(body);
 
-  const res = await fetch(url, opts);
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`API ${method} ${endpoint} → ${res.status}: ${text.slice(0, 200)}`);
+  try {
+    const res = await fetch(url, opts);
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      const err = new Error(`API ${method} ${endpoint} → ${res.status}: ${text.slice(0, 200)}`);
+      circuitBreaker.record(err);
+      throw err;
+    }
+    return res.json();
+  } catch (err) {
+    if (!err.message?.startsWith('API ')) circuitBreaker.record(err);
+    throw err;
   }
-  return res.json();
 }
 
 const apiGet = (ep) => api('GET', ep);
@@ -1082,7 +1177,20 @@ async function pennyReviewMode(exchange) {
     suggestedCycle: suggestCycleFrequency(indicators),
     portfolioExposure: calcPortfolioExposure(activeTrades),
     newsRiskAdjustment: calcNewsRiskAdjustment(macroPulse),
+    dataFreshness: checkDataFreshness(),
+    regimeTransition: detectRegimeTransition(indicators),
   };
+
+  // Add fee impact to active trades
+  for (const t of output.activeTrades) {
+    const posSize = t.positionSize || 0;
+    const pnlDollar = t.pnlDollar || 0;
+    t.feeImpact = {
+      estimatedRoundTripFee: Math.round(posSize * 0.002 * 100) / 100,
+      feeAdjustedPnl: Math.round((pnlDollar - posSize * 0.002) * 100) / 100,
+      breakEvenPct: 0.2,
+    };
+  }
 
   // Output JSON to stdout for Penny to consume
   console.log(JSON.stringify(output, null, 2));
@@ -1111,7 +1219,16 @@ function calculatePositionSize(ind, balance, reason) {
   // Clamp multiplier between 0.5x and 1.25x (10% to 25% of balance)
   confidenceMultiplier = Math.max(0.5, Math.min(1.25, confidenceMultiplier));
   
-  return Math.min(baseSize * confidenceMultiplier, balance * 0.25); // Never more than 25%
+  let finalSize = Math.min(baseSize * confidenceMultiplier, balance * 0.25); // Never more than 25%
+
+  // Consecutive loss cooldown — reduce by 50%
+  const state = loadState();
+  if (state.lossCooldownTradesRemaining > 0) {
+    finalSize *= 0.5;
+    log(`  📉 Loss cooldown active (${state.lossCooldownTradesRemaining} trades remaining) — position halved`);
+  }
+
+  return finalSize;
 }
 
 // ─── Portfolio Hedge Logic ───────────────────────────────────────────────────
@@ -1183,7 +1300,7 @@ async function main() {
     return;
   }
 
-  log('🚀 TBO Trading Engine v3.3 — Monitor Mode');
+  log('🚀 TBO Trading Engine v3.4 — Monitor Mode');
 
   // ── Step -1: Fetch risk level from trading settings ────────────────────
   // Try DB direct read (API requires user auth, engine uses API key)
@@ -1197,9 +1314,33 @@ async function main() {
   } catch (e) {
     log(`⚠ Could not fetch risk level, using default: ${RISK_LEVEL}`);
   }
+  // ── Monthly Drawdown Breaker ────────────────────────────────────────────
+  const drawdownState = loadState();
+  
+  // Check/restore drawdown breaker
+  if (drawdownState.drawdownBreaker?.triggeredAt) {
+    const elapsed = Date.now() - drawdownState.drawdownBreaker.triggeredAt;
+    if (elapsed > 48 * 60 * 60 * 1000) {
+      RISK_LEVEL = drawdownState.drawdownBreaker.originalRisk || RISK_LEVEL;
+      log(`🟢 Drawdown breaker expired — restoring risk level to ${RISK_LEVEL.toUpperCase()}`);
+      delete drawdownState.drawdownBreaker;
+      saveState(drawdownState);
+    } else {
+      RISK_LEVEL = 'safe';
+      const hoursLeft = Math.round((48 * 60 * 60 * 1000 - elapsed) / 3600000);
+      log(`🚨 Drawdown breaker active — Safe mode for ${hoursLeft}h more`);
+    }
+  }
+
   const rp = getRiskProfile();
   MOVE_COOLDOWN_MS = rp.cooldownMs;
   log(`⚡ Risk Level: ${RISK_LEVEL.toUpperCase()} | Cooldown: ${MOVE_COOLDOWN_MS / 3600000}h | Shorts: ${rp.allowShorts ? 'ON' : 'OFF'}`);
+
+  // ── Data Staleness Warning ─────────────────────────────────────────────
+  const freshness = checkDataFreshness();
+  if (!freshness.scanner.fresh && freshness.scanner.ageMinutes !== null) {
+    log(`⚠️ Owen scanner data is ${freshness.scanner.ageMinutes} minutes old — consider rerunning scanner`);
+  }
 
   const exchange = new ccxt.binance({ enableRateLimit: true });
 
@@ -1227,12 +1368,32 @@ async function main() {
   const balance = parseFloat(account?.current_balance || 0);
   log(`💰 Balance: $${balance.toFixed(2)}`);
 
+  // ── Monthly Drawdown Check ─────────────────────────────────────────────
+  const ddState = loadState();
+  const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+  if (ddState.monthStartDate !== currentMonth) {
+    ddState.monthStartDate = currentMonth;
+    ddState.monthStartBalance = balance;
+    saveState(ddState);
+    log(`📅 New month tracked — start balance: $${balance.toFixed(2)}`);
+  } else if (ddState.monthStartBalance && !ddState.drawdownBreaker) {
+    const drawdownPct = ((ddState.monthStartBalance - balance) / ddState.monthStartBalance) * 100;
+    if (drawdownPct > 12) {
+      log(`🚨 MONTHLY DRAWDOWN BREAKER: -${drawdownPct.toFixed(1)}% this month — switching to Safe mode for 48h`);
+      ddState.drawdownBreaker = { triggeredAt: Date.now(), originalRisk: RISK_LEVEL };
+      RISK_LEVEL = 'safe';
+      saveState(ddState);
+    }
+  }
+
   const state = loadState();
 
   // ── Step 3: Fetch indicators for all relevant coins ────────────────────
   const allTrades = [...watchlist, ...analyzing, ...active];
   const symbols = [...new Set(allTrades.map(t => normalizePair(t.coin_pair)))];
+  const indicators = {};
 
+  try {
   // Ensure pinned coins always have a Watchlist card (unless already on board)
   const allSymbolsOnBoard = new Set(allTrades.map(t => normalizePair(t.coin_pair)));
   for (const pin of PINNED_COINS) {
@@ -1259,16 +1420,19 @@ async function main() {
   }
 
   log(`📊 Fetching indicators for ${symbols.length} symbols...`);
-  const indicators = {};
   for (const sym of symbols) {
     const ind = await fetchOHLCV(exchange, sym);
     if (ind) indicators[sym] = ind;
     // Rate limit courtesy
     await sleep(200);
   }
+  } catch (err) {
+    log(`❌ Step 3 failed (fetch indicators): ${err.message} — continuing with partial data`);
+  }
 
   // ── Step 4: Process Active trades — check exits ────────────────────────
   let exitCount = 0;
+  try {
   for (const trade of active) {
     const sym = normalizePair(trade.coin_pair);
     const ind = indicators[sym];
@@ -1281,6 +1445,22 @@ async function main() {
         const targetCol = decision.win ? 'Wins' : 'Losses';
         await moveCard(trade.id, targetCol);
         await journalLog(trade.id, 'exit', `Exit: ${decision.reason}. Price: ${ind?.currentPrice}`);
+
+        // ── Consecutive Loss Tracking ──
+        const exitState = loadState();
+        if (decision.win) {
+          exitState.consecutiveLosses = 0;
+        } else {
+          exitState.consecutiveLosses = (exitState.consecutiveLosses || 0) + 1;
+          if (exitState.consecutiveLosses >= 5 && !exitState.lossCooldownTradesRemaining) {
+            log('⚠️ LOSS STREAK: 5 consecutive losses — reducing position sizes by 50% for next 10 trades');
+            exitState.lossCooldownTradesRemaining = 10;
+          }
+        }
+        if (exitState.lossCooldownTradesRemaining > 0) {
+          exitState.lossCooldownTradesRemaining--;
+        }
+        saveState(exitState);
         exitCount++;
 
         // Handle flip — exit first, then enter opposite direction
@@ -1305,6 +1485,7 @@ async function main() {
                 direction: flipDir,
                 strategy: decision.flipReason,
                 flippedFrom: trade.id,
+                fees: { entryFee: flipSize * 0.001 },
                 execution: {
                   signalPrice: ind.currentPrice,
                   signalTime: new Date().toISOString(),
@@ -1347,6 +1528,9 @@ async function main() {
     }
   }
   log(`🚪 Exits: ${exitCount}`);
+  } catch (err) {
+    log(`❌ Step 4 failed (exit processing): ${err.message} — continuing`);
+  }
 
   // ── Portfolio Hedge Check ──────────────────────────────────────────────
   const remainingActive = active.filter(t => !t._exited); // approximate — use count
@@ -1377,6 +1561,7 @@ async function main() {
   // ── Step 5: Process Analyzing trades — check entry signals ─────────────
   // SKIPPED in monitor mode — Penny (Opus) now handles Analyzing → Active
   let entryCount = 0;
+  try {
   const currentActive = active.length - exitCount;
 
   if (false) { // Step 5 disabled — Penny decides entries now
@@ -1429,6 +1614,7 @@ async function main() {
             entry_reason: entrySignal.reason,
             direction: dir,
             strategy: entrySignal.reason,
+            fees: { entryFee: positionSize * 0.001 },
             execution: {
               signalPrice: ind.currentPrice,
               signalTime: new Date().toISOString(),
@@ -1454,10 +1640,14 @@ async function main() {
   }
   } // end disabled Step 5
   log(`🎯 Entries: ${entryCount} (disabled — Penny decides)`);
+  } catch (err) {
+    log(`❌ Step 5 failed (entry processing): ${err.message} — continuing`);
+  }
 
   // ── Step 6: Process Watchlist — move to Analyzing if setup forming ─────
   // SKIPPED in monitor mode — Penny (Opus) now handles Watchlist → Analyzing
   let analyzeCount = 0;
+  try {
   if (false) { // Step 6 disabled — Penny decides analysis targets now
   for (const trade of watchlist) {
     const sym = normalizePair(trade.coin_pair);
@@ -1484,12 +1674,23 @@ async function main() {
   } // end disabled Step 6
   saveState(state);
   log(`🔍 Moved to Analyzing: ${analyzeCount} (disabled — Penny decides)`);
+  } catch (err) {
+    log(`❌ Step 6 failed (watchlist processing): ${err.message} — continuing`);
+  }
 
   // ── Step 7: Update bot stats + market metadata ─────────────────────────
-  await updateBotStats(bot.id, exitCount, entryCount, indicators);
+  try {
+    await updateBotStats(bot.id, exitCount, entryCount, indicators);
+  } catch (err) {
+    log(`❌ Step 7 failed (bot stats): ${err.message} — continuing`);
+  }
 
   // ── Step 8: Update live balance ───────────────────────────────────────
-  await updateLiveBalance(active, exchange);
+  try {
+    await updateLiveBalance(active, exchange);
+  } catch (err) {
+    log(`❌ Step 8 failed (live balance): ${err.message} — continuing`);
+  }
 
   // ── Summary ────────────────────────────────────────────────────────────
   log(`✅ Pipeline complete. Exits: ${exitCount}, Entries: ${entryCount}, New Analysis: ${analyzeCount}`);

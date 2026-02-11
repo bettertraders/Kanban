@@ -914,7 +914,7 @@ export default function TradingDashboardPage() {
             {/* Money Card */}
             <div style={{ background: 'linear-gradient(135deg, #1a1a3e 0%, #141428 100%)', borderRadius: '16px', padding: '28px 24px', position: 'relative', overflow: 'hidden' }}>
               <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>Your Balance</div>
-              <div style={{ fontSize: '42px', fontWeight: 800, letterSpacing: '-1px', color: 'var(--text)' }}>{formatCurrency(paperBalance)}</div>
+              <div style={{ fontSize: '42px', fontWeight: 800, letterSpacing: '-1px', color: paperBalance >= startingBalance ? '#4ade80' : 'var(--text)' }}>{formatCurrency(paperBalance)}</div>
               <div style={{ fontSize: '16px', marginTop: '6px', fontWeight: 600, color: dailyPnl >= 0 ? '#00e676' : '#ff5252' }}>
                 {dailyPnl >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(dailyPnl))} today
               </div>
@@ -994,7 +994,7 @@ export default function TradingDashboardPage() {
                             offset += seg.pct;
                             return el;
                           })}
-                          <text x="18" y="17.5" textAnchor="middle" fill="var(--text)" fontSize="4" fontWeight="700">{formatCurrency(paperBalance)}</text>
+                          <text x="18" y="17.5" textAnchor="middle" fill={paperBalance >= startingBalance ? '#4ade80' : 'var(--text)'} fontSize="4" fontWeight="700">{formatCurrency(paperBalance)}</text>
                           <text x="18" y="21" textAnchor="middle" fill="#888" fontSize="2.2">balance</text>
                         </svg>
                       </div>
@@ -1332,7 +1332,7 @@ export default function TradingDashboardPage() {
                       offset += seg.pct;
                       return el;
                     })}
-                    <text x="18" y="17" textAnchor="middle" fill="var(--text)" fontSize="4.5" fontWeight="700">{formatCurrency(paperBalance || startingBalance)}</text>
+                    <text x="18" y="17" textAnchor="middle" fill={(paperBalance || startingBalance) >= startingBalance ? '#4ade80' : 'var(--text)'} fontSize="4.5" fontWeight="700">{formatCurrency(paperBalance || startingBalance)}</text>
                     <text x="18" y="21" textAnchor="middle" fill="var(--muted)" fontSize="2.5">{allocationView ? 'allocation' : 'balance'}</text>
                   </svg>
                 );

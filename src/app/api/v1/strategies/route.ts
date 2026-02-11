@@ -8,13 +8,14 @@ export async function GET(request: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const strategies = getAllStrategies().map((strategy) => ({
+      id: strategy.id,
       name: strategy.name,
-      style: strategy.style,
-      subStyle: strategy.subStyle,
+      direction: strategy.direction,
+      type: strategy.type,
       description: strategy.description,
-      icon: strategy.icon,
-      riskLevel: strategy.riskLevel,
-      defaultConfig: strategy.defaultConfig
+      indicators: strategy.indicators,
+      riskLevels: strategy.riskLevels,
+      markets: strategy.markets,
     }));
 
     return NextResponse.json({ strategies });

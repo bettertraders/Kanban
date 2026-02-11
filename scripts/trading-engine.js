@@ -15,7 +15,8 @@ const path = require('path');
 
 const API_BASE = 'https://clawdesk.ai';
 const BOARD_ID = 15; // Paper Trading board (Michael's)
-const BOT_NAME = 'Penny Paper Trader';
+const BOT_NAME = 'TBO Trading Engine';
+const ENGINE_VERSION = '2.0';
 const STRATEGY_STYLE = 'swing';
 const STRATEGY_SUBSTYLE = 'momentum';
 const MAX_POSITIONS = 5;
@@ -31,6 +32,8 @@ const PINNED_COINS = [
   'NEAR/USDT', 'FTM/USDT', 'INJ/USDT', 'SUI/USDT', 'APT/USDT',
   // Momentum plays
   'RENDER/USDT', 'FET/USDT', 'ARB/USDT', 'OP/USDT', 'TIA/USDT',
+  // Popular movers — catch pumps
+  'UNI/USDT', 'DOGE/USDT', 'SHIB/USDT', 'LTC/USDT',
   // Hedges — inverse correlation to crypto
   'PAXG/USDT',   // Tokenized gold — pumps when crypto dumps
 ];
@@ -196,8 +199,43 @@ async function fetchOHLCV(exchange, symbol) {
 // ─── Cooldown Logic ──────────────────────────────────────────────────────────
 
 const COOLDOWN_FILE = path.join(__dirname, '.trading-engine-state.json');
-const MOVE_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
+let MOVE_COOLDOWN_MS = 8 * 60 * 60 * 1000; // 8 hours (default, overridden by risk level)
 const EXTREME_MOVE_PCT = 5; // 5% move in 4h overrides cooldown
+
+// ─── Risk Level Config ───────────────────────────────────────────────────────
+// Fetched from trading settings API; affects cooldowns, signal thresholds, shorting
+let RISK_LEVEL = 'bold'; // default fallback — overridden by settings
+
+const RISK_PROFILES = {
+  safe: {
+    cooldownMs: 24 * 60 * 60 * 1000,  // 24h cooldown
+    allowShorts: false,
+    shortRsiThreshold: 999,  // effectively disabled
+    longRsiThreshold: 35,
+    shortMomentumThreshold: -3,
+    entrySignals: 3,  // need 3 signals to analyze
+  },
+  balanced: {
+    cooldownMs: 8 * 60 * 60 * 1000,  // 8h cooldown
+    allowShorts: true,
+    shortRsiThreshold: 65,
+    longRsiThreshold: 40,
+    shortMomentumThreshold: -2,
+    entrySignals: 2,
+  },
+  bold: {
+    cooldownMs: 4 * 60 * 60 * 1000,  // 4h cooldown
+    allowShorts: true,
+    shortRsiThreshold: 55,  // short earlier
+    longRsiThreshold: 45,   // enter longs more aggressively too
+    shortMomentumThreshold: -1,
+    entrySignals: 2,
+  },
+};
+
+function getRiskProfile() {
+  return RISK_PROFILES[RISK_LEVEL] || RISK_PROFILES.balanced;
+}
 
 function loadState() {
   try {
@@ -230,23 +268,28 @@ function recordMove(symbol, state) {
 
 function shouldMoveToAnalyzing(ind) {
   if (!ind || ind.rsi == null) return false;
-  // Any coin worth analyzing if it has 2+ of these signals:
+  const rp = getRiskProfile();
+  // Any coin worth analyzing if it has enough signals (threshold varies by risk):
   let signals = 0;
-  if (ind.rsi < 35 || ind.rsi > 65) signals += 2; // Strong RSI = double weight
+  if (ind.rsi < rp.longRsiThreshold || ind.rsi > rp.shortRsiThreshold) signals += 2; // Strong RSI = double weight
   else if (ind.rsi < 45 || ind.rsi > 55) signals += 1; // Mild RSI still counts
   if (ind.sma20 && Math.abs(ind.currentPrice - ind.sma20) / ind.sma20 < 0.03) signals += 1; // Near SMA20
   if (ind.volumeRatio > 1.0) signals += 1; // Above-average volume
   if (ind.momentum && Math.abs(ind.momentum) > 2) signals += 1; // Momentum building
-  return signals >= 2;
+  // Bold: big 4h move = instant analyze
+  if (RISK_LEVEL === 'bold' && Math.abs(ind.momentum4h || 0) > 3) signals += 2;
+  return signals >= rp.entrySignals;
 }
 
 function shouldMoveToActive(ind) {
   if (!ind || ind.rsi == null) return { enter: false };
   
+  const rp = getRiskProfile();
+
   // ── LONG SIGNALS ──
   // Signal 1: Oversold bounce near SMA20 + MACD confirmation
   const oversoldBounce =
-    ind.rsi < 40 &&
+    ind.rsi < rp.longRsiThreshold &&
     ind.sma20 &&
     Math.abs(ind.currentPrice - ind.sma20) / ind.sma20 < 0.05 &&
     (ind.macdHistogram === null || ind.macdHistogram > -0.5); // MACD not deeply negative
@@ -261,14 +304,25 @@ function shouldMoveToActive(ind) {
   const deeplyOversold = ind.rsi < 30 && 
     (ind.macdHistogram === null || ind.macdHistogram > -1);
 
-  if (oversoldBounce || goldenCross || deeplyOversold) {
-    return { enter: true, direction: 'LONG', reason: oversoldBounce ? 'oversold_bounce' : goldenCross ? 'golden_cross' : 'deeply_oversold' };
+  // Signal 6 (Bold only): Momentum catch — big pump in progress, ride the wave
+  const momentumCatch = RISK_LEVEL === 'bold' &&
+    (ind.momentum4h || 0) > 4 && // 4%+ move in last 4h candle
+    ind.volumeRatio > 1.5 &&     // High volume confirms it
+    ind.rsi < 75;                 // Not totally overbought yet
+
+  if (oversoldBounce || goldenCross || deeplyOversold || momentumCatch) {
+    const reason = momentumCatch ? 'momentum_catch' : oversoldBounce ? 'oversold_bounce' : goldenCross ? 'golden_cross' : 'deeply_oversold';
+    return { enter: true, direction: 'LONG', reason };
   }
   
-  // ── SHORT SIGNALS ──
+  // ── SHORT SIGNALS (disabled in Safe mode) ──
+  if (!rp.allowShorts) {
+    return { enter: false };
+  }
+
   // Signal 4: Overbought rejection from SMA20 resistance + MACD bearish
   const overboughtReject =
-    ind.rsi > 65 &&
+    ind.rsi > rp.shortRsiThreshold &&
     ind.sma20 &&
     ind.currentPrice < ind.sma20 && // Price rejected below SMA20
     (ind.macdHistogram !== null && ind.macdHistogram < 0);
@@ -276,11 +330,18 @@ function shouldMoveToActive(ind) {
   // Signal 5: Death cross (SMA20 < SMA50) + bearish momentum
   const deathCross =
     ind.sma20 && ind.sma50 && ind.sma20 < ind.sma50 &&
-    ind.momentum < -2 &&
+    ind.momentum < rp.shortMomentumThreshold &&
     (ind.macdHistogram !== null && ind.macdHistogram < 0);
 
-  if (overboughtReject || deathCross) {
-    return { enter: true, direction: 'SHORT', reason: overboughtReject ? 'overbought_reject' : 'death_cross' };
+  // Signal 7 (Bold only): Bearish breakdown — price dumping with volume
+  const bearishBreakdown = RISK_LEVEL === 'bold' &&
+    (ind.momentum4h || 0) < -3 && // 3%+ dump in last 4h
+    ind.volumeRatio > 1.3 &&
+    ind.rsi > 25;                  // Not already oversold
+
+  if (overboughtReject || deathCross || bearishBreakdown) {
+    const reason = bearishBreakdown ? 'bearish_breakdown' : overboughtReject ? 'overbought_reject' : 'death_cross';
+    return { enter: true, direction: 'SHORT', reason };
   }
 
   return { enter: false };
@@ -331,7 +392,23 @@ function log(msg) {
 // ─── Main Pipeline ───────────────────────────────────────────────────────────
 
 async function main() {
-  log('🚀 Paper Trading Engine v1.0');
+  log('🚀 TBO Trading Engine v2.0');
+
+  // ── Step -1: Fetch risk level from trading settings ────────────────────
+  // Try DB direct read (API requires user auth, engine uses API key)
+  try {
+    const settingsRes = await apiGet(`/api/v1/boards/${BOARD_ID}`);
+    // Parse risk from board metadata, or check trading_settings table via portfolio endpoint
+    const portfolioRes = await apiGet(`/api/v1/portfolio?boardId=${BOARD_ID}`);
+    if (portfolioRes?.trading_settings?.risk_level) {
+      RISK_LEVEL = portfolioRes.trading_settings.risk_level.toLowerCase();
+    }
+  } catch (e) {
+    log(`⚠ Could not fetch risk level, using default: ${RISK_LEVEL}`);
+  }
+  const rp = getRiskProfile();
+  MOVE_COOLDOWN_MS = rp.cooldownMs;
+  log(`⚡ Risk Level: ${RISK_LEVEL.toUpperCase()} | Cooldown: ${MOVE_COOLDOWN_MS / 3600000}h | Shorts: ${rp.allowShorts ? 'ON' : 'OFF'}`);
 
   const exchange = new ccxt.binance({ enableRateLimit: true });
 

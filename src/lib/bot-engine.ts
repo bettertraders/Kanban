@@ -202,8 +202,8 @@ export async function checkExits(context: BotContext): Promise<{ tradeId: number
         price_history: buildSyntheticSeries(currentPrice, snapshot.change24h),
         volume_history: buildSyntheticVolumes(snapshot.volume24h, snapshot.change24h)
       };
-      const decision = strategy.shouldExit(enrichedTrade, currentPrice, config);
-      if (decision.exit) {
+      const decision = strategy.shouldExit?.(enrichedTrade, currentPrice, config);
+      if (decision?.exit) {
         await executeExit(context, Number(trade.id), decision.reason || 'Strategy exit');
         exits.push({ tradeId: Number(trade.id), reason: decision.reason || 'Strategy exit' });
       }
@@ -257,7 +257,7 @@ export async function scanForEntries(context: BotContext): Promise<EntrySignal[]
     };
   });
 
-  const signals = await strategy.generateSignals(enrichedCoins);
+  const signals = await strategy.generateSignals?.(enrichedCoins) ?? [];
   const ranked: EntrySignal[] = [];
 
   for (const signal of signals) {
@@ -267,7 +267,7 @@ export async function scanForEntries(context: BotContext): Promise<EntrySignal[]
     const coin = enrichedCoins.find((item) => normalizePair(item.pair) === normalized);
     if (!coin) continue;
     const currentPrice = toNumber(coin.price, 0);
-    if (!strategy.shouldEnter(coin, currentPrice, config)) continue;
+    if (!strategy.shouldEnter?.(coin, currentPrice, config)) continue;
 
     ranked.push({
       coin_pair: normalized,

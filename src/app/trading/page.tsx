@@ -65,13 +65,38 @@ type MarketDetail = {
   };
 };
 
-type RiskLevel = 'conservative' | 'moderate' | 'aggressive';
+type RiskLevel = 'safe' | 'balanced' | 'bold';
 type Timeframe = '10' | '30' | '60' | '90' | 'unlimited';
 
 const RISK_LEVELS: Record<RiskLevel, { label: string; icon: string; description: string }> = {
-  conservative: { label: 'Conservative', icon: '🛡️', description: 'Steady growth. BTC, ETH and top large caps. Best for new traders.' },
-  moderate: { label: 'Moderate', icon: '⚖️', description: 'Balanced returns. Top 20 coins, mixed strategies.' },
-  aggressive: { label: 'Aggressive', icon: '🔥', description: 'Higher risk for bigger upside. Momentum plays, trending coins.' },
+  safe: { label: 'Safe', icon: '🛡️', description: 'Investment-heavy. BTC & ETH core holdings.' },
+  balanced: { label: 'Balanced', icon: '⚖️', description: 'Top 20 mix. Investment + active trading.' },
+  bold: { label: 'Bold', icon: '🔥', description: 'Active trading. Momentum plays, shorts enabled.' },
+};
+
+const RISK_DESCRIPTIONS: Record<RiskLevel, string> = {
+  safe: '60% investment, 20% active trading, 20% cash. No shorts. 24h cooldown.',
+  balanced: '30% investment, 50% active trading, 20% cash. Shorts enabled. 8h cooldown.',
+  bold: '10% investment, 70% active trading, 20% cash. Shorts enabled, momentum catches, 4h cooldown.',
+};
+
+type StrategyData = {
+  id: string;
+  name: string;
+  direction: 'long' | 'short' | 'both';
+  type: string;
+  active?: boolean;
+  tradeCount?: number;
+  indicators?: string[];
+  avgHoldTime?: string;
+  conditions?: string;
+};
+
+type StrategiesResponse = {
+  strategies: StrategyData[];
+  allocation: { investment: number; activeTrading: number; cash: number };
+  marketRegime: string;
+  fearGreedIndex: number;
 };
 
 const TIMEFRAME_OPTIONS: { value: Timeframe; label: string }[] = [
@@ -358,6 +383,11 @@ export default function TradingDashboardPage() {
   const [tboEnabled, setTboEnabled] = useState(false);
   const [engineOn, setEngineOn] = useState(false);
 
+  // Strategy & allocation state
+  const [strategies, setStrategies] = useState<StrategyData[]>([]);
+  const [strategyAllocation, setStrategyAllocation] = useState<{ investment: number; activeTrading: number; cash: number } | null>(null);
+  const [pieView, setPieView] = useState<'holdings' | 'allocation'>('holdings');
+
   // Modal state
   const [riskModalOpen, setRiskModalOpen] = useState(false);
   const [amountModalOpen, setAmountModalOpen] = useState(false);
@@ -493,6 +523,21 @@ export default function TradingDashboardPage() {
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Fetch strategies
+  useEffect(() => {
+    if (!boardId || !riskLevel) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/trading/strategies?boardId=${boardId}&riskLevel=${riskLevel}`);
+        if (res.ok) {
+          const data: StrategiesResponse = await res.json();
+          setStrategies(data.strategies || []);
+          setStrategyAllocation(data.allocation || null);
+        }
+      } catch {}
+    })();
+  }, [boardId, riskLevel]);
 
   const paperBalance = Number(portfolio?.summary?.paper_balance ?? 0);
   // Fetch live P&L from the same price source as the board (CCXT/Binance)
@@ -718,8 +763,8 @@ export default function TradingDashboardPage() {
           }
         }
         if (bots.length === 0) {
-          const riskMap = { conservative: 2, moderate: 5, aggressive: 8 };
-          const stratMap = { conservative: 'swing_mean_reversion', moderate: 'swing_momentum', aggressive: 'scalper_momentum' };
+          const riskMap = { safe: 2, balanced: 5, bold: 8 };
+          const stratMap = { safe: 'swing_mean_reversion', balanced: 'swing_momentum', bold: 'scalper_momentum' };
           await fetch('/api/v1/bots', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -780,6 +825,16 @@ export default function TradingDashboardPage() {
           </div>
         </section>
 
+        {/* Market Badge */}
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: '8px',
+          background: '#1a1a2e', border: '1px solid #2a2a4e', borderRadius: '999px',
+          padding: '6px 14px', fontSize: '11px', color: 'var(--muted)', marginBottom: '8px',
+        }}>
+          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#00e676', flexShrink: 0 }} />
+          Binance · Crypto / USDT Pairs · {pulse.length} coins tracked · TBO Engine v2.0
+        </div>
+
         {/* 1. Market Summary (compact one-liner) */}
         <section style={{ marginTop: '24px', marginBottom: '16px' }}>
           <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '14px', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
@@ -813,7 +868,7 @@ export default function TradingDashboardPage() {
               { label: 'Paper Balance', value: formatCurrency(paperBalance) },
               { label: "Today's P&L", value: `${dailyPnl >= 0 ? '+' : ''}${formatCurrency(dailyPnl)} (${dailyPnlPct >= 0 ? '+' : ''}${dailyPnlPct.toFixed(1)}%)`, color: dailyPnl >= 0 ? '#4ade80' : '#f05b6f' },
               { label: 'Win Rate', value: `${winRate.toFixed(0)}%`, color: winRate >= 50 ? '#4ade80' : winRate > 0 ? '#f05b6f' : undefined },
-              { label: 'Active Positions', value: String(activePositions) },
+              { label: 'Active Positions', value: String(activePositions), subtitle: (() => { const longs = (portfolio?.activeHoldings || []).length; const shorts = 0; return longs > 0 || shorts > 0 ? `${longs}L / ${shorts}S` : undefined; })() },
               { label: 'Total Trades', value: String(totalTrades) },
               {
                 label: 'Progress',
@@ -824,29 +879,84 @@ export default function TradingDashboardPage() {
                   : 'Day 1 — No timeframe set',
                 color: dayProgress?.total && dayProgress.day >= dayProgress.total ? '#f5b544' : undefined,
               },
-            ].map((stat) => {
+            ].map((stat: { label: string; value: string; color?: string; subtitle?: string }) => {
               const wide = stat.label === "Today's P&L" || stat.label === 'Progress';
               return (
                 <div key={stat.label} style={{ flex: wide ? '1.6 1 0' : '1 1 0', minWidth: 0, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '14px 12px' }}>
                   <div style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stat.label}</div>
                   <div style={{ marginTop: '8px', fontSize: wide ? '16px' : '18px', fontWeight: 700, color: stat.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stat.value}</div>
+                  {stat.subtitle && <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '2px' }}>{stat.subtitle}</div>}
                 </div>
               );
             })}
           </div>
         </section>
 
+        {/* Active Strategies Panel */}
+        {strategies.length > 0 && (
+          <section style={{ marginBottom: '16px' }}>
+            <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'var(--muted)', marginBottom: '10px' }}>
+              Active Strategies
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
+              {strategies.map((s) => {
+                const borderColor = s.type === 'investment' ? '#7b7dff' : s.direction === 'short' ? '#ff5252' : '#00e676';
+                const typeLabel = `${s.direction?.toUpperCase()} · ${s.type?.toUpperCase()}`;
+                return (
+                  <div key={s.id} style={{
+                    background: '#1a1a2e', border: '1px solid #2a2a4e', borderLeft: `3px solid ${borderColor}`,
+                    borderRadius: '12px', padding: '12px 14px',
+                    opacity: s.active ? 1 : 0.5,
+                    boxShadow: s.active ? `0 0 12px ${borderColor}22` : 'none',
+                    transition: 'all 0.2s',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: s.active ? '#00e676' : '#555' }} />
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>{s.name}</span>
+                    </div>
+                    <div style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#666', marginBottom: '6px' }}>{typeLabel}</div>
+                    <div style={{ fontSize: '22px', fontWeight: 700, color: s.active ? '#00e676' : '#555' }}>{s.tradeCount ?? 0}</div>
+                    <div style={{ fontSize: '10px', color: '#555', marginTop: '2px' }}>
+                      {(s.indicators || []).join(', ')}{s.avgHoldTime ? ` · ${s.avgHoldTime}` : ''}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         {/* Two-column: Portfolio Mix + Trading Setup */}
         <section className="portfolio-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
 
           {/* LEFT — Portfolio Mix (pie big, legend compact right) */}
-          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
-            {/* Donut chart — bigger */}
+          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '16px 20px' }}>
+            {/* Toggle: Holdings ↔ Allocation */}
+            <div style={{ display: 'flex', marginBottom: '12px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+              {(['holdings', 'allocation'] as const).map(v => (
+                <button key={v} onClick={() => setPieView(v)} style={{
+                  flex: 1, padding: '6px 0', fontSize: '11px', fontWeight: 600, textTransform: 'capitalize',
+                  border: 'none', cursor: 'pointer',
+                  background: pieView === v ? 'rgba(123,125,255,0.15)' : 'transparent',
+                  color: pieView === v ? 'var(--accent)' : 'var(--muted)',
+                }}>{v}</button>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+            {/* Donut chart */}
             <div style={{ flexShrink: 0 }}>
               {(() => {
-                const displayAlloc = (allocations && allocations.length > 0)
-                  ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#f5b544', '#a78bfa', '#f05b6f', '#6b6b8a'][i % 6] }))
-                  : [{ label: 'Cash', pct: 100, color: '#6b6b8a' }];
+                const allocationView = pieView === 'allocation' && strategyAllocation;
+                const displayAlloc = allocationView
+                  ? [
+                      { label: 'Investment', pct: strategyAllocation!.investment, color: '#7b7dff' },
+                      { label: 'Active Trading', pct: strategyAllocation!.activeTrading, color: '#ff5252' },
+                      { label: 'Cash', pct: strategyAllocation!.cash, color: '#444' },
+                    ]
+                  : (allocations && allocations.length > 0)
+                    ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#f5b544', '#a78bfa', '#f05b6f', '#6b6b8a'][i % 6] }))
+                    : [{ label: 'Cash', pct: 100, color: '#6b6b8a' }];
                 let offset = 25;
                 return (
                   <svg viewBox="0 0 36 36" style={{ width: '240px', height: '240px' }}>
@@ -856,19 +966,26 @@ export default function TradingDashboardPage() {
                       return el;
                     })}
                     <text x="18" y="17" textAnchor="middle" fill="var(--text)" fontSize="4.5" fontWeight="700">{tradingAmount ? formatCurrency(tradingAmount) : '$1,000'}</text>
-                    <text x="18" y="21" textAnchor="middle" fill="var(--muted)" fontSize="2.5">paper balance</text>
+                    <text x="18" y="21" textAnchor="middle" fill="var(--muted)" fontSize="2.5">{allocationView ? 'allocation' : 'paper balance'}</text>
                   </svg>
                 );
               })()}
             </div>
 
-            {/* Legend — compact, tight to percentages */}
+            {/* Legend */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', minWidth: 0, flexShrink: 1 }}>
-              <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '1px' }}>{allocations ? 'Current Holdings' : 'Current Holdings'}</div>
+              <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '1px' }}>{pieView === 'allocation' ? 'Allocation' : 'Current Holdings'}</div>
               {(() => {
-                const displayAlloc = (allocations && allocations.length > 0)
-                  ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#f5b544', '#a78bfa', '#f05b6f', '#6b6b8a'][i % 6] }))
-                  : [{ label: 'Cash', pct: 100, color: '#6b6b8a' }];
+                const allocationView = pieView === 'allocation' && strategyAllocation;
+                const displayAlloc = allocationView
+                  ? [
+                      { label: 'Investment', pct: strategyAllocation!.investment, color: '#7b7dff' },
+                      { label: 'Active Trading', pct: strategyAllocation!.activeTrading, color: '#ff5252' },
+                      { label: 'Cash', pct: strategyAllocation!.cash, color: '#444' },
+                    ]
+                  : (allocations && allocations.length > 0)
+                    ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#f5b544', '#a78bfa', '#f05b6f', '#6b6b8a'][i % 6] }))
+                    : [{ label: 'Cash', pct: 100, color: '#6b6b8a' }];
                 return displayAlloc.map((seg) => (
                   <div key={seg.label} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
                     <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: seg.color, flexShrink: 0 }} />
@@ -877,6 +994,11 @@ export default function TradingDashboardPage() {
                   </div>
                 ));
               })()}
+              {pieView === 'allocation' && riskLevel && (
+                <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px', fontStyle: 'italic' }}>
+                  {RISK_LEVELS[riskLevel].description}
+                </div>
+              )}
 
               {/* TBO badge */}
               <button
@@ -895,6 +1017,7 @@ export default function TradingDashboardPage() {
                 <ToggleSwitch on={tboEnabled} onChange={() => setTboEnabled(prev => !prev)} />
               </button>
             </div>
+            </div>
           </div>
 
           {/* RIGHT — Trading Setup */}
@@ -904,9 +1027,9 @@ export default function TradingDashboardPage() {
             {/* Risk Slider — continuous */}
             {(() => {
               const RISK_LABELS = [
-                { key: 'conservative' as RiskLevel, label: 'Safe', desc: 'BTC & ETH heavy', pos: 0, color: '#6366f1' },
-                { key: 'moderate' as RiskLevel, label: 'Balanced', desc: 'Top 20 mix', pos: 50, color: '#7b7dff' },
-                { key: 'aggressive' as RiskLevel, label: 'Bold', desc: 'Momentum plays', pos: 100, color: '#a855f7' },
+                { key: 'safe' as RiskLevel, label: 'Safe', desc: 'BTC & ETH heavy', pos: 0, color: '#6366f1' },
+                { key: 'balanced' as RiskLevel, label: 'Balanced', desc: 'Top 20 mix', pos: 50, color: '#7b7dff' },
+                { key: 'bold' as RiskLevel, label: 'Bold', desc: 'Momentum plays', pos: 100, color: '#a855f7' },
               ];
               // Interpolate color based on riskValue
               const lerpColor = (a: string, b: string, t: number) => {
@@ -926,7 +1049,7 @@ export default function TradingDashboardPage() {
                 const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
                 setRiskValue(Math.round(pct));
                 // Also set discrete riskLevel for engine/API
-                const rl: RiskLevel = pct < 25 ? 'conservative' : pct < 75 ? 'moderate' : 'aggressive';
+                const rl: RiskLevel = pct < 25 ? 'safe' : pct < 75 ? 'balanced' : 'bold';
                 setRiskLevel(rl);
               };
 
@@ -979,6 +1102,13 @@ export default function TradingDashboardPage() {
                 </div>
               );
             })()}
+
+            {/* Risk Description */}
+            {riskLevel && (
+              <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '10px', padding: '8px 10px', background: 'rgba(123,125,255,0.06)', borderRadius: '8px' }}>
+                {RISK_DESCRIPTIONS[riskLevel]}
+              </div>
+            )}
 
             {/* Trading Amount */}
             <div style={{ marginTop: '16px' }}>
@@ -1070,6 +1200,29 @@ export default function TradingDashboardPage() {
                 </div>
               )}
             </div>
+
+            {/* Market Selector */}
+            <div style={{ marginTop: '16px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600, marginBottom: '8px' }}>Market</div>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {[
+                  { label: '🪙 Crypto (Binance)', selected: true, available: true },
+                  { label: '🔮 Polymarket', selected: false, available: true },
+                  { label: '📈 Stocks (coming soon)', selected: false, available: false },
+                  { label: '💱 Forex (coming soon)', selected: false, available: false },
+                ].map(m => (
+                  <button key={m.label} style={{
+                    padding: '8px 12px', borderRadius: '10px', fontSize: '11px', fontWeight: m.selected ? 700 : 400,
+                    border: `1px solid ${m.selected ? 'var(--accent)' : 'var(--border)'}`,
+                    background: m.selected ? 'rgba(123,125,255,0.15)' : 'var(--panel-2)',
+                    color: m.selected ? 'var(--accent)' : 'var(--text)',
+                    opacity: m.available ? 1 : 0.4,
+                    cursor: m.available ? 'pointer' : 'not-allowed',
+                    transition: 'all 0.15s',
+                  }}>{m.label}</button>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
 
@@ -1098,7 +1251,7 @@ export default function TradingDashboardPage() {
                 ? <Link href={`/trading/${boardId}`} style={{ color: 'var(--accent)', textDecoration: 'none' }}>Watch your trades on the Board →</Link>
                 : 'Penny is managing your portfolio'
               : setupReady
-                ? 'Penny handles everything. You can pause anytime.'
+                ? 'TBO Trading Engine handles everything. You can pause anytime.'
                 : 'Choose a risk level and amount to get started'}
           </div>
         </section>

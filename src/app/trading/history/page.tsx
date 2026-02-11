@@ -382,9 +382,9 @@ export default function TradeHistoryPage() {
     void load();
   }, []);
 
-  // Only closed trades (Wins + Losses) — no Analyzing, Watchlist, Active, Parked
+  // Closed trades (Wins + Losses + Parked) — no Analyzing, Watchlist, Active
   const closed = useMemo(() =>
-    trades.filter(t => t.column_name === 'Wins' || t.column_name === 'Losses')
+    trades.filter(t => t.column_name === 'Wins' || t.column_name === 'Losses' || t.column_name === 'Parked')
       .sort((a, b) => new Date(b.exited_at || b.created_at).getTime() - new Date(a.exited_at || a.created_at).getTime()),
     [trades]
   );
@@ -498,6 +498,7 @@ export default function TradeHistoryPage() {
             const pnl = n(trade.pnl_dollar);
             const pnlPct = n(trade.pnl_percent);
             const isWin = trade.column_name === 'Wins';
+            const isParked = trade.column_name === 'Parked';
             const isExpanded = expandedId === trade.id;
             const coin = coinBase(trade.coin_pair);
 
@@ -533,8 +534,8 @@ export default function TradeHistoryPage() {
                     {trade.direction || '—'}
                   </span>
                   {/* Result */}
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: isWin ? 'var(--green)' : 'var(--red)' }}>
-                    {isWin ? '✅ Win' : '❌ Loss'}
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: isParked ? 'var(--muted)' : isWin ? 'var(--green)' : 'var(--red)' }}>
+                    {isParked ? '⏸ Parked' : isWin ? '✅ Win' : '❌ Loss'}
                   </span>
                   {/* P&L $ */}
                   <span style={{ fontWeight: 700, fontSize: '13px', color: pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>

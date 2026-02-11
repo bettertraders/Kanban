@@ -885,7 +885,7 @@ export default function TradingDashboardPage() {
           {/* Top bar */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <div>
-              <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)', margin: 0 }}>Your Trading Bot, Penny</h1>
+              <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)', margin: 0 }}>Your Trading Co-Pilot, Penny</h1>
               <div style={{ fontSize: '13px', color: '#666' }}>It watches the market so you don&apos;t have to.</div>
             </div>
             <button onClick={() => toggleDashboardMode('advanced')} style={{ background: '#1a1a2e', border: '1px solid #2a2a4e', color: '#666', padding: '6px 12px', borderRadius: '16px', fontSize: '11px', cursor: 'pointer' }}>⚙️ Advanced Mode</button>

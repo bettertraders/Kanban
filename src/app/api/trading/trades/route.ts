@@ -84,7 +84,7 @@ export async function PATCH(request: NextRequest) {
     const board = await getBoard(trade.board_id, user.id);
     if (!board) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
 
-    const allowed = ['column_name', 'notes', 'status', 'stop_loss', 'take_profit', 'priority', 'pause_reason', 'lesson_tag', 'current_price', 'tbo_signal', 'rsi_value', 'confidence_score', 'volume_assessment', 'macd_status', 'entry_price', 'position_size', 'direction', 'bot_id', 'exit_price', 'pnl_dollar', 'pnl_percent'];
+    const allowed = ['column_name', 'notes', 'status', 'stop_loss', 'take_profit', 'priority', 'pause_reason', 'lesson_tag', 'current_price', 'tbo_signal', 'rsi_value', 'confidence_score', 'volume_assessment', 'macd_status', 'entry_price', 'position_size', 'direction', 'bot_id', 'exit_price', 'pnl_dollar', 'pnl_percent', 'metadata'];
     const updates: Record<string, unknown> = {};
     for (const key of allowed) {
       if (body[key] !== undefined) updates[key] = body[key];

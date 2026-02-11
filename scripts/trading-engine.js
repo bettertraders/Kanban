@@ -529,7 +529,8 @@ async function main() {
       log(`  🎯 ${dir} entry for ${sym} (${entrySignal.reason}) — $${positionSize.toFixed(2)}${extreme ? ' (EXTREME)' : ''} | MACD hist=${ind.macdHistogram?.toFixed(3) ?? 'n/a'} | ATR=${ind.atr?.toFixed(4) ?? 'n/a'}`);
       recordMove(sym + ':active', state);
       try {
-        // Update existing card with entry data instead of creating a new trade
+        // Update existing card with entry data + strategy metadata
+        const existingMetadata = typeof trade.metadata === 'string' ? JSON.parse(trade.metadata || '{}') : (trade.metadata || {});
         await apiPatch('/api/trading/trades', {
           trade_id: trade.id,
           column_name: 'Active',
@@ -539,6 +540,12 @@ async function main() {
           direction: dir,
           notes: `Strategy: ${BOT_NAME} | ${dir} ${entrySignal.reason} | MACD=${ind.macdHistogram?.toFixed(3)} ATR=${ind.atr?.toFixed(4)}`,
           bot_id: bot.id,
+          metadata: JSON.stringify({
+            ...existingMetadata,
+            entry_reason: entrySignal.reason,
+            direction: dir,
+            strategy: entrySignal.reason,
+          }),
         });
         // Deduct from paper balance
         await apiPost('/api/trading/trade/deduct', {

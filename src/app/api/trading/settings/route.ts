@@ -18,7 +18,18 @@ async function findTradingBoardId(userId: number, requestedBoardId?: number): Pr
 // GET /api/trading/settings?boardId=X (boardId optional — defaults to first trading board)
 export async function GET(request: NextRequest) {
   try {
-    const user = await getAuthenticatedUser(request);
+    let user = await getAuthenticatedUser(request).catch(() => null);
+    
+    // Fallback: if getAuthenticatedUser failed but API key is present, try direct lookup
+    if (!user) {
+      const apiKey = request.headers.get('x-api-key') || request.headers.get('authorization')?.replace('Bearer ', '');
+      if (apiKey?.startsWith('kb_')) {
+        const { getUserByApiKey } = await import('@/lib/database');
+        const dbUser = await getUserByApiKey(apiKey);
+        if (dbUser) user = { id: dbUser.id, email: dbUser.email, name: dbUser.name };
+      }
+    }
+    
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const requestedId = Number(new URL(request.url).searchParams.get('boardId') || 0) || undefined;
@@ -36,7 +47,17 @@ export async function GET(request: NextRequest) {
 // POST/PUT /api/trading/settings — save settings
 async function saveHandler(request: NextRequest) {
   try {
-    const user = await getAuthenticatedUser(request);
+    let user = await getAuthenticatedUser(request).catch(() => null);
+    
+    if (!user) {
+      const apiKey = request.headers.get('x-api-key') || request.headers.get('authorization')?.replace('Bearer ', '');
+      if (apiKey?.startsWith('kb_')) {
+        const { getUserByApiKey } = await import('@/lib/database');
+        const dbUser = await getUserByApiKey(apiKey);
+        if (dbUser) user = { id: dbUser.id, email: dbUser.email, name: dbUser.name };
+      }
+    }
+    
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();

@@ -1583,30 +1583,41 @@ export default function TradingDashboardPage() {
           </div>
         </section>
 
-        {/* Start Trading Button */}
+        {/* Start Trading Bar — matches simple mode style */}
         <section style={{ marginBottom: '20px' }}>
-          <button
-            onClick={handleEngineToggle}
-            disabled={!setupReady}
-            style={{
-              width: '100%', padding: '14px', borderRadius: '14px', border: 'none',
-              background: engineOn
-                ? 'linear-gradient(135deg, #22c55e, #16a34a)'
-                : setupReady
-                  ? 'linear-gradient(135deg, var(--accent), #9a9cff)'
-                  : 'var(--panel-2)',
-              color: engineOn || setupReady ? '#0d0d1f' : 'var(--muted)',
-              fontSize: '15px', fontWeight: 700, cursor: setupReady ? 'pointer' : 'not-allowed',
-              letterSpacing: '0.02em', transition: 'all 0.2s',
-            }}
-          >
-            {engineOn ? 'Trading Active — Click to Pause' : 'Start Trading'}
-          </button>
-          <div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--muted)', marginTop: '8px' }}>
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '10px' }}>
+            {engineOn ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: '12px', background: '#141428', border: '1px solid #2a2a4e' }}>
+                <span style={{ fontSize: '13px', color: '#888' }}>Trading with</span>
+                <span style={{ fontSize: '17px', fontWeight: 700, color: '#7b7dff' }}>{formatCurrency(tradingAmount || startingBalance)}</span>
+                <span style={{ fontSize: '11px', color: '#555' }}>🔒</span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: '12px', background: '#141428', border: '1px solid #2a2a4e' }}>
+                <span style={{ fontSize: '13px', color: '#888' }}>Trading with</span>
+                <span style={{ fontSize: '17px', fontWeight: 700, color: '#7b7dff' }}>{formatCurrency(tradingAmount || startingBalance)}</span>
+              </div>
+            )}
+            <button
+              onClick={handleEngineToggle}
+              disabled={!setupReady && !engineOn}
+              style={{
+                flex: 1, padding: '14px 24px', borderRadius: '12px', border: 'none',
+                fontSize: '16px', fontWeight: 700,
+                cursor: (setupReady || engineOn) ? 'pointer' : 'not-allowed',
+                background: engineOn ? '#00e676' : setupReady ? 'linear-gradient(135deg, #7b7dff 0%, #5b5ddf 100%)' : 'var(--panel-2)',
+                color: engineOn ? '#0d0d1a' : setupReady ? 'white' : 'var(--muted)',
+                transition: 'all 0.2s',
+              }}
+            >
+              {engineOn ? '✨ Bot is Running — Tap to Pause' : '▶ Start Trading'}
+            </button>
+          </div>
+          <div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--muted)' }}>
             {engineOn
               ? boardId
                 ? <Link href={`/trading/${boardId}`} style={{ color: 'var(--accent)', textDecoration: 'none' }}>Watch your trades on the Board →</Link>
-                : 'Penny is managing your portfolio'
+                : 'TBO Trading Engine is managing your portfolio'
               : setupReady
                 ? 'TBO Trading Engine handles everything. You can pause anytime.'
                 : 'Choose a risk level and amount to get started'}

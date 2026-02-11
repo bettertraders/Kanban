@@ -1162,6 +1162,30 @@ async function pennyReviewMode(exchange) {
     }
   } catch {}
 
+  // Load news alerts (< 15 min old)
+  let newsAlerts = null;
+  try {
+    const newsPath = path.join(__dirname, '.owen-news.json');
+    if (fs.existsSync(newsPath)) {
+      const newsData = JSON.parse(fs.readFileSync(newsPath, 'utf8'));
+      if (newsData.timestamp && Date.now() - newsData.timestamp < 15 * 60 * 1000) {
+        newsAlerts = newsData;
+      }
+    }
+  } catch {}
+
+  // Load health monitor (< 10 min old)
+  let owenHealth = null;
+  try {
+    const healthPath = path.join(__dirname, '.owen-health.json');
+    if (fs.existsSync(healthPath)) {
+      const healthData = JSON.parse(fs.readFileSync(healthPath, 'utf8'));
+      if (healthData.timestamp && Date.now() - healthData.timestamp < 10 * 60 * 1000) {
+        owenHealth = healthData;
+      }
+    }
+  } catch {}
+
   const output = {
     timestamp: new Date().toISOString(),
     engineVersion: ENGINE_VERSION,
@@ -1170,6 +1194,8 @@ async function pennyReviewMode(exchange) {
     crashAlert: loadCrashAlert(),
     positionAlerts,
     macroPulse,
+    newsAlerts,
+    owenHealth,
     portfolio,
     activeTrades: activeOutput,
     watchlist: watchlistOutput,

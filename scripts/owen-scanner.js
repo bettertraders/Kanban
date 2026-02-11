@@ -23,11 +23,25 @@ const STABLECOINS = ['USDC', 'BUSD', 'DAI', 'TUSD', 'FDUSD', 'USDP', 'USDD', 'PY
 const CORE_SYMBOLS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT'];
 const HEDGE_SYMBOL = 'PAXG/USDT';
 const OUTPUT_PATH = path.join(__dirname, '.owen-scanner-results.json');
+const TRIGGER_FILE = path.join(__dirname, '.owen-scanner-trigger.json');
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const log = (msg) => console.log(`[Owen] ${msg}`);
+
+function atomicWrite(filePath, data) {
+  const tmp = filePath + '.tmp';
+  fs.writeFileSync(tmp, typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+  fs.renameSync(tmp, filePath);
+}
+
+function loadJSON(filePath) {
+  try {
+    if (fs.existsSync(filePath)) return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {}
+  return null;
+}
 
 // ─── Indicators ──────────────────────────────────────────────────────────────
 
@@ -115,6 +129,17 @@ function scoreMomentum(closes) {
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
+  // Check for emergency rescan trigger
+  const trigger = loadJSON(TRIGGER_FILE);
+  let emergencyRescan = false;
+  if (trigger?.timestamp && Date.now() - trigger.timestamp < 5 * 60 * 1000) {
+    log('🚨 Emergency rescan triggered by market alert');
+    emergencyRescan = true;
+  }
+
+  // Load previous results for dropped coin detection
+  const previousResults = loadJSON(OUTPUT_PATH);
+
   const exchange = new ccxt.binance({ enableRateLimit: false });
 
   log('Fetching all markets...');
@@ -243,14 +268,34 @@ async function main() {
     delete item._isHedge;
   }
 
+  // Detect dropped coins
+  const droppedCoins = [];
+  if (previousResults?.watchlist) {
+    const newSymbols = new Set(watchlist.map(c => c.symbol));
+    for (const prev of previousResults.watchlist) {
+      if (!newSymbols.has(prev.symbol)) {
+        droppedCoins.push({ symbol: prev.symbol, previousScore: prev.score });
+      }
+    }
+    if (droppedCoins.length > 0) {
+      log(`⚠️ Dropped from watchlist: ${droppedCoins.map(c => c.symbol).join(', ')}`);
+    }
+  }
+
   const output = {
     timestamp: Date.now(),
     totalScanned,
     filteredByVolume: viable.length,
     watchlist,
+    droppedCoins,
   };
 
-  fs.writeFileSync(OUTPUT_PATH, JSON.stringify(output, null, 2));
+  atomicWrite(OUTPUT_PATH, output);
+
+  // Clean up trigger file after processing
+  if (emergencyRescan) {
+    try { fs.unlinkSync(TRIGGER_FILE); } catch {}
+  }
   log(`✅ Saved ${watchlist.length} coins to ${OUTPUT_PATH}`);
 
   // Print summary

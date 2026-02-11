@@ -1,24 +1,36 @@
 {
-  "timestamp": 1770846301636,
-  "alerts": [],
+  "timestamp": 1770848101677,
+  "alerts": [
+    {
+      "type": "news_keyword",
+      "message": "[CoinTelegraph] \"Democratic lawmakers slam SEC Chair Atkins over crypto enforcement\" (keyword: SEC)"
+    }
+  ],
   "fearGreed": {
     "value": 11,
     "label": "Extreme Fear",
     "change24h": 2
   },
   "btcDominance": {
-    "current": 56.87,
+    "current": 56.85,
     "trend": "stable"
   },
   "totalMarketCap": {
-    "usd": 2387542350401,
-    "change24h": -0.81
+    "usd": 2377308696857,
+    "change24h": -1.42
   },
   "gold": {
-    "paxgPrice": 5092.93,
-    "change1h": -0.14,
-    "change4h": -0.14,
+    "paxgPrice": 5091.1,
+    "change1h": -0.17,
+    "change4h": -0.17,
     "btcCorrelation": "neutral"
   },
-  "newsFlags": []
+  "newsFlags": [
+    {
+      "source": "CoinTelegraph",
+      "title": "Democratic lawmakers slam SEC Chair Atkins over crypto enforcement",
+      "keyword": "SEC",
+      "url": "https://cointelegraph.com/news/democrats-slam-sec-chair-atkins-crypto?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound"
+    }
+  ]
 }

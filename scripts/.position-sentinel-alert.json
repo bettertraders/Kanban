@@ -1,0 +1,38 @@
+{
+  "timestamp": 1770848521429,
+  "alerts": [
+    {
+      "symbol": "DOT/USDT",
+      "direction": "LONG",
+      "level": "deteriorating_setup",
+      "change5m": null,
+      "currentPrice": 1.277,
+      "entryPrice": 1.27,
+      "pnlPercent": 0,
+      "message": "DOT dropped out of Owen's top 10 watchlist",
+      "reason": "Coin dropped out of Owen's top 10 watchlist"
+    },
+    {
+      "symbol": "AVAX/USDT",
+      "direction": "LONG",
+      "level": "deteriorating_setup",
+      "change5m": null,
+      "currentPrice": 8.72,
+      "entryPrice": 8.72,
+      "pnlPercent": 0,
+      "message": "AVAX dropped out of Owen's top 10 watchlist",
+      "reason": "Coin dropped out of Owen's top 10 watchlist"
+    },
+    {
+      "symbol": "XRP/USDT",
+      "direction": "LONG",
+      "level": "deteriorating_setup",
+      "change5m": null,
+      "currentPrice": 1.3781,
+      "entryPrice": 1.37,
+      "pnlPercent": 0,
+      "message": "XRP dropped out of Owen's top 10 watchlist",
+      "reason": "Coin dropped out of Owen's top 10 watchlist"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "lastAlerts": {
+    "TNSR/USDT": {
+      "breakout": 1770848463110,
+      "_lastSeverity": 2,
+      "_lastAlertTime": 1770848463110
+    },
+    "BERA/USDT": {
+      "breakout": 1770848463110,
+      "_lastSeverity": 2,
+      "_lastAlertTime": 1770848463110
+    }
+  }
+}

@@ -26,5 +26,7 @@
     "DOGE/USDT": 1770829037407,
     "SHIB/USDT": 1770829037639,
     "LTC/USDT": 1770829037844
-  }
+  },
+  "monthStartDate": "2026-02",
+  "monthStartBalance": 1000
 }

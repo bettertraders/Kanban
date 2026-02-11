@@ -14,6 +14,7 @@ const path = require('path');
 
 const PRICES_FILE = path.join(__dirname, '.position-sentinel-prices.json');
 const ALERT_FILE = path.join(__dirname, '.position-sentinel-alert.json');
+const SCANNER_FILE = path.join(__dirname, '.owen-scanner-results.json');
 const MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
 const CRASH_PRICES_FILE = path.join(__dirname, '.crash-monitor-prices.json');
 
@@ -24,8 +25,14 @@ function loadJSON(filePath) {
   return null;
 }
 
+function atomicWrite(filePath, data) {
+  const tmp = filePath + '.tmp';
+  fs.writeFileSync(tmp, typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+  fs.renameSync(tmp, filePath);
+}
+
 function saveJSON(filePath, data) {
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+  atomicWrite(filePath, data);
 }
 
 function loadApiKey() {
@@ -201,6 +208,27 @@ async function main() {
         }
       }
     } catch {}
+  }
+
+  // Cross-module: check if any position's coin dropped out of watchlist
+  const scannerData = loadJSON(SCANNER_FILE);
+  if (scannerData?.watchlist) {
+    const watchlistSymbols = new Set(scannerData.watchlist.map(c => c.symbol));
+    for (const sym of symbols) {
+      if (!watchlistSymbols.has(sym)) {
+        alerts.push({
+          symbol: sym,
+          direction: symbolMap[sym]?.direction || 'LONG',
+          level: 'deteriorating_setup',
+          change5m: null,
+          currentPrice: tickers[sym]?.last || 0,
+          entryPrice: symbolMap[sym]?.entryPrice || 0,
+          pnlPercent: 0,
+          message: `${sym.replace('/USDT', '')} dropped out of Owen's top 10 watchlist`,
+          reason: "Coin dropped out of Owen's top 10 watchlist",
+        });
+      }
+    }
   }
 
   // Save updated prices

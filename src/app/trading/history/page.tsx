@@ -470,7 +470,6 @@ export default function TradeHistoryPage() {
           <div style={{ fontSize: '14px', fontWeight: 600 }}>
             {search.trim() ? `Search Results (${searchResults.length})` : `Last ${Math.min(10, closed.length)} Trades`}
           </div>
-          {/* Search */}
           <div style={{ position: 'relative', minWidth: '220px' }}>
             <input
               type="text"
@@ -487,73 +486,100 @@ export default function TradeHistoryPage() {
           </div>
         </div>
 
-        {searchResults.length === 0 && (
-          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--muted)', fontSize: '13px' }}>
-            {search.trim() ? 'No trades match your search' : 'No closed trades yet'}
-          </div>
-        )}
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <thead>
+              <tr style={{ color: 'var(--muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                <th style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>Coin</th>
+                <th style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>Direction</th>
+                <th style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>Entry</th>
+                <th style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>Exit</th>
+                <th style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>Size</th>
+                <th style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>P&L</th>
+                <th style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>Return</th>
+                <th style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>Result</th>
+                <th style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>Hold</th>
+                <th style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {searchResults.length === 0 && (
+                <tr><td colSpan={10} style={{ padding: '24px', textAlign: 'center', color: 'var(--muted)' }}>
+                  {search.trim() ? 'No trades match your search' : 'No closed trades yet'}
+                </td></tr>
+              )}
+              {searchResults.map((trade) => {
+                const pnl = n(trade.pnl_dollar);
+                const pnlPct = n(trade.pnl_percent);
+                const isWin = trade.column_name === 'Wins';
+                const isParked = trade.column_name === 'Parked';
+                const isExpanded = expandedId === trade.id;
+                const coin = coinBase(trade.coin_pair);
+                const resultColor = isParked ? (pnl >= 0 ? 'var(--green)' : 'var(--red)') : isWin ? 'var(--green)' : 'var(--red)';
+                const resultLabel = isParked ? (pnl >= 0 ? 'Win (Parked)' : 'Loss (Parked)') : isWin ? 'Win' : 'Loss';
+                const entryPrice = n(trade.entry_price);
+                const exitPrice = n(trade.exit_price);
 
-        <div style={{ display: 'grid', gap: '6px' }}>
-          {searchResults.map((trade) => {
-            const pnl = n(trade.pnl_dollar);
-            const pnlPct = n(trade.pnl_percent);
-            const isWin = trade.column_name === 'Wins';
-            const isParked = trade.column_name === 'Parked';
-            const isExpanded = expandedId === trade.id;
-            const coin = coinBase(trade.coin_pair);
-
-            return (
-              <div key={trade.id}>
-                <div
-                  onClick={() => setExpandedId(isExpanded ? null : trade.id)}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '36px 1fr 60px 80px 90px 80px 80px',
-                    alignItems: 'center',
-                    padding: '10px 8px',
-                    borderRadius: isExpanded ? '12px 12px 0 0' : '12px',
-                    background: isExpanded ? 'rgba(123,125,255,0.06)' : 'transparent',
-                    cursor: 'pointer',
-                    transition: 'background 0.15s',
-                    borderBottom: '1px solid var(--border)',
-                  }}
-                >
-                  {/* Icon */}
-                  <span style={{ fontSize: '18px', textAlign: 'center' }}>{coinIcon(trade.coin_pair)}</span>
-                  {/* Coin + date */}
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: '13px' }}>{coin}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{fmtDateTime(trade.exited_at || trade.entered_at)}</div>
-                  </div>
-                  {/* Direction */}
-                  <span style={{
-                    padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, textAlign: 'center',
-                    background: trade.direction === 'LONG' ? 'rgba(0,230,118,0.12)' : 'rgba(255,82,82,0.12)',
-                    color: trade.direction === 'LONG' ? 'var(--green)' : 'var(--red)',
-                  }}>
-                    {trade.direction || '—'}
-                  </span>
-                  {/* Result */}
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: isParked ? (pnl >= 0 ? 'var(--green)' : 'var(--red)') : isWin ? 'var(--green)' : 'var(--red)' }}>
-                    {isParked ? (pnl >= 0 ? '⏸ Win (Parked)' : '⏸ Loss (Parked)') : isWin ? '✅ Win' : '❌ Loss'}
-                  </span>
-                  {/* P&L $ */}
-                  <span style={{ fontWeight: 700, fontSize: '13px', color: pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                    {fmt$(pnl)}
-                  </span>
-                  {/* P&L % */}
-                  <span style={{ fontSize: '12px', color: pnlPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                    {fmtPct(pnlPct)}
-                  </span>
-                  {/* Hold time */}
-                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
-                    {fmtHold(holdTimeMs(trade.entered_at, trade.exited_at))}
-                  </span>
-                </div>
-                {isExpanded && <TradeDetail trade={trade} />}
-              </div>
-            );
-          })}
+                return (
+                  <tr
+                    key={trade.id}
+                    onClick={() => setExpandedId(isExpanded ? null : trade.id)}
+                    style={{ cursor: 'pointer', transition: 'background 0.15s', background: isExpanded ? 'rgba(123,125,255,0.06)' : 'transparent' }}
+                  >
+                    {/* Coin */}
+                    <td style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '16px' }}>{coinIcon(trade.coin_pair)}</span>
+                        <span style={{ fontWeight: 700 }}>{coin}</span>
+                      </div>
+                    </td>
+                    {/* Direction */}
+                    <td style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)' }}>
+                      <span style={{
+                        padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                        background: (trade.direction || '').toUpperCase() === 'LONG' ? 'rgba(0,230,118,0.12)' : 'rgba(255,82,82,0.12)',
+                        color: (trade.direction || '').toUpperCase() === 'LONG' ? 'var(--green)' : 'var(--red)',
+                      }}>
+                        {(trade.direction || '—').toUpperCase()}
+                      </span>
+                    </td>
+                    {/* Entry */}
+                    <td style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)', fontSize: '12px' }}>
+                      {entryPrice ? `$${entryPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: entryPrice < 1 ? 6 : 2 })}` : '—'}
+                    </td>
+                    {/* Exit */}
+                    <td style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)', fontSize: '12px' }}>
+                      {exitPrice ? `$${exitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: exitPrice < 1 ? 6 : 2 })}` : '—'}
+                    </td>
+                    {/* Size */}
+                    <td style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)', fontSize: '12px' }}>
+                      {trade.position_size ? `$${n(trade.position_size).toFixed(2)}` : '—'}
+                    </td>
+                    {/* P&L */}
+                    <td style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)', fontWeight: 700, color: pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                      {trade.pnl_dollar != null ? fmt$(pnl) : '—'}
+                    </td>
+                    {/* Return % */}
+                    <td style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)', fontSize: '12px', color: pnlPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                      {trade.pnl_percent != null ? fmtPct(pnlPct) : '—'}
+                    </td>
+                    {/* Result */}
+                    <td style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)', fontWeight: 600, color: resultColor }}>
+                      {resultLabel}
+                    </td>
+                    {/* Hold */}
+                    <td style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)', fontSize: '12px', color: 'var(--muted)' }}>
+                      {fmtHold(holdTimeMs(trade.entered_at, trade.exited_at))}
+                    </td>
+                    {/* Date */}
+                    <td style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)', fontSize: '12px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                      {fmtDateTime(trade.exited_at || trade.entered_at)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </section>
 

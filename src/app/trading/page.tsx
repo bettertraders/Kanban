@@ -33,6 +33,7 @@ type PortfolioStats = {
     daily_pnl?: number;
     weekly_pnl?: number;
     paper_balance?: number;
+    starting_balance?: number;
     win_rate?: number;
     active_positions?: number;
     total_trades?: number;
@@ -578,7 +579,8 @@ export default function TradingDashboardPage() {
     if (typeof window !== 'undefined') localStorage.setItem('clawdesk-dashboard-mode', mode);
   }, []);
 
-  const paperBalance = Number(portfolio?.summary?.paper_balance ?? 0);
+  const startingBalance = Number(portfolio?.summary?.paper_balance ?? portfolio?.summary?.starting_balance ?? 0);
+  const realizedPnl = Number(portfolio?.summary?.total_realized_pnl ?? 0);
   // Fetch live P&L from the same price source as the board (CCXT/Binance)
   const [livePnl, setLivePnl] = useState<number | null>(null);
   useEffect(() => {
@@ -603,7 +605,9 @@ export default function TradingDashboardPage() {
       .catch(() => {});
   }, [portfolio]);
   const dailyPnl = livePnl ?? Number(portfolio?.summary?.daily_pnl ?? portfolio?.summary?.total_unrealized_pnl ?? 0);
-  const dailyPnlPct = paperBalance > 0 ? (dailyPnl / (paperBalance - dailyPnl)) * 100 : 0;
+  // Live balance = starting balance + realized P&L + unrealized P&L
+  const paperBalance = startingBalance + realizedPnl + dailyPnl;
+  const dailyPnlPct = startingBalance > 0 ? (dailyPnl / startingBalance) * 100 : 0;
   const winRate = Number(portfolio?.summary?.win_rate ?? 0);
   const activePositions = Number(portfolio?.summary?.active_positions ?? 0);
   const totalTrades = Number(portfolio?.summary?.total_trades ?? bots.reduce((sum, b) => sum + (b.total_trades ?? b.performance?.total_trades ?? 0), 0));
@@ -914,9 +918,9 @@ export default function TradingDashboardPage() {
               <div style={{ fontSize: '16px', marginTop: '6px', fontWeight: 600, color: dailyPnl >= 0 ? '#00e676' : '#ff5252' }}>
                 {dailyPnl >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(dailyPnl))} today
               </div>
-              {tradingAmount && dayProgress && (
+              {dayProgress && (
                 <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
-                  Started {dayProgress.day} day{dayProgress.day !== 1 ? 's' : ''} ago with {formatCurrency(tradingAmount)}
+                  Started {dayProgress.day} day{dayProgress.day !== 1 ? 's' : ''} ago with {formatCurrency(tradingAmount || startingBalance)}
                 </div>
               )}
             </div>
@@ -1175,7 +1179,8 @@ export default function TradingDashboardPage() {
           <div className="stats-row" style={{ display: 'flex', flexWrap: 'nowrap', gap: '10px' }}>
             {[
               { label: 'Bot Status', value: engineOn ? '● Active' : '● Paused', color: engineOn ? '#22c55e' : '#ef4444' },
-              { label: 'Paper Balance', value: formatCurrency(paperBalance) },
+              { label: 'Balance', value: formatCurrency(paperBalance), color: paperBalance >= startingBalance ? '#4ade80' : '#f05b6f' },
+              { label: 'Trading With', value: formatCurrency(tradingAmount || startingBalance), color: '#7b7dff' },
               { label: "Today's P&L", value: `${dailyPnl >= 0 ? '+' : ''}${formatCurrency(dailyPnl)} (${dailyPnlPct >= 0 ? '+' : ''}${dailyPnlPct.toFixed(1)}%)`, color: dailyPnl >= 0 ? '#4ade80' : '#f05b6f' },
               { label: 'Win Rate', value: `${winRate.toFixed(0)}%`, color: winRate >= 50 ? '#4ade80' : winRate > 0 ? '#f05b6f' : undefined },
               { label: 'Active Positions', value: String(activePositions), subtitle: (() => { const longs = (portfolio?.activeHoldings || []).length; const shorts = 0; return longs > 0 || shorts > 0 ? `${longs}L / ${shorts}S` : undefined; })() },

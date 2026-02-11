@@ -15,7 +15,7 @@ const path = require('path');
 
 const API_BASE = 'https://clawdesk.ai';
 const BOARD_ID = 15; // Paper Trading board (Michael's)
-const BOT_NAME = 'TBO Trading Engine';
+const BOT_NAME = 'Penny Paper Trader';
 const ENGINE_VERSION = '2.0';
 const STRATEGY_STYLE = 'swing';
 const STRATEGY_SUBSTYLE = 'momentum';

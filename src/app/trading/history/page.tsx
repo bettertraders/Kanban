@@ -82,55 +82,6 @@ function StatCard({ label, value, sub, color }: { label: string; value: string; 
   );
 }
 
-/* ── Cumulative P&L Chart ────────────────────────────── */
-function CumulativePnlChart({ trades }: { trades: Trade[] }) {
-  const sorted = useMemo(() => {
-    return [...trades].sort((a, b) => new Date(a.exited_at!).getTime() - new Date(b.exited_at!).getTime());
-  }, [trades]);
-
-  if (sorted.length < 2) {
-    return (
-      <div style={{ height: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: '13px' }}>
-        Need 2+ closed trades to show P&L curve
-      </div>
-    );
-  }
-
-  const points: { cumPnl: number }[] = [];
-  let cum = 0;
-  for (const t of sorted) { cum += n(t.pnl_dollar); points.push({ cumPnl: cum }); }
-
-  const W = 600, H = 140, PX = 40, PY = 16;
-  const minY = Math.min(0, ...points.map(p => p.cumPnl));
-  const maxY = Math.max(0, ...points.map(p => p.cumPnl));
-  const rangeY = maxY - minY || 1;
-  const toX = (i: number) => PX + (i / (points.length - 1)) * (W - PX * 2);
-  const toY = (v: number) => PY + (1 - (v - minY) / rangeY) * (H - PY * 2);
-  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${toX(i).toFixed(1)},${toY(p.cumPnl).toFixed(1)}`).join(' ');
-  const zeroY = toY(0);
-  const lastPnl = points[points.length - 1].cumPnl;
-  const lineColor = lastPnl >= 0 ? '#00e676' : '#ff5252';
-  const areaD = `${pathD} L${toX(points.length - 1).toFixed(1)},${zeroY.toFixed(1)} L${toX(0).toFixed(1)},${zeroY.toFixed(1)} Z`;
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: '160px' }}>
-      <defs>
-        <linearGradient id="pnlGrad" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor={lineColor} stopOpacity="0.25" />
-          <stop offset="100%" stopColor={lineColor} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <line x1={PX} x2={W - PX} y1={zeroY} y2={zeroY} stroke="var(--border)" strokeWidth="1" strokeDasharray="4,4" />
-      <text x={PX - 4} y={zeroY + 4} fill="var(--muted)" fontSize="10" textAnchor="end">$0</text>
-      <path d={areaD} fill="url(#pnlGrad)" />
-      <path d={pathD} fill="none" stroke={lineColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={toX(0)} cy={toY(points[0].cumPnl)} r="3" fill={lineColor} />
-      <circle cx={toX(points.length - 1)} cy={toY(lastPnl)} r="5" fill={lineColor} stroke="var(--bg)" strokeWidth="2" />
-      <text x={toX(points.length - 1) + 8} y={toY(lastPnl) + 4} fill={lineColor} fontSize="12" fontWeight="700">{fmt$(lastPnl)}</text>
-    </svg>
-  );
-}
-
 /* ── Pattern Detection (Advanced) ────────────────────── */
 type Pattern = { icon: string; label: string; detail: string; color: string; tag: string };
 
@@ -511,31 +462,10 @@ export default function TradeHistoryPage() {
         <StatCard label="Avg Hold Time" value={fmtHold(avgHoldMs)} sub={`Avg P&L: ${fmt$(avgTrade)}`} />
       </section>
 
-      {/* ── P&L Chart + Strategy Performance ─────────── */}
-      <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-
-        {/* Cumulative P&L */}
+      {/* ── Strategy Performance ────────────────────── */}
+      <section style={{ marginBottom: '24px' }}>
         <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '18px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>Cumulative P&L</div>
-          <CumulativePnlChart trades={closed} />
-          {/* Win/Loss bar */}
-          {closed.length > 0 && (
-            <>
-              <div style={{ display: 'flex', height: '8px', borderRadius: '4px', overflow: 'hidden', background: 'var(--panel-2)', marginTop: '12px' }}>
-                <div style={{ width: `${winRate}%`, background: '#00e676' }} />
-                <div style={{ width: `${100 - winRate}%`, background: '#ff5252' }} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--muted)', marginTop: '6px' }}>
-                <span style={{ color: 'var(--green)' }}>● {wins.length} wins</span>
-                <span style={{ color: 'var(--red)' }}>● {losses.length} losses</span>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Strategy Performance */}
-        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '18px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '14px' }}>Strategy Performance</div>
+          <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '14px' }}>📋 Strategy Performance</div>
           {stratPerf.length === 0 && <div style={{ fontSize: '12px', color: 'var(--muted)' }}>No closed trades yet</div>}
           <div style={{ display: 'grid', gap: '10px' }}>
             {stratPerf.map(s => (

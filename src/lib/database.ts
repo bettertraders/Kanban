@@ -5,6 +5,21 @@ const pool = new pg.Pool({
   ssl: process.env.DATABASE_URL?.includes('railway.internal') ? false : { rejectUnauthorized: false }
 });
 
+// Run lightweight migrations on first query
+let _migrationsRan = false;
+async function runMigrations() {
+  if (_migrationsRan) return;
+  _migrationsRan = true;
+  try {
+    await pool.query(`ALTER TABLE trading_bots ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'`);
+    await pool.query(`ALTER TABLE trading_settings ADD COLUMN IF NOT EXISTS board_id INTEGER`);
+  } catch (e) {
+    // Tables might not exist yet — that's fine, initializeDatabase will create them
+  }
+}
+// Trigger on import (runs once)
+runMigrations();
+
 // Initialize database schema
 export async function initializeDatabase() {
   const client = await pool.connect();
@@ -247,10 +262,7 @@ export async function initializeDatabase() {
       );
 
       -- Migration: add metadata column if missing
-      DO $$ BEGIN
-        ALTER TABLE trading_bots ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
-      EXCEPTION WHEN duplicate_column THEN NULL;
-      END $$;
+      ALTER TABLE trading_bots ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
 
       -- Bot executions
       CREATE TABLE IF NOT EXISTS bot_executions (

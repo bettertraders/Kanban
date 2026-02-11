@@ -1642,8 +1642,9 @@ function computePnl(
 
   const isShort = String(direction || '').toLowerCase() === 'short';
   const perUnit = isShort ? entry - exit : exit - entry;
-  const pnlDollar = perUnit * size;
+  // size is in dollars (e.g. $200), not coin quantity
   const pnlPercent = entry !== 0 ? (perUnit / entry) * 100 : 0;
+  const pnlDollar = (pnlPercent / 100) * size;
   return { pnlDollar, pnlPercent };
 }
 

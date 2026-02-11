@@ -405,9 +405,9 @@ export default function TradeHistoryPage() {
   const holdTimes = closed.map(t => holdTimeMs(t.entered_at, t.exited_at)).filter((v): v is number => v !== null);
   const avgHoldMs = holdTimes.length ? holdTimes.reduce((a, b) => a + b, 0) / holdTimes.length : null;
 
-  // Strategy performance + patterns
-  const stratPerf = useMemo(() => getStrategyPerformance(closed), [closed]);
-  const patterns = useMemo(() => detectPatterns(closed), [closed]);
+  // Patterns (hidden for now — re-enable when more data)
+  // const stratPerf = useMemo(() => getStrategyPerformance(closed), [closed]);
+  // const patterns = useMemo(() => detectPatterns(closed), [closed]);
 
   // Search within closed — last 10 by default, full list when searching
   const searchResults = useMemo(() => {
@@ -462,73 +462,7 @@ export default function TradeHistoryPage() {
         <StatCard label="Avg Hold Time" value={fmtHold(avgHoldMs)} sub={`Avg P&L: ${fmt$(avgTrade)}`} />
       </section>
 
-      {/* ── Strategy Performance ────────────────────── */}
-      <section style={{ marginBottom: '24px' }}>
-        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '18px' }}>
-          <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '14px' }}>📋 Strategy Performance</div>
-          {stratPerf.length === 0 && <div style={{ fontSize: '12px', color: 'var(--muted)' }}>No closed trades yet</div>}
-          <div style={{ display: 'grid', gap: '10px' }}>
-            {stratPerf.map(s => (
-              <div key={s.name} style={{ padding: '12px', background: 'var(--panel)', borderRadius: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 600 }}>{s.name}</div>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: s.pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmt$(s.pnl)}</div>
-                </div>
-                <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: 'var(--muted)' }}>
-                  <span>{s.trades} trades</span>
-                  <span style={{ color: s.winRate >= 50 ? 'var(--green)' : 'var(--red)' }}>{s.winRate.toFixed(0)}% win rate</span>
-                  {s.avgConfidence !== null && <span>Avg conf: {s.avgConfidence.toFixed(0)}/100</span>}
-                </div>
-                {/* mini win rate bar */}
-                <div style={{ display: 'flex', height: '4px', borderRadius: '2px', overflow: 'hidden', background: 'var(--panel-2)', marginTop: '8px' }}>
-                  <div style={{ width: `${s.winRate}%`, background: '#00e676' }} />
-                  <div style={{ width: `${100 - s.winRate}%`, background: '#ff5252' }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Patterns Detected ────────────────────────── */}
-      {patterns.length > 0 && (
-        <section style={{ marginBottom: '24px' }}>
-          <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            🧠 Patterns Detected
-            <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 400 }}>Auto-analyzed from your trade data</span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
-            {patterns.map((p, i) => {
-              const tagColors: Record<string, string> = {
-                'Actionable': '#00e676', 'Warning': '#f5b544', 'Positive': '#00e676',
-                'Insight': '#7b7dff', 'Streak': p.color, 'Neutral': '#9aa4b8',
-              };
-              return (
-                <div key={i} style={{
-                  background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px',
-                  padding: '16px 18px', position: 'relative', overflow: 'hidden',
-                }}>
-                  {/* Tag pill */}
-                  <div style={{
-                    position: 'absolute', top: '12px', right: '14px',
-                    padding: '2px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: 600,
-                    background: `${tagColors[p.tag] || 'var(--muted)'}18`,
-                    color: tagColors[p.tag] || 'var(--muted)',
-                    textTransform: 'uppercase', letterSpacing: '0.05em',
-                  }}>
-                    {p.tag}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                    <span style={{ fontSize: '20px' }}>{p.icon}</span>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: p.color, paddingRight: '60px' }}>{p.label}</span>
-                  </div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted)', lineHeight: 1.5 }}>{p.detail}</div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
+      {/* Strategy Performance + Patterns Detected — hidden until more trade data accumulates */}
 
       {/* ── Recent Trades (last 10) + Search ─────────── */}
       <section style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '18px' }}>

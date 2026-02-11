@@ -2208,7 +2208,7 @@ export async function getBoardTradingStats(boardId: number) {
   const totalsResult = await pool.query(
     `
       SELECT
-        COUNT(*)::int as total_trades,
+        COUNT(*) FILTER (WHERE column_name IN ('Wins', 'Losses', 'Parked') OR status IN ('closed', 'won', 'lost'))::int as total_trades,
         COUNT(*) FILTER (WHERE status = 'active')::int as active_trades,
         COUNT(*) FILTER (WHERE column_name = 'Wins')::int as wins,
         COUNT(*) FILTER (WHERE column_name = 'Losses')::int as losses,
@@ -2232,12 +2232,12 @@ export async function getBoardTradingStats(boardId: number) {
     `
       SELECT
         coin_pair,
-        COUNT(*)::int as total_trades,
+        COUNT(*) FILTER (WHERE column_name IN ('Wins', 'Losses', 'Parked') OR status IN ('closed', 'won', 'lost'))::int as total_trades,
         COUNT(*) FILTER (WHERE column_name = 'Wins')::int as wins,
         COUNT(*) FILTER (WHERE column_name = 'Losses')::int as losses,
-        COALESCE(SUM(CASE WHEN column_name IN ('Wins', 'Losses') OR status IN ('closed', 'won', 'lost') THEN COALESCE(pnl_dollar, 0) END), 0) as total_pnl,
-        COALESCE(AVG(CASE WHEN pnl_dollar > 0 THEN pnl_dollar END), 0) as avg_win,
-        COALESCE(AVG(CASE WHEN pnl_dollar < 0 THEN pnl_dollar END), 0) as avg_loss
+        COALESCE(SUM(CASE WHEN column_name IN ('Wins', 'Losses', 'Parked') OR status IN ('closed', 'won', 'lost') THEN COALESCE(pnl_dollar, 0) END), 0) as total_pnl,
+        COALESCE(AVG(CASE WHEN pnl_dollar > 0 AND (column_name IN ('Wins', 'Losses', 'Parked') OR status IN ('closed', 'won', 'lost')) THEN pnl_dollar END), 0) as avg_win,
+        COALESCE(AVG(CASE WHEN pnl_dollar < 0 AND (column_name IN ('Wins', 'Losses', 'Parked') OR status IN ('closed', 'won', 'lost')) THEN pnl_dollar END), 0) as avg_loss
       FROM trades WHERE board_id = $1
       GROUP BY coin_pair
       ORDER BY coin_pair
@@ -2290,6 +2290,7 @@ export async function getBoardTradingStats(boardId: number) {
       SELECT coin_pair, COUNT(*)::int as total_trades
       FROM trades
       WHERE board_id = $1
+        AND (column_name IN ('Wins', 'Losses', 'Parked') OR status IN ('closed', 'won', 'lost'))
       GROUP BY coin_pair
       ORDER BY total_trades DESC, coin_pair ASC
       LIMIT 6
@@ -2542,7 +2543,8 @@ export async function getPortfolioStats(userId: number) {
         END), 0) as total_unrealized_pnl,
         COUNT(*)::int as total_trades,
         COUNT(*) FILTER (WHERE t.column_name = 'Wins')::int as wins,
-        COUNT(*) FILTER (WHERE t.column_name = 'Losses')::int as losses
+        COUNT(*) FILTER (WHERE t.column_name = 'Losses')::int as losses,
+        COUNT(*) FILTER (WHERE t.column_name IN ('Wins', 'Losses', 'Parked') OR t.status IN ('closed', 'won', 'lost'))::int as closed_trades
       FROM trades t
       JOIN accessible_boards ab ON t.board_id = ab.id
     `,
@@ -2552,7 +2554,7 @@ export async function getPortfolioStats(userId: number) {
   const summaryRow = summaryResult.rows[0] || {};
   const wins = Number(summaryRow.wins || 0);
   const losses = Number(summaryRow.losses || 0);
-  const closedTrades = wins + losses;
+  const closedTrades = Number(summaryRow.closed_trades || 0) || (wins + losses);
   const winRate = closedTrades > 0 ? (wins / closedTrades) * 100 : 0;
 
   const byCoinResult = await pool.query(
@@ -2567,11 +2569,11 @@ export async function getPortfolioStats(userId: number) {
       )
       SELECT
         t.coin_pair,
-        COUNT(*)::int as total_trades,
+        COUNT(*) FILTER (WHERE t.column_name IN ('Wins', 'Losses', 'Parked') OR t.status IN ('closed', 'won', 'lost'))::int as total_trades,
         COUNT(*) FILTER (WHERE t.column_name = 'Wins')::int as wins,
         COUNT(*) FILTER (WHERE t.column_name = 'Losses')::int as losses,
-        COALESCE(SUM(CASE WHEN t.column_name IN ('Wins', 'Losses') OR t.status IN ('closed', 'won', 'lost') THEN COALESCE(t.pnl_dollar, 0) END), 0) as total_pnl,
-        COALESCE(AVG(CASE WHEN t.column_name IN ('Wins', 'Losses') OR t.status IN ('closed', 'won', 'lost') THEN t.pnl_dollar END), 0) as avg_pnl
+        COALESCE(SUM(CASE WHEN t.column_name IN ('Wins', 'Losses', 'Parked') OR t.status IN ('closed', 'won', 'lost') THEN COALESCE(t.pnl_dollar, 0) END), 0) as total_pnl,
+        COALESCE(AVG(CASE WHEN t.column_name IN ('Wins', 'Losses', 'Parked') OR t.status IN ('closed', 'won', 'lost') THEN t.pnl_dollar END), 0) as avg_pnl
       FROM trades t
       JOIN accessible_boards ab ON t.board_id = ab.id
       GROUP BY t.coin_pair
@@ -2607,10 +2609,10 @@ export async function getPortfolioStats(userId: number) {
       )
       SELECT
         UPPER(COALESCE(t.direction, '')) as direction,
-        COUNT(*)::int as total_trades,
+        COUNT(*) FILTER (WHERE t.column_name IN ('Wins', 'Losses', 'Parked') OR t.status IN ('closed', 'won', 'lost'))::int as total_trades,
         COUNT(*) FILTER (WHERE t.column_name = 'Wins')::int as wins,
         COUNT(*) FILTER (WHERE t.column_name = 'Losses')::int as losses,
-        COALESCE(SUM(CASE WHEN t.column_name IN ('Wins', 'Losses') OR t.status IN ('closed', 'won', 'lost') THEN COALESCE(t.pnl_dollar, 0) END), 0) as total_pnl
+        COALESCE(SUM(CASE WHEN t.column_name IN ('Wins', 'Losses', 'Parked') OR t.status IN ('closed', 'won', 'lost') THEN COALESCE(t.pnl_dollar, 0) END), 0) as total_pnl
       FROM trades t
       JOIN accessible_boards ab ON t.board_id = ab.id
       GROUP BY UPPER(COALESCE(t.direction, ''))
@@ -2711,7 +2713,7 @@ export async function getPortfolioStats(userId: number) {
       starting_balance: startingBalance,
       win_rate: Math.round(winRate * 100) / 100,
       active_positions: Number(summaryRow.active_positions || 0),
-      total_trades: Number(summaryRow.total_trades || 0),
+      total_trades: closedTrades,
       board_count: Number(summaryRow.board_count || 0)
     },
     byCoin,

@@ -1,14 +1,14 @@
 {
-  "level": "crash",
-  "direction": "down",
-  "timestamp": 1770845343467,
+  "level": "breakout",
+  "direction": "up",
+  "timestamp": 1770846722281,
   "coins": [
     {
-      "symbol": "BERA/USDT",
-      "change5m": -0.23,
-      "change15m": -6.02,
-      "currentPrice": 0.875
+      "symbol": "TNSR/USDT",
+      "change5m": 13.47,
+      "change15m": 15.29,
+      "currentPrice": 0.0573
     }
   ],
-  "message": "BERA -6.02% in 15m. ALLO +3.03% in 5m."
+  "message": "TNSR +15.29% in 15m."
 }

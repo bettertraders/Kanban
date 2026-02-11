@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 
 /* ── types ───────────────────────────────────────────── */
 type Trade = {
@@ -298,62 +298,160 @@ function getStrategyPerformance(closed: Trade[]) {
   })).sort((a, b) => b.pnl - a.pnl);
 }
 
-/* ── Trade Detail (expanded) ─────────────────────────── */
+/* ── Trade Detail (expanded — Story Card style) ──────── */
 function TradeDetail({ trade }: { trade: Trade }) {
+  const pnl = n(trade.pnl_dollar);
+  const pnlPct = n(trade.pnl_percent);
+  const isWin = trade.column_name === 'Wins';
+  const isParked = trade.column_name === 'Parked';
+  const isLoss = trade.column_name === 'Losses';
+  const entryPrice = n(trade.entry_price);
+  const exitPrice = n(trade.exit_price);
+  const rsi = n(trade.rsi_value);
+  const coin = coinBase(trade.coin_pair);
+  const dir = (trade.direction || 'LONG').toUpperCase();
+
+  // Build narrative from available data
+  const buildNarrative = () => {
+    const parts: string[] = [];
+
+    // Entry reason
+    if (rsi > 0 && rsi < 40) {
+      parts.push(`Entered on oversold bounce — RSI hit ${rsi.toFixed(1)} near support at $${entryPrice.toLocaleString()}.`);
+    } else if (rsi >= 40 && rsi < 60) {
+      parts.push(`Entered at RSI ${rsi.toFixed(1)} in neutral territory at $${entryPrice.toLocaleString()}.`);
+    } else if (rsi >= 60) {
+      parts.push(`Entered on momentum — RSI at ${rsi.toFixed(1)}, price $${entryPrice.toLocaleString()}.`);
+    } else if (entryPrice) {
+      parts.push(`Entered ${dir} at $${entryPrice.toLocaleString()}.`);
+    }
+
+    // MACD context
+    if (trade.macd_status) {
+      const macd = trade.macd_status.toLowerCase();
+      if (macd.includes('bull') || macd.includes('positive')) {
+        parts.push('MACD histogram confirmed bullish momentum at entry.');
+      } else if (macd.includes('bear') || macd.includes('negative')) {
+        parts.push(dir === 'SHORT' ? 'MACD confirmed bearish setup for short entry.' : 'MACD was bearish at entry — higher risk trade.');
+      }
+    }
+
+    // Volume context
+    if (trade.volume_assessment) {
+      const vol = trade.volume_assessment.toLowerCase();
+      if (vol.includes('high') || vol.includes('strong')) {
+        parts.push('Volume was strong, confirming the move.');
+      } else if (vol.includes('low') || vol.includes('weak')) {
+        parts.push('Volume was low — thin conviction behind the move.');
+      }
+    }
+
+    // Exit reason
+    if (exitPrice && entryPrice) {
+      if (isWin || (isParked && pnl > 0)) {
+        parts.push(`Exited at $${exitPrice.toLocaleString()} for a ${fmtPct(pnlPct)} gain.`);
+      } else if (isLoss || (isParked && pnl < 0)) {
+        const dropPct = Math.abs(pnlPct).toFixed(1);
+        parts.push(`Exited at $${exitPrice.toLocaleString()} for a ${dropPct}% loss.`);
+      }
+    }
+
+    if (isParked) {
+      parts.push('Trade parked — will re-enter on next signal.');
+    }
+
+    return parts.join(' ');
+  };
+
+  // Build tags
+  const tags: { label: string; type: 'strategy' | 'indicator' | 'lesson' | 'exit' }[] = [];
+
+  // Strategy tag
+  if (rsi > 0 && rsi < 40) tags.push({ label: 'Oversold Bounce', type: 'strategy' });
+  else if (dir === 'SHORT') tags.push({ label: 'Short Setup', type: 'strategy' });
+  else tags.push({ label: dir === 'LONG' ? 'Long Entry' : dir, type: 'strategy' });
+
+  // Indicator tags
+  if (rsi > 0) tags.push({ label: `RSI ${rsi.toFixed(0)}`, type: 'indicator' });
+  if (trade.macd_status) {
+    const macd = trade.macd_status.toLowerCase();
+    tags.push({ label: `MACD ${macd.includes('bull') || macd.includes('positive') ? '✓' : '✗'}`, type: 'indicator' });
+  }
+  if (trade.tbo_signal) tags.push({ label: `TBO: ${trade.tbo_signal}`, type: 'indicator' });
+  if (trade.volume_assessment) tags.push({ label: `Vol: ${trade.volume_assessment}`, type: 'indicator' });
+  if (trade.confidence_score != null) tags.push({ label: `Conf: ${trade.confidence_score}/100`, type: 'indicator' });
+
+  // Result tags
+  if (isWin) tags.push({ label: '✅ Winner', type: 'lesson' });
+  else if (isLoss) tags.push({ label: '❌ Loss — review entry', type: 'lesson' });
+  else if (isParked) tags.push({ label: '⏸ Parked for re-entry', type: 'exit' });
+
+  const tagColors: Record<string, { bg: string; color: string }> = {
+    strategy: { bg: 'rgba(123,125,255,0.15)', color: '#7b7dff' },
+    indicator: { bg: 'rgba(0,230,118,0.12)', color: 'var(--green)' },
+    lesson: { bg: 'rgba(245,181,68,0.15)', color: '#f5b544' },
+    exit: { bg: 'rgba(255,82,82,0.12)', color: 'var(--red)' },
+  };
+
+  const borderColor = isWin ? 'var(--green)' : isLoss ? 'var(--red)' : isParked ? '#f5b544' : 'var(--border)';
+
   return (
-    <div style={{
-      background: 'var(--panel)', borderRadius: '12px', padding: '16px', marginTop: '8px',
-      display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px',
-      fontSize: '12px', animation: 'slideFade 0.2s ease',
-    }}>
-      <div>
-        <span style={{ color: 'var(--muted)' }}>Entry Price</span>
-        <div style={{ fontWeight: 600 }}>{trade.entry_price ? `$${n(trade.entry_price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}` : '—'}</div>
-      </div>
-      <div>
-        <span style={{ color: 'var(--muted)' }}>Exit Price</span>
-        <div style={{ fontWeight: 600 }}>{trade.exit_price ? `$${n(trade.exit_price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}` : '—'}</div>
-      </div>
-      <div>
-        <span style={{ color: 'var(--muted)' }}>Position Size</span>
-        <div style={{ fontWeight: 600 }}>{trade.position_size ? fmt$(n(trade.position_size)) : '—'}</div>
-      </div>
-      <div>
-        <span style={{ color: 'var(--muted)' }}>Stop Loss</span>
-        <div>{trade.stop_loss ? `$${n(trade.stop_loss)}` : '—'}</div>
-      </div>
-      <div>
-        <span style={{ color: 'var(--muted)' }}>Take Profit</span>
-        <div>{trade.take_profit ? `$${n(trade.take_profit)}` : '—'}</div>
-      </div>
-      <div>
-        <span style={{ color: 'var(--muted)' }}>Hold Time</span>
-        <div>{fmtHold(holdTimeMs(trade.entered_at, trade.exited_at))}</div>
-      </div>
-      <div>
-        <span style={{ color: 'var(--muted)' }}>Confidence</span>
-        <div>{trade.confidence_score != null ? `${trade.confidence_score}/100` : '—'}</div>
-      </div>
-      <div>
-        <span style={{ color: 'var(--muted)' }}>TBO Signal</span>
-        <div>{trade.tbo_signal || '—'}</div>
-      </div>
-      <div>
-        <span style={{ color: 'var(--muted)' }}>RSI</span>
-        <div>{trade.rsi_value ? n(trade.rsi_value).toFixed(1) : '—'}</div>
-      </div>
-      <div>
-        <span style={{ color: 'var(--muted)' }}>Trader</span>
-        <div>{trade.created_by_name || '—'}</div>
-      </div>
-      {trade.notes && (
-        <div style={{ gridColumn: '1 / -1' }}>
-          <span style={{ color: 'var(--muted)' }}>Notes</span>
-          <div style={{ marginTop: '4px', lineHeight: 1.5 }}>{trade.notes}</div>
+    <tr><td colSpan={10} style={{ padding: '0 8px 12px' }}>
+      <div style={{
+        background: 'var(--panel)', borderRadius: '14px', padding: '20px',
+        borderLeft: `3px solid ${borderColor}`,
+        animation: 'slideFade 0.2s ease',
+      }}>
+        {/* Header: coin + P&L */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '22px' }}>{coinIcon(trade.coin_pair)}</span>
+            <span style={{ fontSize: '16px', fontWeight: 700 }}>{coin}/USDT — {dir}</span>
+          </div>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>
+            {fmt$(pnl)} ({fmtPct(pnlPct)})
+          </div>
         </div>
-      )}
+
+        {/* Narrative */}
+        <div style={{ fontSize: '13px', color: 'var(--muted)', lineHeight: 1.6, marginBottom: '12px' }}>
+          {buildNarrative()}
+        </div>
+
+        {/* Notes from engine/trader */}
+        {trade.notes && (
+          <div style={{ fontSize: '13px', color: 'var(--text)', lineHeight: 1.6, marginBottom: '12px', padding: '10px 14px', background: 'rgba(123,125,255,0.05)', borderRadius: '10px', borderLeft: '2px solid var(--accent)' }}>
+            {trade.notes}
+          </div>
+        )}
+
+        {/* Tags */}
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
+          {tags.map((tag, i) => (
+            <span key={i} style={{
+              fontSize: '10px', fontWeight: 600, padding: '3px 10px', borderRadius: '999px',
+              textTransform: 'uppercase', letterSpacing: '0.06em',
+              background: tagColors[tag.type]?.bg, color: tagColors[tag.type]?.color,
+            }}>
+              {tag.label}
+            </span>
+          ))}
+        </div>
+
+        {/* Key numbers row */}
+        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', fontSize: '12px', color: 'var(--muted)', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
+          <span>Entry <strong style={{ color: 'var(--text)' }}>${entryPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: entryPrice < 1 ? 6 : 2 })}</strong></span>
+          {exitPrice > 0 && <span>Exit <strong style={{ color: 'var(--text)' }}>${exitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: exitPrice < 1 ? 6 : 2 })}</strong></span>}
+          <span>Size <strong style={{ color: 'var(--text)' }}>${n(trade.position_size).toFixed(2)}</strong></span>
+          {trade.stop_loss && <span>SL <strong style={{ color: 'var(--text)' }}>${n(trade.stop_loss)}</strong></span>}
+          {trade.take_profit && <span>TP <strong style={{ color: 'var(--text)' }}>${n(trade.take_profit)}</strong></span>}
+          <span>Hold <strong style={{ color: 'var(--text)' }}>{fmtHold(holdTimeMs(trade.entered_at, trade.exited_at))}</strong></span>
+          <span>Trader <strong style={{ color: 'var(--text)' }}>{trade.created_by_name || '—'}</strong></span>
+          <span>{fmtDateTime(trade.entered_at)} → {trade.exited_at ? fmtDateTime(trade.exited_at) : 'Active'}</span>
+        </div>
+      </div>
       <style jsx>{`@keyframes slideFade { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }`}</style>
-    </div>
+    </td></tr>
   );
 }
 
@@ -520,9 +618,8 @@ export default function TradeHistoryPage() {
                 const entryPrice = n(trade.entry_price);
                 const exitPrice = n(trade.exit_price);
 
-                return (
+                return (<React.Fragment key={trade.id}>
                   <tr
-                    key={trade.id}
                     onClick={() => setExpandedId(isExpanded ? null : trade.id)}
                     style={{ cursor: 'pointer', transition: 'background 0.15s', background: isExpanded ? 'rgba(123,125,255,0.06)' : 'transparent' }}
                   >
@@ -576,6 +673,8 @@ export default function TradeHistoryPage() {
                       {fmtDateTime(trade.exited_at || trade.entered_at)}
                     </td>
                   </tr>
+                  {isExpanded && <TradeDetail trade={trade} />}
+                </React.Fragment>
                 );
               })}
             </tbody>

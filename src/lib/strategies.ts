@@ -98,6 +98,56 @@ export const STRATEGY_CATALOG: Strategy[] = [
     markets: ['crypto'],
   },
   {
+    id: 'bollinger_bounce',
+    name: 'Bollinger Bounce',
+    direction: 'both',
+    type: 'swing',
+    description: 'Mean reversion at Bollinger Band extremes in ranging markets (ADX < 25)',
+    indicators: ['Bollinger Bands', 'RSI', 'ADX'],
+    riskLevels: ['safe', 'balanced', 'bold'],
+    markets: ['crypto', 'stocks', 'forex'],
+  },
+  {
+    id: 'range_breakout',
+    name: 'Range Breakout',
+    direction: 'both',
+    type: 'swing',
+    description: 'Bollinger squeeze breakout — bandwidth contracts then expands with volume',
+    indicators: ['Bollinger Bands', 'Volume Ratio', 'ADX'],
+    riskLevels: ['balanced', 'bold'],
+    markets: ['crypto', 'stocks'],
+  },
+  {
+    id: 'vwap_reversion',
+    name: 'VWAP Reversion',
+    direction: 'both',
+    type: 'swing',
+    description: 'Price reverts to session VWAP when extended >2% with RSI confirmation',
+    indicators: ['VWAP', 'RSI'],
+    riskLevels: ['safe', 'balanced', 'bold'],
+    markets: ['crypto', 'stocks'],
+  },
+  {
+    id: 'trend_surfer',
+    name: 'Trend Surfer',
+    direction: 'both',
+    type: 'swing',
+    description: 'Ride strong trends — enter on SMA20 pullback when ADX confirms trend',
+    indicators: ['ADX', 'SMA20', 'RSI'],
+    riskLevels: ['balanced', 'bold'],
+    markets: ['crypto', 'stocks', 'forex'],
+  },
+  {
+    id: 'correlation_hedge',
+    name: 'Correlation Hedge',
+    direction: 'long',
+    type: 'swing',
+    description: 'Buy PAXG (gold) when BTC dumps >3% — crypto-to-gold hedge',
+    indicators: ['BTC Momentum', 'RSI'],
+    riskLevels: ['safe', 'balanced', 'bold'],
+    markets: ['crypto'],
+  },
+  {
     id: 'buy_hold_core',
     name: 'Buy & Hold Core',
     direction: 'long',
@@ -172,6 +222,26 @@ export function getActiveStrategies(
       case 'bearish_breakdown':
         active = market === 'bearish' || market === 'volatile';
         conditions = active ? 'Breakdowns in progress — short opportunities' : 'Market stable — no breakdowns';
+        break;
+      case 'bollinger_bounce':
+        active = market === 'ranging' || fearGreedIndex < 60;
+        conditions = active ? 'Ranging market — band bounces active' : 'Strong trend — bounce plays suppressed';
+        break;
+      case 'range_breakout':
+        active = market === 'ranging' || market === 'volatile';
+        conditions = active ? 'Squeeze breakout conditions forming' : 'No squeeze detected';
+        break;
+      case 'vwap_reversion':
+        active = true; // universal
+        conditions = 'VWAP reversion always active — universal mean reversion';
+        break;
+      case 'trend_surfer':
+        active = market === 'bullish' || market === 'bearish';
+        conditions = active ? 'Strong trend — surfing pullbacks' : 'No clear trend for pullback entries';
+        break;
+      case 'correlation_hedge':
+        active = market === 'bearish' || fearGreedIndex < 35;
+        conditions = active ? 'Bearish conditions — gold hedge active' : 'Market stable — no hedge needed';
         break;
       case 'buy_hold_core':
         active = riskLevel === 'safe' || riskLevel === 'balanced';

@@ -16,7 +16,7 @@ const path = require('path');
 const API_BASE = 'https://clawdesk.ai';
 const BOARD_ID = 15; // Paper Trading board (Michael's)
 const BOT_NAME = 'Penny Paper Trader';
-const ENGINE_VERSION = '2.0';
+const ENGINE_VERSION = '3.0';
 const STRATEGY_STYLE = 'swing';
 const STRATEGY_SUBSTYLE = 'momentum';
 const MAX_POSITIONS = 5;
@@ -161,6 +161,83 @@ function calcATR(ohlcv, period = 14) {
   return recent.reduce((a, b) => a + b, 0) / period;
 }
 
+function calcBollingerBands(closes, period = 20, stdDevMultiplier = 2) {
+  if (closes.length < period) return null;
+  const slice = closes.slice(-period);
+  const sma = slice.reduce((a, b) => a + b, 0) / period;
+  const variance = slice.reduce((sum, val) => sum + Math.pow(val - sma, 2), 0) / period;
+  const stdDev = Math.sqrt(variance);
+  return {
+    upper: sma + stdDevMultiplier * stdDev,
+    middle: sma,
+    lower: sma - stdDevMultiplier * stdDev,
+    bandwidth: (stdDevMultiplier * 2 * stdDev) / sma * 100,
+    percentB: (closes[closes.length - 1] - (sma - stdDevMultiplier * stdDev)) / (stdDevMultiplier * 2 * stdDev),
+  };
+}
+
+function calcADX(ohlcv, period = 14) {
+  if (ohlcv.length < period * 2 + 1) return null;
+
+  // Calculate True Range, +DM, -DM for each bar
+  const trs = [], plusDMs = [], minusDMs = [];
+  for (let i = 1; i < ohlcv.length; i++) {
+    const high = ohlcv[i][2], low = ohlcv[i][3], prevClose = ohlcv[i - 1][4];
+    const prevHigh = ohlcv[i - 1][2], prevLow = ohlcv[i - 1][3];
+    trs.push(Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose)));
+    const upMove = high - prevHigh;
+    const downMove = prevLow - low;
+    plusDMs.push(upMove > downMove && upMove > 0 ? upMove : 0);
+    minusDMs.push(downMove > upMove && downMove > 0 ? downMove : 0);
+  }
+
+  if (trs.length < period * 2) return null;
+
+  // Initial smoothed values (first `period` bars summed)
+  let smoothedTR = trs.slice(0, period).reduce((a, b) => a + b, 0);
+  let smoothedPlusDM = plusDMs.slice(0, period).reduce((a, b) => a + b, 0);
+  let smoothedMinusDM = minusDMs.slice(0, period).reduce((a, b) => a + b, 0);
+
+  // Wilder smoothing for subsequent bars
+  const dxValues = [];
+  for (let i = period; i < trs.length; i++) {
+    smoothedTR = smoothedTR - smoothedTR / period + trs[i];
+    smoothedPlusDM = smoothedPlusDM - smoothedPlusDM / period + plusDMs[i];
+    smoothedMinusDM = smoothedMinusDM - smoothedMinusDM / period + minusDMs[i];
+
+    const plusDI = smoothedTR > 0 ? (smoothedPlusDM / smoothedTR) * 100 : 0;
+    const minusDI = smoothedTR > 0 ? (smoothedMinusDM / smoothedTR) * 100 : 0;
+    const diSum = plusDI + minusDI;
+    const dx = diSum > 0 ? (Math.abs(plusDI - minusDI) / diSum) * 100 : 0;
+    dxValues.push({ dx, plusDI, minusDI });
+  }
+
+  if (dxValues.length < period) return null;
+
+  // ADX = smoothed average of DX values
+  let adx = dxValues.slice(0, period).reduce((sum, d) => sum + d.dx, 0) / period;
+  for (let i = period; i < dxValues.length; i++) {
+    adx = (adx * (period - 1) + dxValues[i].dx) / period;
+  }
+
+  const last = dxValues[dxValues.length - 1];
+  return { adx, plusDI: last.plusDI, minusDI: last.minusDI };
+}
+
+function calcVWAP(ohlcv) {
+  // Use last 24 candles (approx 4 days at 4h timeframe)
+  const slice = ohlcv.slice(-24);
+  if (slice.length < 2) return null;
+  let cumTPV = 0, cumVol = 0;
+  for (const candle of slice) {
+    const tp = (candle[2] + candle[3] + candle[4]) / 3; // (H+L+C)/3
+    const vol = candle[5];
+    cumTPV += tp * vol;
+    cumVol += vol;
+  }
+  return cumVol > 0 ? cumTPV / cumVol : null;
+}
+
 // ─── Binance OHLCV ──────────────────────────────────────────────────────────
 
 async function fetchOHLCV(exchange, symbol) {
@@ -189,6 +266,9 @@ async function fetchOHLCV(exchange, symbol) {
       macdSignal: macd.signal,
       macdHistogram: macd.histogram,
       atr,
+      bollingerBands: calcBollingerBands(closes),
+      adx: calcADX(ohlcv),
+      vwap: calcVWAP(ohlcv),
     };
   } catch (err) {
     log(`  ⚠ Failed to fetch OHLCV for ${symbol}: ${err.message}`);
@@ -278,10 +358,25 @@ function shouldMoveToAnalyzing(ind) {
   if (ind.momentum && Math.abs(ind.momentum) > 2) signals += 1; // Momentum building
   // Bold: big 4h move = instant analyze
   if (RISK_LEVEL === 'bold' && Math.abs(ind.momentum4h || 0) > 3) signals += 2;
+
+  // ADX-aware filtering: boost/suppress strategies based on market regime
+  const adx = ind.adx;
+  if (adx) {
+    if (adx.adx > 25) {
+      // Trending market — boost trend signals
+      if (ind.sma20 && ind.sma50 && ind.sma20 !== ind.sma50) signals += 1; // SMA crossover more relevant
+      if (Math.abs(ind.momentum) > 1) signals += 1; // Momentum matters more
+    } else if (adx.adx < 20) {
+      // Ranging market — boost range/reversion signals
+      if (ind.bollingerBands && (ind.bollingerBands.percentB < 0.1 || ind.bollingerBands.percentB > 0.9)) signals += 1;
+      if (ind.vwap && Math.abs(ind.currentPrice - ind.vwap) / ind.vwap > 0.015) signals += 1;
+    }
+  }
+
   return signals >= rp.entrySignals;
 }
 
-function shouldMoveToActive(ind) {
+function shouldMoveToActive(ind, _btcMomentum = null) {
   if (!ind || ind.rsi == null) return { enter: false };
   
   const rp = getRiskProfile();
@@ -310,8 +405,51 @@ function shouldMoveToActive(ind) {
     ind.volumeRatio > 1.5 &&     // High volume confirms it
     ind.rsi < 75;                 // Not totally overbought yet
 
-  if (oversoldBounce || goldenCross || deeplyOversold || momentumCatch) {
-    const reason = momentumCatch ? 'momentum_catch' : oversoldBounce ? 'oversold_bounce' : goldenCross ? 'golden_cross' : 'deeply_oversold';
+  // ── NEW v3 LONG SIGNALS ──
+
+  // Bollinger Bounce Long: price at/below lower band + RSI < 40 + ranging (ADX < 25)
+  const bb = ind.bollingerBands;
+  const adx = ind.adx;
+  const bollingerBounceLong = bb && adx &&
+    ind.currentPrice <= bb.lower * 1.005 &&
+    ind.rsi < 40 &&
+    adx.adx < 25;
+
+  // Range Breakout Long: price breaks above upper BB + volume + ADX rising above 20
+  const rangeBreakoutLong = (RISK_LEVEL === 'balanced' || RISK_LEVEL === 'bold') &&
+    bb && adx &&
+    ind.currentPrice > bb.upper &&
+    ind.volumeRatio > 1.5 &&
+    adx.adx >= 20 &&
+    bb.bandwidth < 8; // was squeezed recently (< 5% ideal, allow 8% for buffer)
+
+  // VWAP Reversion Long: price > 2% below VWAP + RSI < 45
+  const vwapReversionLong = ind.vwap &&
+    ind.currentPrice < ind.vwap * 0.98 &&
+    ind.rsi < 45;
+
+  // Trend Surfer Long: ADX > 25 + plusDI > minusDI + pullback to SMA20 + RSI 40-60
+  const trendSurferLong = (RISK_LEVEL === 'balanced' || RISK_LEVEL === 'bold') &&
+    adx && ind.sma20 &&
+    adx.adx > 25 &&
+    adx.plusDI > adx.minusDI &&
+    Math.abs(ind.currentPrice - ind.sma20) / ind.sma20 < 0.015 &&
+    ind.rsi >= 40 && ind.rsi <= 60;
+
+  // Correlation Hedge: BTC momentum < -3% + PAXG RSI < 60 (PAXG only)
+  const correlationHedge = ind.symbol === 'PAXG/USDT' &&
+    _btcMomentum !== null && _btcMomentum < -3 &&
+    ind.rsi < 60;
+
+  if (oversoldBounce || goldenCross || deeplyOversold || momentumCatch ||
+      bollingerBounceLong || rangeBreakoutLong || vwapReversionLong || trendSurferLong || correlationHedge) {
+    const reason = momentumCatch ? 'momentum_catch' :
+      correlationHedge ? 'correlation_hedge' :
+      bollingerBounceLong ? 'bollinger_bounce' :
+      rangeBreakoutLong ? 'range_breakout' :
+      vwapReversionLong ? 'vwap_reversion' :
+      trendSurferLong ? 'trend_surfer' :
+      oversoldBounce ? 'oversold_bounce' : goldenCross ? 'golden_cross' : 'deeply_oversold';
     return { enter: true, direction: 'LONG', reason };
   }
   
@@ -339,8 +477,43 @@ function shouldMoveToActive(ind) {
     ind.volumeRatio > 1.3 &&
     ind.rsi > 25;                  // Not already oversold
 
-  if (overboughtReject || deathCross || bearishBreakdown) {
-    const reason = bearishBreakdown ? 'bearish_breakdown' : overboughtReject ? 'overbought_reject' : 'death_cross';
+  // ── NEW v3 SHORT SIGNALS ──
+
+  // Bollinger Bounce Short: price at/above upper band + RSI > 60 + ranging
+  const bollingerBounceShort = bb && adx &&
+    ind.currentPrice >= bb.upper * 0.995 &&
+    ind.rsi > 60 &&
+    adx.adx < 25;
+
+  // Range Breakout Short: price breaks below lower BB + volume + ADX rising
+  const rangeBreakoutShort = (RISK_LEVEL === 'balanced' || RISK_LEVEL === 'bold') &&
+    bb && adx &&
+    ind.currentPrice < bb.lower &&
+    ind.volumeRatio > 1.5 &&
+    adx.adx >= 20 &&
+    bb.bandwidth < 8;
+
+  // VWAP Reversion Short: price > 2% above VWAP + RSI > 55
+  const vwapReversionShort = ind.vwap &&
+    ind.currentPrice > ind.vwap * 1.02 &&
+    ind.rsi > 55;
+
+  // Trend Surfer Short: ADX > 25 + minusDI > plusDI + bounce to SMA20 + RSI 40-60
+  const trendSurferShort = (RISK_LEVEL === 'balanced' || RISK_LEVEL === 'bold') &&
+    adx && ind.sma20 &&
+    adx.adx > 25 &&
+    adx.minusDI > adx.plusDI &&
+    Math.abs(ind.currentPrice - ind.sma20) / ind.sma20 < 0.015 &&
+    ind.rsi >= 40 && ind.rsi <= 60;
+
+  if (overboughtReject || deathCross || bearishBreakdown ||
+      bollingerBounceShort || rangeBreakoutShort || vwapReversionShort || trendSurferShort) {
+    const reason = bearishBreakdown ? 'bearish_breakdown' :
+      bollingerBounceShort ? 'bollinger_bounce' :
+      rangeBreakoutShort ? 'range_breakout' :
+      vwapReversionShort ? 'vwap_reversion' :
+      trendSurferShort ? 'trend_surfer' :
+      overboughtReject ? 'overbought_reject' : 'death_cross';
     return { enter: true, direction: 'SHORT', reason };
   }
 
@@ -348,9 +521,9 @@ function shouldMoveToActive(ind) {
 }
 
 function shouldExitTrade(ind, trade) {
-  if (!ind) return { exit: false };
+  if (!ind) return { exit: false, updates: null };
   const entryPrice = parseFloat(trade.entry_price);
-  if (!entryPrice || entryPrice <= 0) return { exit: false };
+  if (!entryPrice || entryPrice <= 0) return { exit: false, updates: null };
 
   const pnlPct = ((ind.currentPrice - entryPrice) / entryPrice) * 100;
   const direction = (trade.direction || 'long').toLowerCase();
@@ -358,29 +531,111 @@ function shouldExitTrade(ind, trade) {
 
   // ATR-based dynamic stops (if ATR available)
   let dynamicSL = STOP_LOSS_PCT;
-  let dynamicTP = TAKE_PROFIT_PCT;
   if (ind.atr && entryPrice > 0) {
     const atrPct = (ind.atr / entryPrice) * 100;
     dynamicSL = Math.max(2, Math.min(8, atrPct * 2));   // 2×ATR but clamped 2-8%
-    dynamicTP = Math.max(4, Math.min(15, atrPct * 3));   // 3×ATR but clamped 4-15%
   }
 
-  // Take profit
-  if (effectivePnl >= dynamicTP) return { exit: true, reason: `Take profit (+${effectivePnl.toFixed(1)}%, target ${dynamicTP.toFixed(1)}%)`, win: true };
-  // Stop loss
-  if (effectivePnl <= -dynamicSL) return { exit: true, reason: `Stop loss (${effectivePnl.toFixed(1)}%, limit -${dynamicSL.toFixed(1)}%)`, win: false };
+  const atrValue = ind.atr || (entryPrice * 0.03); // fallback 3% of entry
+  const atrProfitMultiple = (effectivePnl / 100 * entryPrice) / atrValue;
+
+  // Parse existing metadata
+  const meta = typeof trade.metadata === 'string' ? JSON.parse(trade.metadata || '{}') : (trade.metadata || {});
+  let updates = null; // metadata updates to PATCH
+
+  // ── PARTIAL PROFIT TAKING ──
+  if (!meta.partialExitTaken && atrProfitMultiple >= 2) {
+    const currentSize = parseFloat(trade.position_size || 0);
+    if (currentSize > 0) {
+      updates = {
+        partialExitTaken: true,
+        partialExitPrice: ind.currentPrice,
+        partialExitPnl: effectivePnl.toFixed(2),
+      };
+      log(`  💰 Partial exit: took 50% profit at +${effectivePnl.toFixed(1)}% on ${ind.symbol || trade.coin_pair}`);
+      return { exit: false, updates, partialExit: true, newPositionSize: currentSize * 0.5 };
+    }
+  }
+
+  // ── TRAILING STOP LOGIC ──
+  let trailingStopPrice = meta.trailingStopPrice || null;
+  let trailingStopStage = meta.trailingStopStage || 0;
+  let trailingUpdated = false;
+
+  // Determine current stage based on profit
+  let newStage = trailingStopStage;
+  if (atrProfitMultiple >= 3) newStage = 3;
+  else if (atrProfitMultiple >= 2) newStage = 2;
+  else if (atrProfitMultiple >= 1.5) newStage = 1;
+
+  if (newStage > trailingStopStage || (newStage >= 1 && trailingStopPrice === null)) {
+    trailingStopStage = newStage;
+    trailingUpdated = true;
+  }
+
+  // Calculate trailing stop price based on stage
+  if (trailingStopStage >= 1) {
+    let newStop;
+    if (trailingStopStage >= 3) {
+      // Stage 3: trail 0.75× ATR behind
+      newStop = direction === 'short'
+        ? ind.currentPrice + atrValue * 0.75
+        : ind.currentPrice - atrValue * 0.75;
+    } else if (trailingStopStage >= 2) {
+      // Stage 2: trail 1× ATR behind
+      newStop = direction === 'short'
+        ? ind.currentPrice + atrValue
+        : ind.currentPrice - atrValue;
+    } else {
+      // Stage 1: breakeven
+      newStop = entryPrice;
+    }
+
+    // Only move stop in favorable direction (never backwards)
+    if (trailingStopPrice === null) {
+      trailingStopPrice = newStop;
+      trailingUpdated = true;
+    } else if (direction === 'short') {
+      if (newStop < trailingStopPrice) { trailingStopPrice = newStop; trailingUpdated = true; }
+    } else {
+      if (newStop > trailingStopPrice) { trailingStopPrice = newStop; trailingUpdated = true; }
+    }
+
+    // Check if trailing stop hit
+    const trailingHit = direction === 'short'
+      ? ind.currentPrice >= trailingStopPrice
+      : ind.currentPrice <= trailingStopPrice;
+
+    if (trailingHit) {
+      return {
+        exit: true,
+        reason: `Trailing stop hit (stage ${trailingStopStage}, stop=${trailingStopPrice.toFixed(2)}, PnL=${effectivePnl.toFixed(1)}%)`,
+        win: effectivePnl > 0,
+        updates: { trailingStopPrice, trailingStopStage },
+      };
+    }
+  }
+
+  // Save trailing stop updates
+  if (trailingUpdated) {
+    updates = { ...(updates || {}), trailingStopPrice, trailingStopStage };
+  }
+
+  // ── HARD STOP LOSS (safety net) ──
+  if (effectivePnl <= -dynamicSL) return { exit: true, reason: `Stop loss (${effectivePnl.toFixed(1)}%, limit -${dynamicSL.toFixed(1)}%)`, win: false, updates };
+
   // RSI exit — overbought for longs, oversold for shorts
-  if (direction === 'short' && ind.rsi < 30 && effectivePnl > 0) return { exit: true, reason: `RSI oversold short exit (${ind.rsi.toFixed(1)})`, win: true };
-  if (direction !== 'short' && ind.rsi > 70 && effectivePnl > 0) return { exit: true, reason: `RSI overbought (${ind.rsi.toFixed(1)})`, win: true };
+  if (direction === 'short' && ind.rsi < 30 && effectivePnl > 0) return { exit: true, reason: `RSI oversold short exit (${ind.rsi.toFixed(1)})`, win: true, updates };
+  if (direction !== 'short' && ind.rsi > 70 && effectivePnl > 0) return { exit: true, reason: `RSI overbought (${ind.rsi.toFixed(1)})`, win: true, updates };
   // MACD reversal exit
   if (direction !== 'short' && ind.macdHistogram !== null && ind.macdHistogram < -1 && effectivePnl < 0) {
-    return { exit: true, reason: `MACD bearish reversal (hist=${ind.macdHistogram.toFixed(2)})`, win: false };
+    return { exit: true, reason: `MACD bearish reversal (hist=${ind.macdHistogram.toFixed(2)})`, win: false, updates };
   }
   if (direction === 'short' && ind.macdHistogram !== null && ind.macdHistogram > 1 && effectivePnl < 0) {
-    return { exit: true, reason: `MACD bullish reversal (hist=${ind.macdHistogram.toFixed(2)})`, win: false };
+    return { exit: true, reason: `MACD bullish reversal (hist=${ind.macdHistogram.toFixed(2)})`, win: false, updates };
   }
 
-  return { exit: false };
+  return { exit: false, updates };
 }
 
 // ─── Logging ─────────────────────────────────────────────────────────────────
@@ -392,7 +647,7 @@ function log(msg) {
 // ─── Main Pipeline ───────────────────────────────────────────────────────────
 
 async function main() {
-  log('🚀 TBO Trading Engine v2.0');
+  log('🚀 TBO Trading Engine v3.0');
 
   // ── Step -1: Fetch risk level from trading settings ────────────────────
   // Try DB direct read (API requires user auth, engine uses API key)
@@ -494,9 +749,31 @@ async function main() {
       } catch (err) {
         log(`  ⚠ Exit failed for ${sym}: ${err.message}`);
       }
-    } else if (ind) {
-      // Update current price on card description
-      await updateTradeAnalysis(trade.id, ind, sym);
+    } else {
+      // Handle partial exit
+      if (decision.partialExit && decision.newPositionSize) {
+        try {
+          const existingMeta = typeof trade.metadata === 'string' ? JSON.parse(trade.metadata || '{}') : (trade.metadata || {});
+          await apiPatch('/api/trading/trades', {
+            trade_id: trade.id,
+            position_size: decision.newPositionSize,
+            metadata: JSON.stringify({ ...existingMeta, ...decision.updates }),
+          });
+          await journalLog(trade.id, 'partial_exit', `Partial exit: 50% taken at $${ind?.currentPrice}`);
+        } catch (err) {
+          log(`  ⚠ Partial exit PATCH failed for ${sym}: ${err.message}`);
+        }
+      } else if (decision.updates) {
+        // Update trailing stop metadata
+        try {
+          const existingMeta = typeof trade.metadata === 'string' ? JSON.parse(trade.metadata || '{}') : (trade.metadata || {});
+          await apiPatch('/api/trading/trades', {
+            trade_id: trade.id,
+            metadata: JSON.stringify({ ...existingMeta, ...decision.updates }),
+          });
+        } catch {}
+      }
+      if (ind) await updateTradeAnalysis(trade.id, ind, sym);
     }
   }
   log(`🚪 Exits: ${exitCount}`);
@@ -511,7 +788,8 @@ async function main() {
     const sym = normalizePair(trade.coin_pair);
     const ind = indicators[sym];
 
-    const entrySignal = shouldMoveToActive(ind);
+    const btcMom = indicators['BTC/USDT']?.momentum ?? null;
+    const entrySignal = shouldMoveToActive(ind, btcMom);
     if (entrySignal.enter) {
       const extreme = isExtremeMove(ind);
       if (!canMoveCard(sym + ':active', state) && !extreme) {

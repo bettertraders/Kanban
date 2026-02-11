@@ -31,6 +31,8 @@ const PINNED_COINS = [
   'NEAR/USDT', 'FTM/USDT', 'INJ/USDT', 'SUI/USDT', 'APT/USDT',
   // Momentum plays
   'RENDER/USDT', 'FET/USDT', 'ARB/USDT', 'OP/USDT', 'TIA/USDT',
+  // Hedges — inverse correlation to crypto
+  'PAXG/USDT',   // Tokenized gold — pumps when crypto dumps
 ];
 
 // Load API key

@@ -879,12 +879,38 @@ async function pennyReviewMode(exchange) {
     };
   });
 
+  // Load position sentinel alerts (< 5 min old)
+  let positionAlerts = null;
+  try {
+    const sentinelPath = path.join(__dirname, '.position-sentinel-alert.json');
+    if (fs.existsSync(sentinelPath)) {
+      const sentinelData = JSON.parse(fs.readFileSync(sentinelPath, 'utf8'));
+      if (sentinelData.timestamp && Date.now() - sentinelData.timestamp < 5 * 60 * 1000) {
+        positionAlerts = sentinelData;
+      }
+    }
+  } catch {}
+
+  // Load macro pulse (< 30 min old)
+  let macroPulse = null;
+  try {
+    const macroPath = path.join(__dirname, '.owen-macro-pulse.json');
+    if (fs.existsSync(macroPath)) {
+      const macroData = JSON.parse(fs.readFileSync(macroPath, 'utf8'));
+      if (macroData.timestamp && Date.now() - macroData.timestamp < 30 * 60 * 1000) {
+        macroPulse = macroData;
+      }
+    }
+  } catch {}
+
   const output = {
     timestamp: new Date().toISOString(),
     engineVersion: ENGINE_VERSION,
     marketRegime,
     fearGreedIndex,
     crashAlert: loadCrashAlert(),
+    positionAlerts,
+    macroPulse,
     portfolio,
     activeTrades: activeOutput,
     watchlist: watchlistOutput,

@@ -1014,7 +1014,7 @@ export default function TradingDashboardPage() {
 
           {/* Bottom bar: Amount pills + CTA */}
           <div className="simple-bottom-bar" style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '12px' }}>
-            {!engineOn && (
+            {!engineOn ? (
               <div style={{ display: 'flex', gap: '8px' }}>
                 {AMOUNT_PRESETS.map(val => (
                   <button key={val} onClick={() => handleAmountPreset(val)} style={{
@@ -1024,6 +1024,12 @@ export default function TradingDashboardPage() {
                     color: tradingAmount === val ? '#7b7dff' : '#e0e0e0',
                   }}>${val.toLocaleString()}</button>
                 ))}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', background: '#141428', border: '1px solid #2a2a4e' }}>
+                <span style={{ fontSize: '13px', color: '#888' }}>Trading with</span>
+                <span style={{ fontSize: '16px', fontWeight: 700, color: '#7b7dff' }}>{formatCurrency(tradingAmount || 0)}</span>
+                <span style={{ fontSize: '11px', color: '#555' }}>🔒</span>
               </div>
             )}
             <button

@@ -422,6 +422,12 @@ export default function TradingDashboardPage() {
     // Always load localStorage first (fast, no network)
     try {
       const saved = JSON.parse(localStorage.getItem('clawdesk-trading-setup') || '{}');
+      // Migrate old risk level names → new names
+      const riskMigration: Record<string, RiskLevel> = { conservative: 'safe', moderate: 'balanced', aggressive: 'bold' };
+      if (saved.riskLevel && riskMigration[saved.riskLevel]) {
+        saved.riskLevel = riskMigration[saved.riskLevel];
+        localStorage.setItem('clawdesk-trading-setup', JSON.stringify(saved));
+      }
       if (saved.riskLevel) setRiskLevel(saved.riskLevel);
       if (saved.riskValue != null) setRiskValue(saved.riskValue);
       if (saved.tradingAmount) setTradingAmount(saved.tradingAmount);
@@ -438,6 +444,9 @@ export default function TradingDashboardPage() {
         if (res.ok) {
           const { settings: saved } = await res.json();
           if (saved && Object.keys(saved).length > 0 && saved.riskLevel) {
+            // Migrate old risk level names
+            const riskMig: Record<string, string> = { conservative: 'safe', moderate: 'balanced', aggressive: 'bold' };
+            if (riskMig[saved.riskLevel]) saved.riskLevel = riskMig[saved.riskLevel];
             setRiskLevel(saved.riskLevel);
             if (saved.tradingAmount) setTradingAmount(saved.tradingAmount);
             if (saved.timeframe) setTimeframe(saved.timeframe);

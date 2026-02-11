@@ -1,0 +1,14 @@
+{
+  "level": "crash",
+  "direction": "down",
+  "timestamp": 1770844142439,
+  "coins": [
+    {
+      "symbol": "ALLO/USDT",
+      "change5m": -1.76,
+      "change15m": -5.01,
+      "currentPrice": 0.0835
+    }
+  ],
+  "message": "BERA -6.09% in 5m. ALLO -5.01% in 15m."
+}

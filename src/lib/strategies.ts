@@ -148,6 +148,26 @@ export const STRATEGY_CATALOG: Strategy[] = [
     markets: ['crypto'],
   },
   {
+    id: 'qfl_bounce',
+    name: 'Quick Fingers (QFL)',
+    direction: 'long' as const,
+    type: 'day' as const,
+    description: 'Buy the bounce after a flash crash to support — high volume capitulation followed by MACD flattening',
+    indicators: ['4h Momentum', 'RSI', 'Bollinger Bands', 'Volume Ratio', 'MACD'],
+    riskLevels: ['balanced', 'bold'],
+    markets: ['crypto'],
+  },
+  {
+    id: 'trend_reversal_flip',
+    name: 'Trend Flip',
+    direction: 'both' as const,
+    type: 'swing' as const,
+    description: 'When a trade hits stop loss in a strong opposing trend, flip direction instead of just exiting',
+    indicators: ['ADX', '+DI/-DI', 'MACD', 'RSI'],
+    riskLevels: ['balanced', 'bold'],
+    markets: ['crypto', 'stocks', 'forex'],
+  },
+  {
     id: 'buy_hold_core',
     name: 'Buy & Hold Core',
     direction: 'long',
@@ -242,6 +262,14 @@ export function getActiveStrategies(
       case 'correlation_hedge':
         active = market === 'bearish' || fearGreedIndex < 35;
         conditions = active ? 'Bearish conditions — gold hedge active' : 'Market stable — no hedge needed';
+        break;
+      case 'qfl_bounce':
+        active = fearGreedIndex < 30 || market === 'volatile' || market === 'bearish';
+        conditions = active ? 'Flash crash conditions — QFL bounces active' : 'Market stable — no flash crashes to buy';
+        break;
+      case 'trend_reversal_flip':
+        active = market !== 'ranging';
+        conditions = active ? 'Strong trend detected — flip strategy armed' : 'Ranging market — no clear trend to flip into';
         break;
       case 'buy_hold_core':
         active = riskLevel === 'safe' || riskLevel === 'balanced';

@@ -16,7 +16,7 @@ const path = require('path');
 const API_BASE = 'https://clawdesk.ai';
 const BOARD_ID = 15; // Paper Trading board (Michael's)
 const BOT_NAME = 'Penny Paper Trader';
-const ENGINE_VERSION = '3.1';
+const ENGINE_VERSION = '3.2';
 const isPennyReview = process.argv.includes('--penny-review');
 const STRATEGY_STYLE = 'swing';
 const STRATEGY_SUBSTYLE = 'momentum';
@@ -461,9 +461,19 @@ function shouldMoveToActive(ind, _btcMomentum = null) {
     _btcMomentum !== null && _btcMomentum < -3 &&
     ind.rsi < 60;
 
+  // QFL — Quick Fingers Luc: Buy flash crash bounces at support
+  const qflBounce = (RISK_LEVEL === 'balanced' || RISK_LEVEL === 'bold') &&
+    (ind.momentum4h || 0) < -3 &&           // Big recent drop (3%+)
+    ind.rsi < 35 &&                          // Oversold from the drop
+    ind.bollingerBands &&
+    ind.bollingerBands.percentB < 0.05 &&    // At or below lower Bollinger Band
+    ind.volumeRatio > 1.5 &&                 // High volume on the drop (capitulation)
+    ind.macdHistogram !== null && 
+    ind.macdHistogram > (ind.macd || 0) * -0.5;  // MACD not accelerating down (starting to flatten)
+
   if (oversoldBounce || goldenCross || deeplyOversold || momentumCatch ||
-      bollingerBounceLong || rangeBreakoutLong || vwapReversionLong || trendSurferLong || correlationHedge) {
-    const reason = momentumCatch ? 'momentum_catch' :
+      bollingerBounceLong || rangeBreakoutLong || vwapReversionLong || trendSurferLong || correlationHedge || qflBounce) {
+    const reason = qflBounce ? 'qfl_bounce' : momentumCatch ? 'momentum_catch' :
       correlationHedge ? 'correlation_hedge' :
       bollingerBounceLong ? 'bollinger_bounce' :
       rangeBreakoutLong ? 'range_breakout' :
@@ -641,8 +651,42 @@ function shouldExitTrade(ind, trade) {
     updates = { ...(updates || {}), trailingStopPrice, trailingStopStage };
   }
 
-  // ── HARD STOP LOSS (safety net) ──
-  if (effectivePnl <= -dynamicSL) return { exit: true, reason: `Stop loss (${effectivePnl.toFixed(1)}%, limit -${dynamicSL.toFixed(1)}%)`, win: false, updates };
+  // ── HARD STOP LOSS (safety net) — with flip detection ──
+  if (effectivePnl <= -dynamicSL) {
+    const result = { exit: true, reason: `Stop loss (${effectivePnl.toFixed(1)}%, limit -${dynamicSL.toFixed(1)}%)`, win: false, updates };
+    
+    // Long-to-Short flip
+    const shouldFlip = 
+      getRiskProfile().allowShorts &&
+      direction !== 'short' &&
+      ind.adx && ind.adx.adx > 25 &&
+      ind.adx.minusDI > ind.adx.plusDI &&
+      ind.macdHistogram !== null && 
+      ind.macdHistogram < 0 &&
+      ind.rsi > 35;
+    
+    // Short-to-Long flip
+    const shouldFlipLong =
+      direction === 'short' &&
+      effectivePnl <= -dynamicSL &&
+      ind.adx && ind.adx.adx > 25 &&
+      ind.adx.plusDI > ind.adx.minusDI &&
+      ind.macdHistogram !== null &&
+      ind.macdHistogram > 0 &&
+      ind.rsi < 65;
+    
+    if (shouldFlip) {
+      result.flip = true;
+      result.flipDirection = 'SHORT';
+      result.flipReason = 'trend_reversal_flip';
+    } else if (shouldFlipLong) {
+      result.flip = true;
+      result.flipDirection = 'LONG';
+      result.flipReason = 'trend_reversal_flip';
+    }
+    
+    return result;
+  }
 
   // RSI exit — overbought for longs, oversold for shorts
   if (direction === 'short' && ind.rsi < 30 && effectivePnl > 0) return { exit: true, reason: `RSI oversold short exit (${ind.rsi.toFixed(1)})`, win: true, updates };
@@ -699,6 +743,8 @@ function getAvailableStrategies() {
     { id: 'overbought_reject', name: 'Overbought Reject', active: rp.allowShorts, direction: 'short', conditions: 'RSI > threshold, price below SMA20, MACD bearish' },
     { id: 'death_cross', name: 'Death Cross', active: rp.allowShorts, direction: 'short', conditions: 'SMA20 < SMA50, bearish momentum, MACD bearish' },
     { id: 'bearish_breakdown', name: 'Bearish Breakdown', active: RISK_LEVEL === 'bold', direction: 'short', conditions: 'Bold only: 3%+ dump, volume, RSI > 25' },
+    { id: 'qfl_bounce', name: 'Quick Fingers (QFL)', active: rp.allowShorts || RISK_LEVEL !== 'safe', direction: 'long', conditions: 'Balanced/Bold: flash crash bounce at support, high volume capitulation' },
+    { id: 'trend_reversal_flip', name: 'Trend Flip', active: rp.allowShorts, direction: 'both', conditions: 'Balanced/Bold: flip direction on stop loss in strong opposing trend' },
   ];
 }
 
@@ -792,6 +838,15 @@ async function pennyReviewMode(exchange) {
       } : {},
       trailingStop: meta.trailingStopPrice || null,
       partialExitTaken: !!meta.partialExitTaken,
+      dcaOpportunity: (
+        pnlPct > 3 &&
+        ind?.sma20 && 
+        Math.abs((ind?.currentPrice || 0) - ind.sma20) / ind.sma20 < 0.02 &&
+        ind?.rsi > 35 && ind?.rsi < 55
+      ) ? { 
+        canDCA: true, 
+        reason: `Up ${pnlPct.toFixed(1)}%, pulling back to SMA20 — good add point` 
+      } : { canDCA: false },
     };
   });
 
@@ -840,6 +895,84 @@ async function pennyReviewMode(exchange) {
   console.log(JSON.stringify(output, null, 2));
 }
 
+// ─── Dynamic Position Sizing ─────────────────────────────────────────────────
+
+function calculatePositionSize(ind, balance, reason) {
+  const baseSize = balance * 0.20; // 20% default
+  
+  let confidenceMultiplier = 1.0;
+  
+  // High confidence signals get bigger positions (up to 25%)
+  if (ind.rsi < 25 || ind.rsi > 75) confidenceMultiplier += 0.15;          // Extreme RSI
+  if (ind.volumeRatio > 2.0) confidenceMultiplier += 0.10;                  // Very high volume
+  if (ind.adx && ind.adx.adx > 35) confidenceMultiplier += 0.10;           // Very strong trend
+  if (ind.bollingerBands && 
+      (ind.bollingerBands.percentB < 0.02 || ind.bollingerBands.percentB > 0.98)) 
+    confidenceMultiplier += 0.10;                                            // At band extremes
+  
+  // Low confidence signals get smaller positions (down to 10%)
+  if (reason === 'momentum_catch' || reason === 'bearish_breakdown') 
+    confidenceMultiplier -= 0.25;  // Day trades are riskier
+  if (ind.volumeRatio < 0.8) confidenceMultiplier -= 0.15;                  // Low volume = less conviction
+  
+  // Clamp multiplier between 0.5x and 1.25x (10% to 25% of balance)
+  confidenceMultiplier = Math.max(0.5, Math.min(1.25, confidenceMultiplier));
+  
+  return Math.min(baseSize * confidenceMultiplier, balance * 0.25); // Never more than 25%
+}
+
+// ─── Portfolio Hedge Logic ───────────────────────────────────────────────────
+
+function shouldHedge(activeTrades, indicators, balance) {
+  // Count directional exposure
+  const longs = activeTrades.filter(t => (t.direction || 'LONG').toUpperCase() === 'LONG');
+  const shorts = activeTrades.filter(t => (t.direction || 'LONG').toUpperCase() === 'SHORT');
+  
+  // If 3+ longs and market turning bearish, suggest hedge
+  const btcInd = indicators['BTC/USDT'];
+  if (longs.length >= 3 && shorts.length === 0 && btcInd) {
+    const bearishSignals = 
+      (btcInd.macdHistogram !== null && btcInd.macdHistogram < -0.5 ? 1 : 0) +
+      (btcInd.momentum < -2 ? 1 : 0) +
+      (btcInd.adx && btcInd.adx.minusDI > btcInd.adx.plusDI ? 1 : 0);
+    
+    if (bearishSignals >= 2) {
+      return { hedge: true, reason: `Portfolio exposed: ${longs.length} longs, 0 shorts, BTC bearish (${bearishSignals}/3 signals)`, coin: 'PAXG/USDT' };
+    }
+  }
+  return { hedge: false };
+}
+
+// ─── Correlation Guard ───────────────────────────────────────────────────────
+
+const CORRELATION_GROUPS = {
+  'layer1': ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'AVAX/USDT', 'DOT/USDT', 'ATOM/USDT', 'SUI/USDT', 'APT/USDT', 'NEAR/USDT'],
+  'defi': ['UNI/USDT', 'CRV/USDT', 'LQTY/USDT', 'STG/USDT'],
+  'meme': ['DOGE/USDT', 'SHIB/USDT', 'WIF/USDT'],
+  'ai': ['FET/USDT', 'RENDER/USDT', 'TAO/USDT'],
+  'hedge': ['PAXG/USDT'],
+};
+
+function getCorrelationGroup(symbol) {
+  for (const [group, coins] of Object.entries(CORRELATION_GROUPS)) {
+    if (coins.includes(symbol)) return group;
+  }
+  return 'other';
+}
+
+function isCorrelationSafe(symbol, direction, activeTrades) {
+  const group = getCorrelationGroup(symbol);
+  if (group === 'other' || group === 'hedge') return true;
+  
+  const sameGroupSameDirection = activeTrades.filter(t => {
+    const tGroup = getCorrelationGroup(normalizePair(t.coin_pair));
+    const tDir = (t.direction || 'LONG').toUpperCase();
+    return tGroup === group && tDir === direction;
+  });
+  
+  return sameGroupSameDirection.length < 2; // Max 2 per group per direction
+}
+
 // ─── Main Pipeline ───────────────────────────────────────────────────────────
 
 async function main() {
@@ -857,7 +990,7 @@ async function main() {
     return;
   }
 
-  log('🚀 TBO Trading Engine v3.1 — Monitor Mode');
+  log('🚀 TBO Trading Engine v3.2 — Monitor Mode');
 
   // ── Step -1: Fetch risk level from trading settings ────────────────────
   // Try DB direct read (API requires user auth, engine uses API key)
@@ -956,6 +1089,36 @@ async function main() {
         await moveCard(trade.id, targetCol);
         await journalLog(trade.id, 'exit', `Exit: ${decision.reason}. Price: ${ind?.currentPrice}`);
         exitCount++;
+
+        // Handle flip — exit first, then enter opposite direction
+        if (decision.flip && decision.flipDirection && (active.length - exitCount) < MAX_POSITIONS) {
+          const flipDir = decision.flipDirection;
+          const origDir = (trade.direction || 'LONG').toUpperCase();
+          log(`  🔄 Flipped ${sym} ${origDir} → ${flipDir} (${decision.flipReason})`);
+          try {
+            const flipSize = calculatePositionSize(ind, balance, decision.flipReason);
+            const flipTrade = await apiPost('/api/trading/trades', {
+              board_id: BOARD_ID,
+              coin_pair: sym,
+              direction: flipDir,
+              column_name: 'Active',
+              status: 'active',
+              entry_price: ind.currentPrice,
+              position_size: flipSize,
+              bot_id: bot.id,
+              notes: `🔄 Flip from ${origDir} → ${flipDir} (${decision.flipReason}) | Entry: ${ind.currentPrice}`,
+              metadata: JSON.stringify({
+                entry_reason: decision.flipReason,
+                direction: flipDir,
+                strategy: decision.flipReason,
+                flippedFrom: trade.id,
+              }),
+            });
+            await journalLog(flipTrade?.trade?.id || trade.id, 'entry', `Flip ${origDir} → ${flipDir}: ${sym} @ ${ind.currentPrice} ($${flipSize.toFixed(2)})`);
+          } catch (err) {
+            log(`  ⚠ Flip entry failed for ${sym}: ${err.message}`);
+          }
+        }
       } catch (err) {
         log(`  ⚠ Exit failed for ${sym}: ${err.message}`);
       }
@@ -988,6 +1151,22 @@ async function main() {
   }
   log(`🚪 Exits: ${exitCount}`);
 
+  // ── Portfolio Hedge Check ──────────────────────────────────────────────
+  const remainingActive = active.filter(t => !t._exited); // approximate — use count
+  const hedgeResult = shouldHedge(active, indicators, balance);
+  if (hedgeResult.hedge) {
+    log(`  🛡️ HEDGE SUGGESTION: ${hedgeResult.reason} → Consider ${hedgeResult.coin}`);
+    // Save to bot metadata for Penny's review (don't auto-execute)
+    try {
+      await apiPatch(`/api/v1/bots/${bot.id}`, {
+        metadata: {
+          hedge_suggestion: hedgeResult,
+          hedge_suggested_at: new Date().toISOString(),
+        },
+      });
+    } catch {}
+  }
+
   // ── Crash Alert Check ──────────────────────────────────────────────────
   const crashAlert = loadCrashAlert();
   if (crashAlert) {
@@ -1019,7 +1198,15 @@ async function main() {
         if (ind) await updateTradeAnalysis(trade.id, ind, sym);
         continue;
       }
-      const positionSize = Math.min(balance * (POSITION_SIZE_PCT / 100), balance);
+      // Correlation guard
+      if (!isCorrelationSafe(sym, dir, active)) {
+        const group = getCorrelationGroup(sym);
+        log(`  ⚠️ Correlation guard: already 2 ${group} ${dir.toLowerCase()}s, skipping ${sym}`);
+        if (ind) await updateTradeAnalysis(trade.id, ind, sym);
+        continue;
+      }
+
+      const positionSize = Math.min(calculatePositionSize(ind, balance, entrySignal.reason), balance);
       if (positionSize < 10) {
         log(`  ⚠ Insufficient balance for ${sym}`);
         continue;

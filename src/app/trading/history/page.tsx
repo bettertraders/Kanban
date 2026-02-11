@@ -444,7 +444,7 @@ export default function TradeHistoryPage() {
           label="Win Rate"
           value={`${winRate.toFixed(1)}%`}
           sub={`${wins.length}W / ${losses.length}L`}
-          color={winRate >= 50 ? 'var(--green)' : winRate > 0 ? 'var(--red)' : undefined}
+          color="var(--green)"
         />
         <StatCard label="Total P&L" value={fmt$(totalPnl)} color={totalPnl >= 0 ? 'var(--green)' : 'var(--red)'} />
         <StatCard

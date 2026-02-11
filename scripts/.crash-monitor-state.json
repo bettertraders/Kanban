@@ -3,12 +3,41 @@
     "TNSR/USDT": {
       "breakout": 1770848463110,
       "_lastSeverity": 2,
-      "_lastAlertTime": 1770848463110
+      "_lastAlertTime": 1770853382573,
+      "_cleared": false,
+      "alert": 1770851463063,
+      "crash": 1770853382573
     },
     "BERA/USDT": {
       "breakout": 1770848463110,
       "_lastSeverity": 2,
-      "_lastAlertTime": 1770848463110
+      "_lastAlertTime": 1770851163107,
+      "_cleared": true,
+      "alert": 1770851103565,
+      "crash": 1770851163107
+    },
+    "MANTA/USDT": {
+      "alert": 1770848642319,
+      "_lastSeverity": 2,
+      "_lastAlertTime": 1770849902870,
+      "_cleared": true,
+      "breakout": 1770848882633,
+      "crash": 1770849902870
+    },
+    "LINEA/USDT": {
+      "alert": 1770853442970,
+      "_lastSeverity": 1,
+      "_lastAlertTime": 1770853442970,
+      "_cleared": false,
+      "crash": 1770850682420
+    },
+    "DYM/USDT": {
+      "alert": 1770851282804,
+      "_lastSeverity": 2,
+      "_lastAlertTime": 1770852242326,
+      "_cleared": true,
+      "crash": 1770851882853,
+      "breakout": 1770852242326
     }
   }
 }

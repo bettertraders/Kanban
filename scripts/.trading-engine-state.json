@@ -28,5 +28,6 @@
     "LTC/USDT": 1770829037844
   },
   "monthStartDate": "2026-02",
-  "monthStartBalance": 1000
+  "monthStartBalance": 1000,
+  "lastADX": 23.841155117453916
 }

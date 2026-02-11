@@ -1,0 +1,37 @@
+{
+  "timestamp": 1770853200830,
+  "status": "healthy",
+  "modules": {
+    "scanner": {
+      "status": "ok",
+      "lastRun": "2026-02-11T23:31:08.194Z",
+      "ageMinutes": 9
+    },
+    "marketPulse": {
+      "status": "ok",
+      "lastRun": "2026-02-11T23:39:03.294Z",
+      "ageMinutes": 1
+    },
+    "positionSentinel": {
+      "status": "ok",
+      "lastRun": "2026-02-11T23:00:02.149Z",
+      "ageMinutes": 40,
+      "note": "No recent alerts"
+    },
+    "macroPulse": {
+      "status": "ok",
+      "lastRun": "2026-02-11T23:30:01.852Z",
+      "ageMinutes": 10
+    },
+    "newsScanner": {
+      "status": "ok",
+      "lastRun": "2026-02-11T23:35:01.553Z",
+      "ageMinutes": 5
+    }
+  },
+  "api": {
+    "binance": "ok",
+    "consecutiveFailures": 0
+  },
+  "alerts": []
+}

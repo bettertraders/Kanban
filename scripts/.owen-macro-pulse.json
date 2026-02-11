@@ -1,5 +1,5 @@
 {
-  "timestamp": 1770848101677,
+  "timestamp": 1770852601852,
   "alerts": [
     {
       "type": "news_keyword",
@@ -12,17 +12,17 @@
     "change24h": 2
   },
   "btcDominance": {
-    "current": 56.85,
+    "current": 56.77,
     "trend": "stable"
   },
   "totalMarketCap": {
-    "usd": 2377308696857,
-    "change24h": -1.42
+    "usd": 2358637342928,
+    "change24h": -2.32
   },
   "gold": {
-    "paxgPrice": 5091.1,
-    "change1h": -0.17,
-    "change4h": -0.17,
+    "paxgPrice": 5083,
+    "change1h": -0.16,
+    "change4h": -0.33,
     "btcCorrelation": "neutral"
   },
   "newsFlags": [

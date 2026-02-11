@@ -1,151 +1,260 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-// TradingNav and PriceTicker in shared layout
+import { useEffect, useState, useMemo } from 'react';
 
-type LeaderboardEntry = {
-  bot_id: number;
-  name: string;
-  strategy_style: string;
-  strategy_substyle: string;
-  total_return: number;
-  win_rate: number;
+type Trader = {
+  rank: number;
+  trader_id: number;
+  trader_name: string;
+  board_name: string;
+  board_id: number;
   total_trades: number;
-  sharpe_ratio: number;
-  status?: string;
-  auto_trade?: boolean;
-  owner?: string;
-  balance?: number;
+  wins: number;
+  losses: number;
+  open_trades: number;
+  win_rate: number;
+  total_pnl: number;
+  total_volume: number;
+  avg_trade: number;
+  best_trade: number;
+  worst_trade: number;
+  avg_hold_seconds: number | null;
+  last_trade_at: string | null;
+  return_pct: number;
 };
 
-const PERIODS = ['1d', '7d', '10d', '30d', 'All'];
-
-function formatPercent(value: number) {
-  if (!Number.isFinite(value)) return '—';
-  return `${value.toFixed(2)}%`;
+const n = (v: unknown, fb = 0) => { const p = Number(v); return Number.isFinite(p) ? p : fb; };
+function fmt$(v: number) { return `${v < 0 ? '-' : ''}$${Math.abs(v).toFixed(2)}`; }
+function fmtPct(v: number) { return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`; }
+function fmtHold(seconds: number | null) {
+  if (!seconds) return '—';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h >= 24) return `${Math.floor(h / 24)}d ${h % 24}h`;
+  return `${h}h ${m}m`;
 }
 
-function toNumber(value: unknown, fallback = 0) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
+const MEDALS = ['🥇', '🥈', '🥉'];
+
+/* ── Podium Card ─────────────────────────────────────── */
+function PodiumCard({ trader, place }: { trader: Trader; place: number }) {
+  const colors = ['#f5b544', '#9aa4b8', '#c57c4b'];
+  const heights = ['140px', '110px', '90px'];
+  const glows = ['rgba(245,181,68,0.15)', 'rgba(154,164,184,0.1)', 'rgba(197,124,75,0.1)'];
+  const positive = trader.total_pnl >= 0;
+
+  return (
+    <div style={{
+      background: `linear-gradient(135deg, var(--card), ${glows[place]})`,
+      border: `1px solid ${colors[place]}33`,
+      borderRadius: '20px',
+      padding: '20px',
+      textAlign: 'center',
+      flex: '1 1 200px',
+      minWidth: '180px',
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      {/* Rank badge */}
+      <div style={{ fontSize: '32px', marginBottom: '4px' }}>{MEDALS[place]}</div>
+
+      {/* Trader name */}
+      <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '2px' }}>{trader.trader_name}</div>
+      <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '14px' }}>{trader.board_name}</div>
+
+      {/* Bar */}
+      <div style={{
+        height: heights[place],
+        background: `linear-gradient(180deg, ${colors[place]}cc, ${colors[place]}44)`,
+        borderRadius: '14px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: '14px',
+      }}>
+        <div style={{ color: '#0d0d1f', fontWeight: 800, fontSize: '22px' }}>
+          {fmt$(trader.total_pnl)}
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
+        <div>
+          <div style={{ color: 'var(--muted)', fontSize: '10px', textTransform: 'uppercase' }}>Win Rate</div>
+          <div style={{ fontWeight: 600, color: trader.win_rate >= 50 ? 'var(--green)' : 'var(--red)' }}>
+            {trader.win_rate.toFixed(1)}%
+          </div>
+        </div>
+        <div>
+          <div style={{ color: 'var(--muted)', fontSize: '10px', textTransform: 'uppercase' }}>Trades</div>
+          <div style={{ fontWeight: 600 }}>{trader.total_trades}</div>
+        </div>
+        <div>
+          <div style={{ color: 'var(--muted)', fontSize: '10px', textTransform: 'uppercase' }}>Return</div>
+          <div style={{ fontWeight: 600, color: positive ? 'var(--green)' : 'var(--red)' }}>
+            {fmtPct(trader.return_pct)}
+          </div>
+        </div>
+        <div>
+          <div style={{ color: 'var(--muted)', fontSize: '10px', textTransform: 'uppercase' }}>W / L</div>
+          <div style={{ fontWeight: 600 }}>
+            <span style={{ color: 'var(--green)' }}>{trader.wins}</span>
+            {' / '}
+            <span style={{ color: 'var(--red)' }}>{trader.losses}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
+/* ══════════════════════════════════════════════════════ */
+/*  LEADERBOARD PAGE                                     */
+/* ══════════════════════════════════════════════════════ */
 export default function LeaderboardPage() {
-  const router = useRouter();
-  const [period, setPeriod] = useState('7d');
-  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [traders, setTraders] = useState<Trader[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const param = period === 'All' ? '' : `?period=${period}`;
-        const res = await fetch(`/api/v1/leaderboard${param}`);
+        const res = await fetch('/api/v1/leaderboard/traders');
         const json = await res.json();
-        setEntries(Array.isArray(json?.leaderboard) ? json.leaderboard : []);
-      } catch {
-        setEntries([]);
-      } finally {
-        setLoading(false);
-      }
+        setTraders(Array.isArray(json?.leaderboard) ? json.leaderboard : []);
+      } catch { setTraders([]); }
+      finally { setLoading(false); }
     };
     void load();
-  }, [period]);
+  }, []);
 
-  const podium = entries.slice(0, 3);
+  const podium = traders.slice(0, 3);
+  const rest = traders.slice(3);
+
+  // Global stats
+  const totalTrades = traders.reduce((s, t) => s + t.total_trades, 0);
+  const totalPnl = traders.reduce((s, t) => s + t.total_pnl, 0);
+  const totalVolume = traders.reduce((s, t) => s + t.total_volume, 0);
+
+  if (loading) {
+    return (
+      <div style={{ padding: '0 clamp(20px, 4vw, 48px) 40px', maxWidth: '1400px', margin: '0 auto' }}>
+        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+          {[1,2,3].map(i => (
+            <div key={i} style={{ flex: '1 1 200px', height: '300px', borderRadius: '20px', background: 'var(--card)', border: '1px solid var(--border)', animation: 'pulse 1.5s ease infinite' }} />
+          ))}
+        </div>
+        <style jsx>{`@keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 0.15; } }`}</style>
+      </div>
+    );
+  }
+
+  if (traders.length === 0) {
+    return (
+      <div style={{ padding: '0 clamp(20px, 4vw, 48px) 40px', maxWidth: '1400px', margin: '0 auto' }}>
+        <div style={{
+          background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '20px',
+          padding: '60px 24px', textAlign: 'center',
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🏆</div>
+          <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>No Rankings Yet</div>
+          <div style={{ fontSize: '13px', color: 'var(--muted)', maxWidth: '400px', margin: '0 auto', lineHeight: 1.6 }}>
+            The leaderboard populates automatically from closed trades. Start trading and your performance will show up here!
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <>
     <div style={{ padding: '0 clamp(20px, 4vw, 48px) 40px', maxWidth: '1400px', margin: '0 auto' }}>
-      {/* Period filter */}
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px' }}>
-        {PERIODS.map((p) => (
-          <button
-            key={p}
-            onClick={() => setPeriod(p)}
-            style={{
-              background: p === period ? 'var(--accent)' : 'transparent',
-              color: p === period ? '#0d0d1f' : 'var(--text)',
-              border: '1px solid var(--border)',
-              padding: '6px 12px',
-              borderRadius: '999px',
-              fontSize: '12px',
-              cursor: 'pointer'
-            }}
-          >
-            {p}
-          </button>
-        ))}
-      </div>
 
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-        {podium.map((entry, index) => {
-          const heights = ['120px', '150px', '100px'];
-          const colors = ['#f5b544', '#9aa4b8', '#c57c4b'];
-          return (
-            <div key={entry.bot_id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '18px', padding: '16px', textAlign: 'center' }}>
-              <div style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>#{index + 1}</div>
-              <div style={{ fontSize: '16px', fontWeight: 700, margin: '8px 0' }}>{entry.name}</div>
-              <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{entry.strategy_style} — {entry.strategy_substyle}</div>
-              <div style={{ height: heights[index], marginTop: '14px', background: colors[index], borderRadius: '12px', opacity: 0.8 }} />
-              <div style={{ marginTop: '10px', fontWeight: 600, color: toNumber(entry.total_return) >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                {formatPercent(toNumber(entry.total_return))}
-              </div>
-            </div>
-          );
-        })}
+      {/* ── Global Stats ─────────────────────────────── */}
+      <section style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '24px' }}>
+        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '14px 18px', flex: '1 1 140px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Traders</div>
+          <div style={{ fontSize: '22px', fontWeight: 700 }}>{traders.length}</div>
+        </div>
+        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '14px 18px', flex: '1 1 140px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total Trades</div>
+          <div style={{ fontSize: '22px', fontWeight: 700 }}>{totalTrades}</div>
+        </div>
+        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '14px 18px', flex: '1 1 140px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Combined P&L</div>
+          <div style={{ fontSize: '22px', fontWeight: 700, color: totalPnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmt$(totalPnl)}</div>
+        </div>
+        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '14px 18px', flex: '1 1 140px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total Volume</div>
+          <div style={{ fontSize: '22px', fontWeight: 700 }}>{fmt$(totalVolume)}</div>
+        </div>
       </section>
 
-      <section style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '18px', padding: '18px' }}>
-        {loading ? (
-          <div style={{ color: 'var(--muted)' }}>Loading leaderboard...</div>
-        ) : (
+      {/* ── Podium ───────────────────────────────────── */}
+      <section style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '24px', alignItems: 'flex-end' }}>
+        {/* Show in 2-1-3 order for visual podium effect */}
+        {podium.length >= 2 && <PodiumCard trader={podium[1]} place={1} />}
+        {podium.length >= 1 && <PodiumCard trader={podium[0]} place={0} />}
+        {podium.length >= 3 && <PodiumCard trader={podium[2]} place={2} />}
+        {podium.length === 1 && <PodiumCard trader={podium[0]} place={0} />}
+      </section>
+
+      {/* ── Full Table ───────────────────────────────── */}
+      {rest.length > 0 && (
+        <section style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '18px', padding: '18px' }}>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead>
-                <tr style={{ textAlign: 'left', color: 'var(--muted)' }}>
-                  {['Rank', 'Bot Name', 'Strategy', 'Owner', 'Balance', 'P&L', 'Return %', 'Win Rate', 'Trades', 'Sharpe'].map((label) => (
-                    <th key={label} style={{ padding: '8px 6px', borderBottom: '1px solid var(--border)' }}>{label}</th>
+                <tr style={{ color: 'var(--muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  {['Rank', 'Trader', 'Board', 'Trades', 'W/L', 'Win Rate', 'P&L', 'Return', 'Best', 'Worst', 'Avg Hold'].map(h => (
+                    <th key={h} style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {entries.map((entry, index) => {
-                  const positive = toNumber(entry.total_return) >= 0;
-                  const balance = toNumber(entry.balance, 0);
-                  const pnlDollar = balance ? balance * (toNumber(entry.total_return) / 100) : null;
+                {rest.map((t) => {
+                  const isExpanded = expandedId === t.trader_id;
                   return (
                     <tr
-                      key={entry.bot_id}
-                      onClick={() => router.push(`/bots/${entry.bot_id}`)}
-                      style={{
-                        cursor: 'pointer',
-                        background: positive ? 'rgba(0,230,118,0.06)' : 'rgba(255,82,82,0.06)'
-                      }}
+                      key={t.trader_id}
+                      onClick={() => setExpandedId(isExpanded ? null : t.trader_id)}
+                      style={{ cursor: 'pointer', transition: 'background 0.15s' }}
                     >
-                      <td style={{ padding: '8px 6px' }}>#{index + 1}</td>
-                      <td style={{ padding: '8px 6px', fontWeight: 600 }}>{entry.name}</td>
-                      <td style={{ padding: '8px 6px' }}>{entry.strategy_style} — {entry.strategy_substyle}</td>
-                      <td style={{ padding: '8px 6px' }}>{entry.owner || '—'}</td>
-                      <td style={{ padding: '8px 6px' }}>{balance ? `$${balance.toFixed(2)}` : '—'}</td>
-                      <td style={{ padding: '8px 6px', color: positive ? 'var(--green)' : 'var(--red)' }}>
-                        {pnlDollar !== null ? `$${pnlDollar.toFixed(2)}` : '—'}
+                      <td style={{ padding: '10px 8px', fontWeight: 600 }}>#{t.rank}</td>
+                      <td style={{ padding: '10px 8px', fontWeight: 600 }}>{t.trader_name}</td>
+                      <td style={{ padding: '10px 8px', color: 'var(--muted)', fontSize: '12px' }}>{t.board_name}</td>
+                      <td style={{ padding: '10px 8px' }}>{t.total_trades}</td>
+                      <td style={{ padding: '10px 8px' }}>
+                        <span style={{ color: 'var(--green)' }}>{t.wins}</span>
+                        {' / '}
+                        <span style={{ color: 'var(--red)' }}>{t.losses}</span>
                       </td>
-                      <td style={{ padding: '8px 6px' }}>{formatPercent(toNumber(entry.total_return))}</td>
-                      <td style={{ padding: '8px 6px' }}>{formatPercent(toNumber(entry.win_rate))}</td>
-                      <td style={{ padding: '8px 6px' }}>{toNumber(entry.total_trades)}</td>
-                      <td style={{ padding: '8px 6px' }}>{toNumber(entry.sharpe_ratio).toFixed(2)}</td>
+                      <td style={{ padding: '10px 8px', color: t.win_rate >= 50 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
+                        {t.win_rate.toFixed(1)}%
+                      </td>
+                      <td style={{ padding: '10px 8px', fontWeight: 700, color: t.total_pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                        {fmt$(t.total_pnl)}
+                      </td>
+                      <td style={{ padding: '10px 8px', color: t.return_pct >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                        {fmtPct(t.return_pct)}
+                      </td>
+                      <td style={{ padding: '10px 8px', color: 'var(--green)', fontSize: '12px' }}>{fmt$(t.best_trade)}</td>
+                      <td style={{ padding: '10px 8px', color: 'var(--red)', fontSize: '12px' }}>{fmt$(t.worst_trade)}</td>
+                      <td style={{ padding: '10px 8px', color: 'var(--muted)', fontSize: '12px' }}>{fmtHold(t.avg_hold_seconds)}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           </div>
-        )}
-      </section>
+        </section>
+      )}
+
+      <style jsx>{`
+        @media (max-width: 768px) {
+          section { flex-direction: column !important; }
+        }
+      `}</style>
     </div>
-    </>
   );
 }

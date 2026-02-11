@@ -107,6 +107,55 @@ function calcMomentum(closes, period = 10) {
   return past > 0 ? ((current - past) / past) * 100 : 0;
 }
 
+function calcEMA(data, period) {
+  if (data.length < period) return null;
+  const k = 2 / (period + 1);
+  let ema = data.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < data.length; i++) {
+    ema = data[i] * k + ema * (1 - k);
+  }
+  return ema;
+}
+
+function calcMACD(closes) {
+  if (closes.length < 35) return { macd: null, signal: null, histogram: null };
+  // MACD line = EMA12 - EMA26
+  const ema12 = calcEMA(closes, 12);
+  const ema26 = calcEMA(closes, 26);
+  if (ema12 === null || ema26 === null) return { macd: null, signal: null, histogram: null };
+  const macdLine = ema12 - ema26;
+  
+  // Build MACD series for signal line
+  const macdSeries = [];
+  const k12 = 2 / 13, k26 = 2 / 27;
+  let e12 = closes.slice(0, 12).reduce((a, b) => a + b, 0) / 12;
+  let e26 = closes.slice(0, 26).reduce((a, b) => a + b, 0) / 26;
+  for (let i = 12; i < closes.length; i++) {
+    e12 = closes[i] * k12 + e12 * (1 - k12);
+    if (i >= 26) {
+      e26 = closes[i] * k26 + e26 * (1 - k26);
+      macdSeries.push(e12 - e26);
+    }
+  }
+  
+  // Signal = EMA9 of MACD series
+  const signal = macdSeries.length >= 9 ? calcEMA(macdSeries, 9) : null;
+  const histogram = signal !== null ? macdLine - signal : null;
+  
+  return { macd: macdLine, signal, histogram };
+}
+
+function calcATR(ohlcv, period = 14) {
+  if (ohlcv.length < period + 1) return null;
+  const trs = [];
+  for (let i = 1; i < ohlcv.length; i++) {
+    const high = ohlcv[i][2], low = ohlcv[i][3], prevClose = ohlcv[i - 1][4];
+    trs.push(Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose)));
+  }
+  const recent = trs.slice(-period);
+  return recent.reduce((a, b) => a + b, 0) / period;
+}
+
 // ─── Binance OHLCV ──────────────────────────────────────────────────────────
 
 async function fetchOHLCV(exchange, symbol) {
@@ -116,17 +165,25 @@ async function fetchOHLCV(exchange, symbol) {
     const volumes = ohlcv.map(c => c[5]);
     const currentPrice = closes[closes.length - 1];
 
+    const macd = calcMACD(closes);
+    const atr = calcATR(ohlcv, 14);
+
     return {
       symbol,
       currentPrice,
       closes,
       volumes,
+      ohlcv,
       rsi: calcRSI(closes, 14),
       sma20: calcSMA(closes, 20),
       sma50: calcSMA(closes, 50),
       volumeRatio: calcVolumeRatio(volumes),
       momentum: calcMomentum(closes, 10),
       momentum4h: closes.length >= 2 ? ((closes[closes.length - 1] - closes[closes.length - 2]) / closes[closes.length - 2]) * 100 : 0,
+      macd: macd.macd,
+      macdSignal: macd.signal,
+      macdHistogram: macd.histogram,
+      atr,
     };
   } catch (err) {
     log(`  ⚠ Failed to fetch OHLCV for ${symbol}: ${err.message}`);
@@ -182,18 +239,49 @@ function shouldMoveToAnalyzing(ind) {
 }
 
 function shouldMoveToActive(ind) {
-  if (!ind || ind.rsi == null) return false;
-  // Signal 1: Oversold bounce near SMA20 (loosened — 5% from SMA20, vol optional)
+  if (!ind || ind.rsi == null) return { enter: false };
+  
+  // ── LONG SIGNALS ──
+  // Signal 1: Oversold bounce near SMA20 + MACD confirmation
   const oversoldBounce =
     ind.rsi < 40 &&
     ind.sma20 &&
-    Math.abs(ind.currentPrice - ind.sma20) / ind.sma20 < 0.05;
-  // Signal 2: Golden cross (SMA20 > SMA50)
+    Math.abs(ind.currentPrice - ind.sma20) / ind.sma20 < 0.05 &&
+    (ind.macdHistogram === null || ind.macdHistogram > -0.5); // MACD not deeply negative
+  
+  // Signal 2: Golden cross + MACD bullish
   const goldenCross =
-    ind.sma20 && ind.sma50 && ind.sma20 > ind.sma50 && ind.momentum > 0;
-  // Signal 3: Deeply oversold (RSI < 30 regardless of SMA)
-  const deeplyOversold = ind.rsi < 30;
-  return oversoldBounce || goldenCross || deeplyOversold;
+    ind.sma20 && ind.sma50 && ind.sma20 > ind.sma50 && 
+    ind.momentum > 0 &&
+    (ind.macdHistogram === null || ind.macdHistogram > 0);
+  
+  // Signal 3: Deeply oversold (RSI < 30) — enter regardless but MACD must be turning
+  const deeplyOversold = ind.rsi < 30 && 
+    (ind.macdHistogram === null || ind.macdHistogram > -1);
+
+  if (oversoldBounce || goldenCross || deeplyOversold) {
+    return { enter: true, direction: 'LONG', reason: oversoldBounce ? 'oversold_bounce' : goldenCross ? 'golden_cross' : 'deeply_oversold' };
+  }
+  
+  // ── SHORT SIGNALS ──
+  // Signal 4: Overbought rejection from SMA20 resistance + MACD bearish
+  const overboughtReject =
+    ind.rsi > 65 &&
+    ind.sma20 &&
+    ind.currentPrice < ind.sma20 && // Price rejected below SMA20
+    (ind.macdHistogram !== null && ind.macdHistogram < 0);
+  
+  // Signal 5: Death cross (SMA20 < SMA50) + bearish momentum
+  const deathCross =
+    ind.sma20 && ind.sma50 && ind.sma20 < ind.sma50 &&
+    ind.momentum < -2 &&
+    (ind.macdHistogram !== null && ind.macdHistogram < 0);
+
+  if (overboughtReject || deathCross) {
+    return { enter: true, direction: 'SHORT', reason: overboughtReject ? 'overbought_reject' : 'death_cross' };
+  }
+
+  return { enter: false };
 }
 
 function shouldExitTrade(ind, trade) {
@@ -205,12 +293,29 @@ function shouldExitTrade(ind, trade) {
   const direction = (trade.direction || 'long').toLowerCase();
   const effectivePnl = direction === 'short' ? -pnlPct : pnlPct;
 
+  // ATR-based dynamic stops (if ATR available)
+  let dynamicSL = STOP_LOSS_PCT;
+  let dynamicTP = TAKE_PROFIT_PCT;
+  if (ind.atr && entryPrice > 0) {
+    const atrPct = (ind.atr / entryPrice) * 100;
+    dynamicSL = Math.max(2, Math.min(8, atrPct * 2));   // 2×ATR but clamped 2-8%
+    dynamicTP = Math.max(4, Math.min(15, atrPct * 3));   // 3×ATR but clamped 4-15%
+  }
+
   // Take profit
-  if (effectivePnl >= TAKE_PROFIT_PCT) return { exit: true, reason: `Take profit (+${effectivePnl.toFixed(1)}%)`, win: true };
+  if (effectivePnl >= dynamicTP) return { exit: true, reason: `Take profit (+${effectivePnl.toFixed(1)}%, target ${dynamicTP.toFixed(1)}%)`, win: true };
   // Stop loss
-  if (effectivePnl <= -STOP_LOSS_PCT) return { exit: true, reason: `Stop loss (${effectivePnl.toFixed(1)}%)`, win: false };
-  // RSI overbought exit
-  if (ind.rsi > 70 && effectivePnl > 0) return { exit: true, reason: `RSI overbought (${ind.rsi.toFixed(1)})`, win: true };
+  if (effectivePnl <= -dynamicSL) return { exit: true, reason: `Stop loss (${effectivePnl.toFixed(1)}%, limit -${dynamicSL.toFixed(1)}%)`, win: false };
+  // RSI exit — overbought for longs, oversold for shorts
+  if (direction === 'short' && ind.rsi < 30 && effectivePnl > 0) return { exit: true, reason: `RSI oversold short exit (${ind.rsi.toFixed(1)})`, win: true };
+  if (direction !== 'short' && ind.rsi > 70 && effectivePnl > 0) return { exit: true, reason: `RSI overbought (${ind.rsi.toFixed(1)})`, win: true };
+  // MACD reversal exit
+  if (direction !== 'short' && ind.macdHistogram !== null && ind.macdHistogram < -1 && effectivePnl < 0) {
+    return { exit: true, reason: `MACD bearish reversal (hist=${ind.macdHistogram.toFixed(2)})`, win: false };
+  }
+  if (direction === 'short' && ind.macdHistogram !== null && ind.macdHistogram > 1 && effectivePnl < 0) {
+    return { exit: true, reason: `MACD bullish reversal (hist=${ind.macdHistogram.toFixed(2)})`, win: false };
+  }
 
   return { exit: false };
 }
@@ -327,10 +432,11 @@ async function main() {
     const sym = normalizePair(trade.coin_pair);
     const ind = indicators[sym];
 
-    if (shouldMoveToActive(ind)) {
+    const entrySignal = shouldMoveToActive(ind);
+    if (entrySignal.enter) {
       const extreme = isExtremeMove(ind);
       if (!canMoveCard(sym + ':active', state) && !extreme) {
-        log(`  ⏳ ${sym} — entry signal but cooldown (24h). Skipping.`);
+        log(`  ⏳ ${sym} — ${entrySignal.direction} signal (${entrySignal.reason}) but cooldown (24h). Skipping.`);
         if (ind) await updateTradeAnalysis(trade.id, ind, sym);
         continue;
       }
@@ -340,7 +446,8 @@ async function main() {
         continue;
       }
 
-      log(`  🎯 Entry signal for ${sym} — entering trade ($${positionSize.toFixed(2)})${extreme ? ' (EXTREME MOVE)' : ''}`);
+      const dir = entrySignal.direction || 'LONG';
+      log(`  🎯 ${dir} entry for ${sym} (${entrySignal.reason}) — $${positionSize.toFixed(2)}${extreme ? ' (EXTREME)' : ''} | MACD hist=${ind.macdHistogram?.toFixed(3) ?? 'n/a'} | ATR=${ind.atr?.toFixed(4) ?? 'n/a'}`);
       recordMove(sym + ':active', state);
       try {
         // Update existing card with entry data instead of creating a new trade
@@ -350,8 +457,8 @@ async function main() {
           status: 'active',
           entry_price: ind.currentPrice,
           position_size: positionSize,
-          direction: 'LONG',
-          notes: `Strategy: ${BOT_NAME}`,
+          direction: dir,
+          notes: `Strategy: ${BOT_NAME} | ${dir} ${entrySignal.reason} | MACD=${ind.macdHistogram?.toFixed(3)} ATR=${ind.atr?.toFixed(4)}`,
           bot_id: bot.id,
         });
         // Deduct from paper balance
@@ -362,7 +469,7 @@ async function main() {
           // Fallback: deduct via enter endpoint if deduct doesn't exist
           log(`  ⚠ Paper balance deduct endpoint not available — manual tracking`);
         });
-        await journalLog(trade.id, 'entry', `Entry: ${sym} @ ${ind.currentPrice}. RSI=${ind.rsi?.toFixed(1)}, SMA20=${ind.sma20?.toFixed(2)}, Vol=${ind.volumeRatio?.toFixed(2)}x`);
+        await journalLog(trade.id, 'entry', `${dir} Entry: ${sym} @ ${ind.currentPrice} (${entrySignal.reason}). RSI=${ind.rsi?.toFixed(1)}, SMA20=${ind.sma20?.toFixed(2)}, MACD=${ind.macdHistogram?.toFixed(3)}, ATR=${ind.atr?.toFixed(4)}, Vol=${ind.volumeRatio?.toFixed(2)}x`);
         entryCount++;
       } catch (err) {
         log(`  ⚠ Entry failed for ${sym}: ${err.message}`);

@@ -16,7 +16,8 @@ const path = require('path');
 const API_BASE = 'https://clawdesk.ai';
 const BOARD_ID = 15; // Paper Trading board (Michael's)
 const BOT_NAME = 'Penny Paper Trader';
-const ENGINE_VERSION = '3.0';
+const ENGINE_VERSION = '3.1';
+const isPennyReview = process.argv.includes('--penny-review');
 const STRATEGY_STYLE = 'swing';
 const STRATEGY_SUBSTYLE = 'momentum';
 const MAX_POSITIONS = 5;
@@ -665,8 +666,198 @@ function log(msg) {
 
 // ─── Main Pipeline ───────────────────────────────────────────────────────────
 
+// ─── Crash Alert ─────────────────────────────────────────────────────────────
+
+function loadCrashAlert() {
+  const alertPath = path.join(__dirname, '.crash-alert.json');
+  try {
+    if (fs.existsSync(alertPath)) {
+      const data = JSON.parse(fs.readFileSync(alertPath, 'utf8'));
+      // Only consider alerts less than 5 minutes old
+      if (data.timestamp && Date.now() - data.timestamp < 5 * 60 * 1000) {
+        return data;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+// ─── Available Strategies ────────────────────────────────────────────────────
+
+function getAvailableStrategies() {
+  const rp = getRiskProfile();
+  return [
+    { id: 'oversold_bounce', name: 'Oversold Bounce', active: true, direction: 'long', conditions: 'RSI < longThreshold, near SMA20, MACD not deeply negative' },
+    { id: 'golden_cross', name: 'Golden Cross', active: true, direction: 'long', conditions: 'SMA20 > SMA50, positive momentum, MACD bullish' },
+    { id: 'deeply_oversold', name: 'Deeply Oversold', active: true, direction: 'long', conditions: 'RSI < 30, MACD turning' },
+    { id: 'momentum_catch', name: 'Momentum Catch', active: RISK_LEVEL === 'bold', direction: 'long', conditions: 'Bold only: 4%+ 4h move, 1.5x volume, RSI < 75' },
+    { id: 'bollinger_bounce', name: 'Bollinger Bounce', active: true, direction: 'both', conditions: 'Price at band extreme, ADX < 25 (ranging)' },
+    { id: 'range_breakout', name: 'Range Breakout', active: rp.allowShorts || RISK_LEVEL !== 'safe', direction: 'both', conditions: 'Price breaks BB, volume 1.5x+, ADX >= 20, squeezed bandwidth' },
+    { id: 'vwap_reversion', name: 'VWAP Reversion', active: true, direction: 'both', conditions: 'Price > 2% from VWAP with RSI confirmation' },
+    { id: 'trend_surfer', name: 'Trend Surfer', active: rp.allowShorts || RISK_LEVEL !== 'safe', direction: 'both', conditions: 'ADX > 25, DI confirms, pullback to SMA20, RSI 40-60' },
+    { id: 'correlation_hedge', name: 'Correlation Hedge', active: true, direction: 'long', conditions: 'PAXG only: BTC momentum < -3%, PAXG RSI < 60' },
+    { id: 'overbought_reject', name: 'Overbought Reject', active: rp.allowShorts, direction: 'short', conditions: 'RSI > threshold, price below SMA20, MACD bearish' },
+    { id: 'death_cross', name: 'Death Cross', active: rp.allowShorts, direction: 'short', conditions: 'SMA20 < SMA50, bearish momentum, MACD bearish' },
+    { id: 'bearish_breakdown', name: 'Bearish Breakdown', active: RISK_LEVEL === 'bold', direction: 'short', conditions: 'Bold only: 3%+ dump, volume, RSI > 25' },
+  ];
+}
+
+// ─── Penny Review Mode ───────────────────────────────────────────────────────
+
+async function pennyReviewMode(exchange) {
+  // Load Owen's scanner results
+  const scannerPath = path.join(__dirname, '.owen-scanner-results.json');
+  let owenData = null;
+  try {
+    if (fs.existsSync(scannerPath)) {
+      owenData = JSON.parse(fs.readFileSync(scannerPath, 'utf8'));
+    }
+  } catch {}
+
+  const watchlistCoins = owenData?.watchlist || [];
+
+  // Load active trades from API
+  const { trades } = await apiGet(`/api/trading/trades?boardId=${BOARD_ID}`);
+  const activeTrades = trades.filter(t => (t.column_name || '') === 'Active');
+
+  // Get portfolio
+  let portfolio = { balance: 0, startingBalance: 1000, activeTrades: activeTrades.length, totalPnl: 0 };
+  try {
+    const { account } = await apiGet(`/api/trading/account?boardId=${BOARD_ID}`);
+    const bal = parseFloat(account?.current_balance || 0);
+    portfolio.balance = bal;
+    try {
+      const pRes = await apiGet(`/api/v1/portfolio?boardId=${BOARD_ID}`);
+      portfolio.startingBalance = parseFloat(pRes?.account?.summary?.paper_balance || 1000);
+    } catch {}
+    portfolio.totalPnl = portfolio.balance - portfolio.startingBalance;
+  } catch {}
+
+  // Fetch indicators for all watchlist + active symbols
+  const allSymbols = new Set();
+  for (const c of watchlistCoins) allSymbols.add(c.symbol);
+  for (const t of activeTrades) allSymbols.add(normalizePair(t.coin_pair));
+  allSymbols.add('BTC/USDT'); // always need BTC
+
+  const indicators = {};
+  for (const sym of allSymbols) {
+    const ind = await fetchOHLCV(exchange, sym);
+    if (ind) indicators[sym] = ind;
+    await sleep(200);
+  }
+
+  // Market regime from BTC
+  const btcInd = indicators['BTC/USDT'];
+  let marketRegime = 'ranging';
+  let fearGreedIndex = 50;
+  if (btcInd) {
+    if (btcInd.sma20 && btcInd.sma50) {
+      if (btcInd.sma20 > btcInd.sma50 && btcInd.momentum > 2) marketRegime = 'bullish';
+      else if (btcInd.sma20 < btcInd.sma50 && btcInd.momentum < -2) marketRegime = 'bearish';
+    }
+    if (btcInd.rsi != null) {
+      fearGreedIndex = Math.round(Math.max(0, Math.min(100, (btcInd.rsi - 20) * 1.25)));
+    }
+  }
+
+  // Build active trades output
+  const activeOutput = activeTrades.map(t => {
+    const sym = normalizePair(t.coin_pair);
+    const ind = indicators[sym];
+    const entryPrice = parseFloat(t.entry_price || 0);
+    const currentPrice = ind?.currentPrice || 0;
+    const direction = (t.direction || 'LONG').toUpperCase();
+    const pnlPct = entryPrice > 0 ? ((currentPrice - entryPrice) / entryPrice) * 100 * (direction === 'SHORT' ? -1 : 1) : 0;
+    const posSize = parseFloat(t.position_size || 0);
+    const pnlDollar = (pnlPct / 100) * posSize;
+    const meta = typeof t.metadata === 'string' ? JSON.parse(t.metadata || '{}') : (t.metadata || {});
+
+    return {
+      id: t.id,
+      symbol: sym,
+      direction,
+      entryPrice,
+      currentPrice,
+      pnlPercent: Math.round(pnlPct * 100) / 100,
+      pnlDollar: Math.round(pnlDollar * 100) / 100,
+      positionSize: posSize,
+      strategy: meta.strategy || meta.entry_reason || 'unknown',
+      indicators: ind ? {
+        rsi: ind.rsi ? Math.round(ind.rsi * 10) / 10 : null,
+        sma20: ind.sma20 ? Math.round(ind.sma20 * 100) / 100 : null,
+        macd: ind.macd ? Math.round(ind.macd * 1000) / 1000 : null,
+        adx: ind.adx?.adx ? Math.round(ind.adx.adx * 10) / 10 : null,
+        bollingerPercentB: ind.bollingerBands?.percentB ? Math.round(ind.bollingerBands.percentB * 100) / 100 : null,
+        vwap: ind.vwap ? Math.round(ind.vwap * 100) / 100 : null,
+      } : {},
+      trailingStop: meta.trailingStopPrice || null,
+      partialExitTaken: !!meta.partialExitTaken,
+    };
+  });
+
+  // Build watchlist output
+  const watchlistOutput = watchlistCoins.map(c => {
+    const ind = indicators[c.symbol];
+    return {
+      symbol: c.symbol,
+      currentPrice: ind?.currentPrice || 0,
+      owenScore: c.score || 0,
+      owenReason: c.reason || '',
+      indicators: ind ? {
+        rsi: ind.rsi ? Math.round(ind.rsi * 10) / 10 : null,
+        sma20: ind.sma20 ? Math.round(ind.sma20 * 100) / 100 : null,
+        sma50: ind.sma50 ? Math.round(ind.sma50 * 100) / 100 : null,
+        macd: ind.macd ? Math.round(ind.macd * 1000) / 1000 : null,
+        macdHistogram: ind.macdHistogram ? Math.round(ind.macdHistogram * 1000) / 1000 : null,
+        adx: ind.adx?.adx ? Math.round(ind.adx.adx * 10) / 10 : null,
+        plusDI: ind.adx?.plusDI ? Math.round(ind.adx.plusDI * 10) / 10 : null,
+        minusDI: ind.adx?.minusDI ? Math.round(ind.adx.minusDI * 10) / 10 : null,
+        bollingerUpper: ind.bollingerBands?.upper ? Math.round(ind.bollingerBands.upper * 100) / 100 : null,
+        bollingerLower: ind.bollingerBands?.lower ? Math.round(ind.bollingerBands.lower * 100) / 100 : null,
+        bollingerPercentB: ind.bollingerBands?.percentB ? Math.round(ind.bollingerBands.percentB * 100) / 100 : null,
+        vwap: ind.vwap ? Math.round(ind.vwap * 100) / 100 : null,
+        atrPercent: ind.atr && ind.currentPrice ? Math.round((ind.atr / ind.currentPrice) * 10000) / 100 : null,
+        volumeRatio: ind.volumeRatio ? Math.round(ind.volumeRatio * 100) / 100 : null,
+        momentum: ind.momentum ? Math.round(ind.momentum * 100) / 100 : null,
+        momentum4h: ind.momentum4h ? Math.round(ind.momentum4h * 100) / 100 : null,
+      } : {},
+    };
+  });
+
+  const output = {
+    timestamp: new Date().toISOString(),
+    engineVersion: ENGINE_VERSION,
+    marketRegime,
+    fearGreedIndex,
+    crashAlert: loadCrashAlert(),
+    portfolio,
+    activeTrades: activeOutput,
+    watchlist: watchlistOutput,
+    availableStrategies: getAvailableStrategies(),
+  };
+
+  // Output JSON to stdout for Penny to consume
+  console.log(JSON.stringify(output, null, 2));
+}
+
+// ─── Main Pipeline ───────────────────────────────────────────────────────────
+
 async function main() {
-  log('🚀 TBO Trading Engine v3.0');
+  // Penny Review mode — output JSON analysis, no card movements
+  if (isPennyReview) {
+    const exchange = new ccxt.binance({ enableRateLimit: true });
+    // Still need risk level for strategy listing
+    try {
+      const portfolioRes = await apiGet(`/api/v1/portfolio?boardId=${BOARD_ID}`);
+      if (portfolioRes?.trading_settings?.risk_level) {
+        RISK_LEVEL = portfolioRes.trading_settings.risk_level.toLowerCase();
+      }
+    } catch {}
+    await pennyReviewMode(exchange);
+    return;
+  }
+
+  log('🚀 TBO Trading Engine v3.1 — Monitor Mode');
 
   // ── Step -1: Fetch risk level from trading settings ────────────────────
   // Try DB direct read (API requires user auth, engine uses API key)
@@ -797,10 +988,22 @@ async function main() {
   }
   log(`🚪 Exits: ${exitCount}`);
 
+  // ── Crash Alert Check ──────────────────────────────────────────────────
+  const crashAlert = loadCrashAlert();
+  if (crashAlert) {
+    const dirEmoji = crashAlert.direction === 'up' ? '🟢📈' : '🔴📉';
+    log(`🚨🚨🚨 MARKET ALERT ${dirEmoji} (${crashAlert.level.toUpperCase()}): ${crashAlert.message}`);
+    for (const coin of (crashAlert.coins || [])) {
+      log(`   ${coin.symbol}: 5m=${coin.change5m ?? coin.drop5m}%, 15m=${coin.change15m ?? coin.drop15m}%, price=${coin.currentPrice}`);
+    }
+  }
+
   // ── Step 5: Process Analyzing trades — check entry signals ─────────────
+  // SKIPPED in monitor mode — Penny (Opus) now handles Analyzing → Active
   let entryCount = 0;
   const currentActive = active.length - exitCount;
 
+  if (false) { // Step 5 disabled — Penny decides entries now
   for (const trade of analyzing) {
     if (currentActive + entryCount >= MAX_POSITIONS) break;
 
@@ -861,11 +1064,13 @@ async function main() {
       await updateTradeAnalysis(trade.id, ind, sym);
     }
   }
-  log(`🎯 Entries: ${entryCount}`);
+  } // end disabled Step 5
+  log(`🎯 Entries: ${entryCount} (disabled — Penny decides)`);
 
   // ── Step 6: Process Watchlist — move to Analyzing if setup forming ─────
-  // Cooldown: only move cards once per 24h unless extreme move (>5% in 4h)
+  // SKIPPED in monitor mode — Penny (Opus) now handles Watchlist → Analyzing
   let analyzeCount = 0;
+  if (false) { // Step 6 disabled — Penny decides analysis targets now
   for (const trade of watchlist) {
     const sym = normalizePair(trade.coin_pair);
     const ind = indicators[sym];
@@ -888,8 +1093,9 @@ async function main() {
     // Always update analysis on watchlist cards
     if (ind) await updateTradeAnalysis(trade.id, ind, sym);
   }
+  } // end disabled Step 6
   saveState(state);
-  log(`🔍 Moved to Analyzing: ${analyzeCount}`);
+  log(`🔍 Moved to Analyzing: ${analyzeCount} (disabled — Penny decides)`);
 
   // ── Step 7: Update bot stats + market metadata ─────────────────────────
   await updateBotStats(bot.id, exitCount, entryCount, indicators);

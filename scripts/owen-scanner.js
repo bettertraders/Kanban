@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 /**
  * 🦉 Owen's Smart Scanner
- * Scans ALL USDT pairs on Binance, ranks by opportunity, outputs top 25.
+ * Scans ALL USDT pairs on Binance, ranks by opportunity, outputs top 10.
  * Standalone — no API key needed (public endpoints only).
+ *
+ * Slots: 1-3 Core (BTC, ETH, SOL), 4-9 Best by score, 10 PAXG hedge.
  *
  * Usage: node scripts/owen-scanner.js
  */
@@ -224,13 +226,13 @@ async function main() {
     r.reason = parts.join(', ') || 'Solid technicals';
   }
 
-  // Build watchlist: core first, then top 21, hedge last
+  // Build watchlist: core (3) + best 6 by score + PAXG hedge = top 10
   const core = results.filter(r => r._isCore).sort((a, b) => b.score - a.score);
   const hedge = results.find(r => r._isHedge);
   const rest = results
     .filter(r => !r._isCore && !r._isHedge)
     .sort((a, b) => b.score - a.score)
-    .slice(0, 21);
+    .slice(0, 6);
 
   const watchlist = [...core, ...rest];
   if (hedge) watchlist.push(hedge);
@@ -252,7 +254,7 @@ async function main() {
   log(`✅ Saved ${watchlist.length} coins to ${OUTPUT_PATH}`);
 
   // Print summary
-  console.log('\n🦉 Owen\'s Top 25 Watchlist:');
+  console.log('\n🦉 Owen\'s Top 10 Watchlist:');
   console.log('─'.repeat(80));
   watchlist.forEach((c, i) => {
     console.log(`  ${String(i + 1).padStart(2)}. ${c.symbol.padEnd(14)} Score: ${String(c.score).padStart(3)}  Vol: $${(c.volume24h / 1e6).toFixed(1)}M  ATR: ${c.atrPct}%  RSI: ${c.rsi}  ${c.reason}`);

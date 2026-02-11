@@ -21,23 +21,21 @@ function getPageMeta(pathname: string): PageMeta {
 export default function TradingLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { title, subtitle, activeTab } = getPageMeta(pathname);
-  const isBoard = !!pathname.match(/^\/trading\/\d+$/);
 
   return (
     <>
       <PriceTicker />
       <div style={{
         padding: '32px clamp(20px, 4vw, 48px) 0',
-        maxWidth: isBoard ? '1720px' : '1400px',
+        maxWidth: pathname.match(/^\/trading\/\d+$/) ? '1720px' : '1400px',
         margin: '0 auto',
-        transition: 'max-width 0.3s ease',
       }}>
-        <header style={{ marginBottom: '10px', minHeight: '58px' }}>
+        <header style={{ marginBottom: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <img src="/icons/clawdesk-mark.png" alt="" style={{ width: '48px', height: '48px', borderRadius: '10px' }} />
             <div>
-              <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4vw, 36px)', lineHeight: 1.1 }}>{title}</h1>
-              <div style={{ color: 'var(--muted)', fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase', lineHeight: 1.2 }}>
+              <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4vw, 36px)' }}>{title}</h1>
+              <div style={{ color: 'var(--muted)', fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
                 {subtitle}
               </div>
             </div>
@@ -45,9 +43,15 @@ export default function TradingLayout({ children }: { children: React.ReactNode 
         </header>
         <TradingNav activeTab={activeTab} />
       </div>
-      <div style={{ minHeight: '60vh' }}>
+      <div key={pathname} style={{ opacity: 0, animation: 'pageFade 0.25s ease forwards' }}>
         {children}
       </div>
+      <style jsx global>{`
+        @keyframes pageFade {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+      `}</style>
     </>
   );
 }

@@ -38,9 +38,9 @@ export async function GET(request: NextRequest) {
 
     const settings = await getTradingSettings(user.id, boardId);
     return NextResponse.json({ settings: settings || {} });
-  } catch (error: any) {
-    console.error('GET /api/trading/settings error:', error?.message, error?.stack);
-    return NextResponse.json({ error: 'Internal server error', detail: error?.message }, { status: 500 });
+  } catch (error) {
+    console.error('GET /api/trading/settings error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 

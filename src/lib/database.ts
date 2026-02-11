@@ -2862,6 +2862,8 @@ export async function ensureTradingSettingsTable() {
       UNIQUE(user_id, board_id)
     )
   `);
+  // Migration: add board_id column if missing (table may have been created without it)
+  await pool.query(`ALTER TABLE trading_settings ADD COLUMN IF NOT EXISTS board_id INTEGER REFERENCES boards(id) ON DELETE CASCADE`).catch(() => {});
 }
 
 export async function getTradingSettings(userId: number, boardId: number) {

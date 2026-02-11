@@ -391,6 +391,9 @@ export default function TradingDashboardPage() {
   // Dashboard mode (simple vs advanced)
   const [dashboardMode, setDashboardMode] = useState<'simple' | 'advanced'>('advanced');
 
+  // Strategy expansion state (advanced mode)
+  const [expandedStrategy, setExpandedStrategy] = useState<string | null>(null);
+
   // Session locking
   const [unlockModalOpen, setUnlockModalOpen] = useState(false);
   const [settingsUnlocked, setSettingsUnlocked] = useState(false);
@@ -860,187 +863,184 @@ export default function TradingDashboardPage() {
 
   // ─── SIMPLE MODE VIEW ───
   if (dashboardMode === 'simple') {
-    const greeting = (() => {
-      const h = new Date().getHours();
-      if (h < 12) return 'Good morning 👋';
-      if (h < 17) return 'Good afternoon 👋';
-      return 'Good evening 👋';
+    // Determine direction badge from active holdings
+    const simpleDirectionBadge = (() => {
+      const holdings = portfolio?.activeHoldings ?? [];
+      // For now, all holdings are LONG (no short field on activeHoldings)
+      const hasLongs = holdings.length > 0;
+      const hasShorts = false; // TODO: detect shorts when API provides direction
+      if (hasLongs && hasShorts) return { label: '↑↓ Long & Short', color: '#7b7dff', bg: '#7b7dff22' };
+      if (hasShorts) return { label: '↓ Short', color: '#ff5252', bg: '#ff525222' };
+      if (hasLongs) return { label: '↑ Long', color: '#00e676', bg: '#00e67622' };
+      return { label: '↑↓ Long & Short', color: '#7b7dff', bg: '#7b7dff22' };
     })();
 
     return (
       <>
-        <div style={{ maxWidth: '520px', margin: '0 auto', padding: '24px 20px' }}>
-          {/* Mode toggle */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+        <div className="simple-container" style={{ maxWidth: '960px', margin: '0 auto', padding: '24px' }}>
+          {/* Top bar */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div>
+              <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)', margin: 0 }}>Your Trading Bot</h1>
+              <div style={{ fontSize: '13px', color: '#666' }}>It watches the market so you don&apos;t have to.</div>
+            </div>
             <button onClick={() => toggleDashboardMode('advanced')} style={{ background: '#1a1a2e', border: '1px solid #2a2a4e', color: '#666', padding: '6px 12px', borderRadius: '16px', fontSize: '11px', cursor: 'pointer' }}>⚙️ Advanced Mode</button>
           </div>
 
-          {/* Header */}
-          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-            <div style={{ fontSize: '16px', color: '#888', marginBottom: '4px' }}>{greeting}</div>
-            <h1 style={{ fontSize: '28px', fontWeight: 700, marginBottom: '8px', color: 'var(--text)' }}>Your Trading Bot</h1>
-            <div style={{ fontSize: '14px', color: '#666', lineHeight: 1.5 }}>It watches the market so you don&apos;t have to.</div>
-          </div>
-
-          {/* Big Money Card */}
-          <div style={{ background: 'linear-gradient(135deg, #1a1a3e 0%, #141428 100%)', borderRadius: '20px', padding: '32px 24px', textAlign: 'center', marginBottom: '24px', position: 'relative', overflow: 'hidden' }}>
-            <div style={{ fontSize: '13px', color: '#888', marginBottom: '4px' }}>Your Balance</div>
-            <div style={{ fontSize: '48px', fontWeight: 800, letterSpacing: '-1px', color: 'var(--text)' }}>{formatCurrency(paperBalance)}</div>
-            <div style={{ fontSize: '18px', marginTop: '8px', fontWeight: 600, color: dailyPnl >= 0 ? '#00e676' : '#ff5252' }}>
-              {dailyPnl >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(dailyPnl))} today
-            </div>
-            {tradingAmount && dayProgress && (
-              <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                Started {dayProgress.day} day{dayProgress.day !== 1 ? 's' : ''} ago with {formatCurrency(tradingAmount)}
-              </div>
-            )}
-          </div>
-
-          {/* Status Pill */}
-          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: '6px',
-              background: engineOn ? '#00e67622' : '#88888822',
-              border: `1px solid ${engineOn ? '#00e67644' : '#88888844'}`,
-              borderRadius: '20px', padding: '6px 14px', fontSize: '13px',
-              color: engineOn ? '#00e676' : '#888',
-            }}>
+          {/* Status Bar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px', padding: '12px 16px', background: '#141428', borderRadius: '10px', flexWrap: 'wrap' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, color: engineOn ? '#00e676' : '#888' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: engineOn ? '#00e676' : '#888', animation: engineOn ? 'pulse-glow-dot 2s infinite' : 'none' }} />
               {engineOn ? 'Bot is trading' : 'Paused'}
             </span>
+            <div style={{ width: '1px', height: '20px', background: '#2a2a4e' }} />
+            <span style={{ fontSize: '13px', color: '#888' }}>
+              {dayProgress ? (dayProgress.total ? `Day ${dayProgress.day} of ${dayProgress.total}` : `Day ${dayProgress.day}`) : 'Day 1'}
+            </span>
+            <div style={{ width: '1px', height: '20px', background: '#2a2a4e' }} />
+            <span style={{ fontSize: '13px', color: '#888' }}>{totalTrades} trades</span>
+            <div style={{ width: '1px', height: '20px', background: '#2a2a4e' }} />
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600, background: simpleDirectionBadge.bg, color: simpleDirectionBadge.color }}>{simpleDirectionBadge.label}</span>
+            <div style={{ width: '1px', height: '20px', background: '#2a2a4e' }} />
+            <span style={{ fontSize: '13px', color: '#666' }}>Powered by TBO Trading Engine</span>
           </div>
 
-          {/* Penny Says */}
-          <div style={{ background: '#141428', borderRadius: '16px', padding: '20px', marginBottom: '24px', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-            <img src="/icons/penny.png" alt="Penny" style={{ width: '40px', height: '40px', borderRadius: '50%', flexShrink: 0 }} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '12px', color: '#7b7dff', fontWeight: 600, marginBottom: '4px' }}>Penny</div>
-              <div style={{ fontSize: '14px', lineHeight: 1.5, color: 'var(--text)' }}>{pennyUpdate}</div>
-              <div style={{ fontSize: '12px', color: botQuote.color, fontStyle: 'italic', marginTop: '6px' }}>{botQuote.text}</div>
-            </div>
-          </div>
-
-          {/* Simple Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '28px' }}>
-            <div style={{ background: '#141428', borderRadius: '14px', padding: '16px', textAlign: 'center' }}>
-              <div style={{ fontSize: '12px', color: '#888', marginBottom: '6px' }}>Trades Made</div>
-              <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>{totalTrades}</div>
-              <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>across {pulse.length > 0 ? Math.min(pulse.length, boardCoinCount) : 0} coins</div>
-            </div>
-            <div style={{ background: '#141428', borderRadius: '14px', padding: '16px', textAlign: 'center' }}>
-              <div style={{ fontSize: '12px', color: '#888', marginBottom: '6px' }}>Best Day</div>
-              <div style={{ fontSize: '22px', fontWeight: 700, color: '#00e676' }}>{dailyPnl > 0 ? `+${formatCurrency(dailyPnl)}` : '—'}</div>
-              <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>today</div>
-            </div>
-            <div style={{ background: '#141428', borderRadius: '14px', padding: '16px', textAlign: 'center' }}>
-              <div style={{ fontSize: '12px', color: '#888', marginBottom: '6px' }}>Win Rate</div>
-              <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>{winRate.toFixed(0)}%</div>
-              <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>more wins than losses</div>
-            </div>
-            <div style={{ background: '#141428', borderRadius: '14px', padding: '16px', textAlign: 'center' }}>
-              <div style={{ fontSize: '12px', color: '#888', marginBottom: '6px' }}>Days Active</div>
-              <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>{dayProgress?.day ?? 0}</div>
-              <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>{dayProgress?.total ? `of ${dayProgress.total} day run` : 'no timeframe set'}</div>
-            </div>
-          </div>
-
-          {/* What You Own */}
-          <div style={{ background: '#141428', borderRadius: '16px', padding: '20px', marginBottom: '24px' }}>
-            <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '14px', color: 'var(--text)' }}>What You Own Right Now</div>
-            {(() => {
-              const holdings = portfolio?.activeHoldings ?? [];
-              const totalPositionValue = holdings.reduce((s, h) => s + (h.position_size || 0), 0);
-              const cash = Math.max(0, paperBalance - totalPositionValue);
-              const rows = holdings.map(h => {
-                const sym = h.coin_pair.replace(/\/?(USDT?)$/i, '');
-                const coin = getCoinDisplay(sym);
-                const pulseCoin = pulse.find(c => c.pair?.includes(sym));
-                const change = pulseCoin?.change24h ?? 0;
-                return { name: coin.name, icon: coin.icon, iconBg: coin.iconBg, iconColor: coin.iconColor, value: h.position_size, change, desc: 'A small piece' };
-              });
-              rows.push({ name: 'Cash', icon: '$', iconBg: '#44444422', iconColor: '#888', value: cash, change: 0, desc: 'Ready to invest' });
-
-              return rows.map(row => (
-                <div key={row.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #1a1a2e' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 700, background: row.iconBg, color: row.iconColor }}>{row.icon}</div>
-                    <div>
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>{row.name}</div>
-                      <div style={{ fontSize: '12px', color: '#888' }}>{row.desc}</div>
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>{formatCurrency(row.value)}</div>
-                    <div style={{ fontSize: '12px', color: row.name === 'Cash' ? '#888' : row.change >= 0 ? '#00e676' : '#ff5252' }}>
-                      {row.name === 'Cash' ? 'safe' : `${row.change >= 0 ? '▲' : '▼'} ${Math.abs(row.change).toFixed(1)}%`}
-                    </div>
-                  </div>
+          {/* Two-column: Balance + Penny */}
+          <div className="simple-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+            {/* Money Card */}
+            <div style={{ background: 'linear-gradient(135deg, #1a1a3e 0%, #141428 100%)', borderRadius: '16px', padding: '28px 24px', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>Your Balance</div>
+              <div style={{ fontSize: '42px', fontWeight: 800, letterSpacing: '-1px', color: 'var(--text)' }}>{formatCurrency(paperBalance)}</div>
+              <div style={{ fontSize: '16px', marginTop: '6px', fontWeight: 600, color: dailyPnl >= 0 ? '#00e676' : '#ff5252' }}>
+                {dailyPnl >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(dailyPnl))} today
+              </div>
+              {tradingAmount && dayProgress && (
+                <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                  Started {dayProgress.day} day{dayProgress.day !== 1 ? 's' : ''} ago with {formatCurrency(tradingAmount)}
                 </div>
-              ));
-            })()}
+              )}
+            </div>
+
+            {/* Penny Card */}
+            <div style={{ background: '#141428', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                <img src="/icons/penny.png" alt="Penny" style={{ width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0 }} />
+                <span style={{ fontSize: '12px', color: '#7b7dff', fontWeight: 600 }}>Penny</span>
+              </div>
+              <div style={{ fontSize: '14px', lineHeight: 1.5, color: '#ccc' }}>{pennyUpdate}</div>
+            </div>
           </div>
 
-          {/* Amount selector — only when NOT trading */}
-          {!engineOn && (
-            <div style={{ marginBottom: '24px' }}>
-              <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px', color: 'var(--text)' }}>How much do you want to start with?</div>
-              <div style={{ fontSize: '12px', color: '#666', marginBottom: '12px' }}>You can change this anytime. This is practice money — no real money at risk.</div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {/* Four-column stats row */}
+          <div className="simple-stats-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
+            <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Trades Made</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>{totalTrades}</div>
+              <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>across {pulse.length > 0 ? Math.min(pulse.length, boardCoinCount) : 0} coins</div>
+            </div>
+            <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Best Day</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: '#00e676' }}>{dailyPnl > 0 ? `+${formatCurrency(dailyPnl)}` : '—'}</div>
+              <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>today</div>
+            </div>
+            <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Win Rate</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>{winRate.toFixed(0)}%</div>
+              <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>more wins than losses</div>
+            </div>
+            <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Days Active</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>{dayProgress?.day ?? 0}</div>
+              <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>{dayProgress?.total ? `of ${dayProgress.total} day run` : 'no timeframe set'}</div>
+            </div>
+          </div>
+
+          {/* Two-column: Holdings + How It Works */}
+          <div className="simple-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+            {/* What You Own */}
+            <div style={{ background: '#141428', borderRadius: '16px', padding: '20px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', color: 'var(--text)' }}>What You Own Right Now</div>
+              {(() => {
+                const holdings = portfolio?.activeHoldings ?? [];
+                const totalPositionValue = holdings.reduce((s, h) => s + (h.position_size || 0), 0);
+                const cash = Math.max(0, paperBalance - totalPositionValue);
+                const rows = holdings.map(h => {
+                  const sym = h.coin_pair.replace(/\/?(USDT?)$/i, '');
+                  const coin = getCoinDisplay(sym);
+                  const pulseCoin = pulse.find(c => c.pair?.includes(sym));
+                  const change = pulseCoin?.change24h ?? 0;
+                  return { name: coin.name, icon: coin.icon, iconBg: coin.iconBg, iconColor: coin.iconColor, value: h.position_size, change, desc: 'A small piece' };
+                });
+                rows.push({ name: 'Cash', icon: '$', iconBg: '#44444422', iconColor: '#888', value: cash, change: 0, desc: 'Ready to invest' });
+                return rows.map(row => (
+                  <div key={row.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #1a1a2e' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700, background: row.iconBg, color: row.iconColor }}>{row.icon}</div>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>{row.name}</div>
+                        <div style={{ fontSize: '11px', color: '#666' }}>{row.desc}</div>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>{formatCurrency(row.value)}</div>
+                      <div style={{ fontSize: '11px', color: row.name === 'Cash' ? '#888' : row.change >= 0 ? '#00e676' : '#ff5252' }}>
+                        {row.name === 'Cash' ? 'safe' : `${row.change >= 0 ? '▲' : '▼'} ${Math.abs(row.change).toFixed(1)}%`}
+                      </div>
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+
+            {/* How It Works */}
+            <div style={{ background: '#141428', borderRadius: '16px', padding: '20px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', color: 'var(--text)' }}>How It Works</div>
+              {[
+                { num: '1', title: 'You set the amount', desc: "— pick how much to trade with. Start small if you like." },
+                { num: '2', title: 'The bot does the rest', desc: "— watches 24/7, buys low, sells high." },
+                { num: '3', title: 'You check in whenever', desc: '— no charts to read. Just watch your balance grow.' },
+              ].map(step => (
+                <div key={step.num} style={{ display: 'flex', gap: '10px', marginBottom: '12px', alignItems: 'flex-start' }}>
+                  <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#7b7dff22', color: '#7b7dff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>{step.num}</div>
+                  <div style={{ fontSize: '13px', lineHeight: 1.4, color: '#999' }}><strong style={{ color: '#ddd' }}>{step.title}</strong> {step.desc}</div>
+                </div>
+              ))}
+              <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #1a1a2e' }}>
+                <div style={{ fontSize: '11px', color: '#666', marginBottom: '6px' }}>🛡️ Paper trading — practice money, zero risk</div>
+                <div style={{ fontSize: '11px', color: '#666' }}>Uses proven strategies trusted by 25,000+ traders</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom bar: Amount pills + CTA */}
+          <div className="simple-bottom-bar" style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '12px' }}>
+            {!engineOn && (
+              <div style={{ display: 'flex', gap: '8px' }}>
                 {AMOUNT_PRESETS.map(val => (
                   <button key={val} onClick={() => handleAmountPreset(val)} style={{
-                    flex: 1, padding: '10px 18px', borderRadius: '12px', textAlign: 'center', minWidth: '70px',
+                    padding: '8px 16px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer',
                     border: `1px solid ${tradingAmount === val ? '#7b7dff' : '#2a2a4e'}`,
                     background: tradingAmount === val ? '#7b7dff22' : '#141428',
                     color: tradingAmount === val ? '#7b7dff' : '#e0e0e0',
-                    fontSize: '15px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
                   }}>${val.toLocaleString()}</button>
                 ))}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '10px', fontSize: '12px', color: '#888' }}>
-                <span style={{ fontSize: '14px' }}>🛡️</span>
-                <span>Paper trading — this is practice money to learn with. Zero risk.</span>
-              </div>
-            </div>
-          )}
-
-          {/* Big CTA */}
-          <button
-            onClick={handleSimpleStartTrading}
-            disabled={!setupReady && !engineOn}
-            style={{
-              width: '100%', padding: '16px', borderRadius: '14px', border: 'none',
-              fontSize: '18px', fontWeight: 700, cursor: (setupReady || engineOn) ? 'pointer' : 'not-allowed',
-              marginBottom: '10px', transition: 'all 0.2s',
-              background: engineOn ? '#00e676' : 'linear-gradient(135deg, #7b7dff 0%, #5b5ddf 100%)',
-              color: engineOn ? '#0d0d1a' : 'white',
-            }}
-          >
-            {engineOn ? '✨ Bot is Running — Tap to Pause' : '▶ Start Trading'}
-          </button>
-          <div style={{ textAlign: 'center', fontSize: '11px', color: '#555', marginTop: '8px', lineHeight: 1.5 }}>
-            Your bot checks the market every 30 minutes.<br />
-            It uses proven strategies trusted by 25,000+ traders.
+            )}
+            <button
+              onClick={handleSimpleStartTrading}
+              disabled={!setupReady && !engineOn}
+              style={{
+                flex: 1, padding: '14px 24px', borderRadius: '12px', border: 'none',
+                fontSize: '16px', fontWeight: 700, cursor: (setupReady || engineOn) ? 'pointer' : 'not-allowed',
+                background: engineOn ? '#00e676' : 'linear-gradient(135deg, #7b7dff 0%, #5b5ddf 100%)',
+                color: engineOn ? '#0d0d1a' : 'white',
+              }}
+            >
+              {engineOn ? '✨ Bot is Running — Tap to Pause' : '▶ Start Trading'}
+            </button>
           </div>
-
-          {/* How It Works */}
-          <div style={{ background: '#141428', borderRadius: '16px', padding: '20px', marginTop: '24px', marginBottom: '24px' }}>
-            <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '14px', color: 'var(--text)' }}>How It Works</div>
-            {[
-              { num: '1', title: 'You set the amount', desc: "— pick how much you want to trade with. Start small if you like." },
-              { num: '2', title: 'The bot does the rest', desc: "— it watches the market 24/7, buys when prices are low, sells when they're high." },
-              { num: '3', title: 'You check in whenever', desc: '— no charts to read, no buttons to press. Just watch your balance grow.' },
-            ].map(step => (
-              <div key={step.num} style={{ display: 'flex', gap: '12px', marginBottom: '14px', alignItems: 'flex-start' }}>
-                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#7b7dff22', color: '#7b7dff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700, flexShrink: 0 }}>{step.num}</div>
-                <div style={{ fontSize: '13px', lineHeight: 1.5, color: '#999' }}><strong style={{ color: '#e0e0e0' }}>{step.title}</strong> {step.desc}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Footer */}
-          <div style={{ textAlign: 'center', padding: '20px 0', fontSize: '11px', color: '#444' }}>
-            Powered by the TBO Trading Engine<br />
-            A product of The Better Traders
+          <div style={{ textAlign: 'center', fontSize: '11px', color: '#444', marginTop: '8px' }}>
+            Powered by the TBO Trading Engine · A product of The Better Traders
           </div>
         </div>
 
@@ -1066,6 +1066,12 @@ export default function TradingDashboardPage() {
         <style jsx global>{`
           @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 20px rgba(123,125,255,0.25); } 50% { box-shadow: 0 0 35px rgba(123,125,255,0.5); } }
           @keyframes pulse-glow-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+          @media (max-width: 768px) {
+            .simple-grid-2 { grid-template-columns: 1fr !important; }
+            .simple-stats-row { grid-template-columns: 1fr 1fr !important; }
+            .simple-bottom-bar { flex-direction: column !important; }
+            .simple-container { padding: 24px 20px !important; }
+          }
         `}</style>
       </>
     );
@@ -1190,39 +1196,66 @@ export default function TradingDashboardPage() {
           </div>
         </section>
 
-        {/* Active Strategies Panel */}
-        {strategies.length > 0 && (
-          <section style={{ marginBottom: '16px' }}>
-            <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'var(--muted)', marginBottom: '10px' }}>
-              Active Strategies
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
-              {strategies.map((s) => {
-                const borderColor = s.type === 'investment' ? '#7b7dff' : s.direction === 'short' ? '#ff5252' : '#00e676';
-                const typeLabel = `${s.direction?.toUpperCase()} · ${s.type?.toUpperCase()}`;
-                return (
-                  <div key={s.id} style={{
-                    background: '#1a1a2e', border: '1px solid #2a2a4e', borderLeft: `3px solid ${borderColor}`,
-                    borderRadius: '12px', padding: '12px 14px',
-                    opacity: s.active ? 1 : 0.5,
-                    boxShadow: s.active ? `0 0 12px ${borderColor}22` : 'none',
-                    transition: 'all 0.2s',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: s.active ? '#00e676' : '#555' }} />
-                      <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>{s.name}</span>
-                    </div>
-                    <div style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#666', marginBottom: '6px' }}>{typeLabel}</div>
-                    <div style={{ fontSize: '22px', fontWeight: 700, color: s.active ? '#00e676' : '#555' }}>{s.tradeCount ?? 0}</div>
-                    <div style={{ fontSize: '10px', color: '#555', marginTop: '2px' }}>
-                      {(s.indicators || []).join(', ')}{s.avgHoldTime ? ` · ${s.avgHoldTime}` : ''}
-                    </div>
+        {/* Compact Strategy Bar */}
+        {strategies.length > 0 && (() => {
+          const activeLongs = strategies.filter(s => s.active && (s.direction === 'long' || s.direction === 'both')).length;
+          const activeShorts = strategies.filter(s => s.active && (s.direction === 'short' || s.direction === 'both')).length;
+          return (
+            <section style={{ marginBottom: '16px' }}>
+              <div style={{ background: 'var(--card, #141428)', borderRadius: 12, padding: '12px 16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '13px', color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Active Strategies</span>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {activeLongs > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600, background: '#00e67622', color: '#00e676' }}>↑ {activeLongs} Long</span>}
+                    {activeShorts > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600, background: '#ff525222', color: '#ff5252' }}>↓ {activeShorts} Short</span>}
                   </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
+                </div>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {strategies.map((s) => {
+                    const dirColor = s.type === 'investment' ? { bg: '#7b7dff22', color: '#7b7dff', label: 'INVEST' } : s.direction === 'short' ? { bg: '#ff525222', color: '#ff5252', label: 'SHORT' } : { bg: '#00e67622', color: '#00e676', label: 'LONG' };
+                    return (
+                      <div
+                        key={s.id}
+                        onClick={() => setExpandedStrategy(expandedStrategy === s.id ? null : s.id)}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer',
+                          border: expandedStrategy === s.id ? '1px solid #2a2a4e' : '1px solid transparent',
+                          background: s.active ? '#1a1a2e' : '#0d0d1a',
+                          color: s.active ? '#e0e0e0' : '#555',
+                          opacity: s.active ? 1 : 0.5,
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.active ? '#00e676' : '#333', boxShadow: s.active ? '0 0 6px #00e676' : 'none', flexShrink: 0 }} />
+                        <span style={{ fontWeight: 500 }}>{s.name}</span>
+                        <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, fontWeight: 600, background: dirColor.bg, color: dirColor.color }}>{dirColor.label}</span>
+                        {(s.tradeCount ?? 0) > 0 && <span style={{ fontSize: 10, color: '#666' }}>{s.tradeCount}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Expanded detail */}
+                {expandedStrategy && (() => {
+                  const s = strategies.find(st => st.id === expandedStrategy);
+                  if (!s) return null;
+                  return (
+                    <div style={{ background: '#0d0d1a', borderRadius: 8, padding: '12px 16px', marginTop: 8, fontSize: 12, lineHeight: 1.6 }}>
+                      {s.conditions && <div style={{ color: '#aaa', marginBottom: '6px' }}>{s.conditions}</div>}
+                      {s.indicators && s.indicators.length > 0 && (
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          {s.indicators.map(ind => (
+                            <span key={ind} style={{ background: '#7b7dff22', color: '#7b7dff', padding: '2px 8px', borderRadius: 10, fontSize: 10 }}>{ind}</span>
+                          ))}
+                        </div>
+                      )}
+                      {s.avgHoldTime && <div style={{ color: '#888', fontStyle: 'italic', marginTop: '6px' }}>Avg hold: {s.avgHoldTime}</div>}
+                    </div>
+                  );
+                })()}
+              </div>
+            </section>
+          );
+        })()}
 
         {/* Two-column: Portfolio Mix + Trading Setup */}
         <section className="portfolio-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>

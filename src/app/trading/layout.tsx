@@ -21,14 +21,16 @@ function getPageMeta(pathname: string): PageMeta {
 export default function TradingLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { title, subtitle, activeTab } = getPageMeta(pathname);
+  const isBoard = !!pathname.match(/^\/trading\/\d+$/);
 
   return (
     <>
       <PriceTicker />
       <div style={{
         padding: '32px clamp(20px, 4vw, 48px) 0',
-        maxWidth: pathname.match(/^\/trading\/\d+$/) ? '1720px' : '1400px',
+        maxWidth: isBoard ? '1720px' : '1400px',
         margin: '0 auto',
+        transition: 'max-width 0.3s ease',
       }}>
         <header style={{ marginBottom: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -43,13 +45,13 @@ export default function TradingLayout({ children }: { children: React.ReactNode 
         </header>
         <TradingNav activeTab={activeTab} />
       </div>
-      <div key={pathname} style={{ opacity: 0, animation: 'pageFade 0.25s ease forwards' }}>
+      <div style={{ animation: 'pageFade 0.2s ease' }}>
         {children}
       </div>
       <style jsx global>{`
         @keyframes pageFade {
-          from { opacity: 0; }
-          to { opacity: 1; }
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </>

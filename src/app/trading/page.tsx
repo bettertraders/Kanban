@@ -388,6 +388,14 @@ export default function TradingDashboardPage() {
   const [strategyAllocation, setStrategyAllocation] = useState<{ investment: number; activeTrading: number; cash: number } | null>(null);
   const [pieView, setPieView] = useState<'holdings' | 'allocation'>('holdings');
 
+  // Dashboard mode (simple vs advanced)
+  const [dashboardMode, setDashboardMode] = useState<'simple' | 'advanced'>('advanced');
+
+  // Session locking
+  const [unlockModalOpen, setUnlockModalOpen] = useState(false);
+  const [settingsUnlocked, setSettingsUnlocked] = useState(false);
+  const [simpleOverrideModalOpen, setSimpleOverrideModalOpen] = useState(false);
+
   // Modal state
   const [riskModalOpen, setRiskModalOpen] = useState(false);
   const [amountModalOpen, setAmountModalOpen] = useState(false);
@@ -404,6 +412,12 @@ export default function TradingDashboardPage() {
   // Load settings — localStorage first (instant), then sync from DB if available
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    // Load dashboard mode preference
+    try {
+      const mode = localStorage.getItem('clawdesk-dashboard-mode');
+      if (mode === 'simple' || mode === 'advanced') setDashboardMode(mode);
+    } catch {}
 
     // Always load localStorage first (fast, no network)
     try {
@@ -538,6 +552,19 @@ export default function TradingDashboardPage() {
       } catch {}
     })();
   }, [boardId, riskLevel]);
+
+  // Session locking: locked when engine is running (unless manually unlocked)
+  const sessionLocked = engineOn && !settingsUnlocked;
+  // Re-lock when engine starts
+  useEffect(() => {
+    if (engineOn) setSettingsUnlocked(false);
+  }, [engineOn]);
+
+  // Dashboard mode toggle
+  const toggleDashboardMode = useCallback((mode: 'simple' | 'advanced') => {
+    setDashboardMode(mode);
+    if (typeof window !== 'undefined') localStorage.setItem('clawdesk-dashboard-mode', mode);
+  }, []);
 
   const paperBalance = Number(portfolio?.summary?.paper_balance ?? 0);
   // Fetch live P&L from the same price source as the board (CCXT/Binance)
@@ -795,9 +822,271 @@ export default function TradingDashboardPage() {
     }
   }, [engineOn, setupReady, boardId, bots, riskLevel, pushToast, loadDashboard, timeframeStartDate]);
 
+  // Coin name mapping for simple mode
+  const COIN_NAMES: Record<string, { name: string; icon: string; iconBg: string; iconColor: string }> = {
+    BTC: { name: 'Bitcoin', icon: '₿', iconBg: '#f7931a22', iconColor: '#f7931a' },
+    ETH: { name: 'Ethereum', icon: 'Ξ', iconBg: '#627eea22', iconColor: '#627eea' },
+    SOL: { name: 'Solana', icon: 'S', iconBg: '#00e67622', iconColor: '#00e676' },
+    BNB: { name: 'BNB', icon: 'B', iconBg: '#f3ba2f22', iconColor: '#f3ba2f' },
+    XRP: { name: 'Ripple', icon: 'X', iconBg: '#23292f22', iconColor: '#23292f' },
+    ADA: { name: 'Cardano', icon: 'A', iconBg: '#0033ad22', iconColor: '#0033ad' },
+    DOGE: { name: 'Dogecoin', icon: 'D', iconBg: '#c2a63322', iconColor: '#c2a633' },
+    AVAX: { name: 'Avalanche', icon: 'A', iconBg: '#e8414122', iconColor: '#e84141' },
+    DOT: { name: 'Polkadot', icon: 'P', iconBg: '#e6007a22', iconColor: '#e6007a' },
+    LINK: { name: 'Chainlink', icon: 'L', iconBg: '#2a5ada22', iconColor: '#2a5ada' },
+    Cash: { name: 'Cash', icon: '$', iconBg: '#44444422', iconColor: '#888' },
+  };
+
+  const getCoinDisplay = (symbol: string) => COIN_NAMES[symbol] ?? { name: symbol, icon: symbol[0] ?? '?', iconBg: '#33333322', iconColor: '#888' };
+
+  // Simple mode handle start trading
+  const handleSimpleStartTrading = useCallback(() => {
+    if (engineOn) {
+      // Already trading — show override modal
+      setSimpleOverrideModalOpen(true);
+    } else {
+      handleEngineToggle();
+    }
+  }, [engineOn, handleEngineToggle]);
+
+  // ─── SIMPLE MODE VIEW ───
+  if (dashboardMode === 'simple') {
+    const greeting = (() => {
+      const h = new Date().getHours();
+      if (h < 12) return 'Good morning 👋';
+      if (h < 17) return 'Good afternoon 👋';
+      return 'Good evening 👋';
+    })();
+
+    return (
+      <>
+        <div style={{ maxWidth: '520px', margin: '0 auto', padding: '24px 20px' }}>
+          {/* Mode toggle */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+            <button onClick={() => toggleDashboardMode('advanced')} style={{ background: '#1a1a2e', border: '1px solid #2a2a4e', color: '#666', padding: '6px 12px', borderRadius: '16px', fontSize: '11px', cursor: 'pointer' }}>⚙️ Advanced Mode</button>
+          </div>
+
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+            <div style={{ fontSize: '16px', color: '#888', marginBottom: '4px' }}>{greeting}</div>
+            <h1 style={{ fontSize: '28px', fontWeight: 700, marginBottom: '8px', color: 'var(--text)' }}>Your Trading Bot</h1>
+            <div style={{ fontSize: '14px', color: '#666', lineHeight: 1.5 }}>It watches the market so you don&apos;t have to.</div>
+          </div>
+
+          {/* Big Money Card */}
+          <div style={{ background: 'linear-gradient(135deg, #1a1a3e 0%, #141428 100%)', borderRadius: '20px', padding: '32px 24px', textAlign: 'center', marginBottom: '24px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ fontSize: '13px', color: '#888', marginBottom: '4px' }}>Your Balance</div>
+            <div style={{ fontSize: '48px', fontWeight: 800, letterSpacing: '-1px', color: 'var(--text)' }}>{formatCurrency(paperBalance)}</div>
+            <div style={{ fontSize: '18px', marginTop: '8px', fontWeight: 600, color: dailyPnl >= 0 ? '#00e676' : '#ff5252' }}>
+              {dailyPnl >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(dailyPnl))} today
+            </div>
+            {tradingAmount && dayProgress && (
+              <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                Started {dayProgress.day} day{dayProgress.day !== 1 ? 's' : ''} ago with {formatCurrency(tradingAmount)}
+              </div>
+            )}
+          </div>
+
+          {/* Status Pill */}
+          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              background: engineOn ? '#00e67622' : '#88888822',
+              border: `1px solid ${engineOn ? '#00e67644' : '#88888844'}`,
+              borderRadius: '20px', padding: '6px 14px', fontSize: '13px',
+              color: engineOn ? '#00e676' : '#888',
+            }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: engineOn ? '#00e676' : '#888', animation: engineOn ? 'pulse-glow-dot 2s infinite' : 'none' }} />
+              {engineOn ? 'Bot is trading' : 'Paused'}
+            </span>
+          </div>
+
+          {/* Penny Says */}
+          <div style={{ background: '#141428', borderRadius: '16px', padding: '20px', marginBottom: '24px', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+            <img src="/icons/penny.png" alt="Penny" style={{ width: '40px', height: '40px', borderRadius: '50%', flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '12px', color: '#7b7dff', fontWeight: 600, marginBottom: '4px' }}>Penny</div>
+              <div style={{ fontSize: '14px', lineHeight: 1.5, color: 'var(--text)' }}>{pennyUpdate}</div>
+              <div style={{ fontSize: '12px', color: botQuote.color, fontStyle: 'italic', marginTop: '6px' }}>{botQuote.text}</div>
+            </div>
+          </div>
+
+          {/* Simple Stats */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '28px' }}>
+            <div style={{ background: '#141428', borderRadius: '14px', padding: '16px', textAlign: 'center' }}>
+              <div style={{ fontSize: '12px', color: '#888', marginBottom: '6px' }}>Trades Made</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>{totalTrades}</div>
+              <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>across {pulse.length > 0 ? Math.min(pulse.length, boardCoinCount) : 0} coins</div>
+            </div>
+            <div style={{ background: '#141428', borderRadius: '14px', padding: '16px', textAlign: 'center' }}>
+              <div style={{ fontSize: '12px', color: '#888', marginBottom: '6px' }}>Best Day</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: '#00e676' }}>{dailyPnl > 0 ? `+${formatCurrency(dailyPnl)}` : '—'}</div>
+              <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>today</div>
+            </div>
+            <div style={{ background: '#141428', borderRadius: '14px', padding: '16px', textAlign: 'center' }}>
+              <div style={{ fontSize: '12px', color: '#888', marginBottom: '6px' }}>Win Rate</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>{winRate.toFixed(0)}%</div>
+              <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>more wins than losses</div>
+            </div>
+            <div style={{ background: '#141428', borderRadius: '14px', padding: '16px', textAlign: 'center' }}>
+              <div style={{ fontSize: '12px', color: '#888', marginBottom: '6px' }}>Days Active</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>{dayProgress?.day ?? 0}</div>
+              <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>{dayProgress?.total ? `of ${dayProgress.total} day run` : 'no timeframe set'}</div>
+            </div>
+          </div>
+
+          {/* What You Own */}
+          <div style={{ background: '#141428', borderRadius: '16px', padding: '20px', marginBottom: '24px' }}>
+            <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '14px', color: 'var(--text)' }}>What You Own Right Now</div>
+            {(() => {
+              const holdings = portfolio?.activeHoldings ?? [];
+              const totalPositionValue = holdings.reduce((s, h) => s + (h.position_size || 0), 0);
+              const cash = Math.max(0, paperBalance - totalPositionValue);
+              const rows = holdings.map(h => {
+                const sym = h.coin_pair.replace(/\/?(USDT?)$/i, '');
+                const coin = getCoinDisplay(sym);
+                const pulseCoin = pulse.find(c => c.pair?.includes(sym));
+                const change = pulseCoin?.change24h ?? 0;
+                return { name: coin.name, icon: coin.icon, iconBg: coin.iconBg, iconColor: coin.iconColor, value: h.position_size, change, desc: 'A small piece' };
+              });
+              rows.push({ name: 'Cash', icon: '$', iconBg: '#44444422', iconColor: '#888', value: cash, change: 0, desc: 'Ready to invest' });
+
+              return rows.map(row => (
+                <div key={row.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #1a1a2e' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 700, background: row.iconBg, color: row.iconColor }}>{row.icon}</div>
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>{row.name}</div>
+                      <div style={{ fontSize: '12px', color: '#888' }}>{row.desc}</div>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>{formatCurrency(row.value)}</div>
+                    <div style={{ fontSize: '12px', color: row.name === 'Cash' ? '#888' : row.change >= 0 ? '#00e676' : '#ff5252' }}>
+                      {row.name === 'Cash' ? 'safe' : `${row.change >= 0 ? '▲' : '▼'} ${Math.abs(row.change).toFixed(1)}%`}
+                    </div>
+                  </div>
+                </div>
+              ));
+            })()}
+          </div>
+
+          {/* Amount selector — only when NOT trading */}
+          {!engineOn && (
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px', color: 'var(--text)' }}>How much do you want to start with?</div>
+              <div style={{ fontSize: '12px', color: '#666', marginBottom: '12px' }}>You can change this anytime. This is practice money — no real money at risk.</div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {AMOUNT_PRESETS.map(val => (
+                  <button key={val} onClick={() => handleAmountPreset(val)} style={{
+                    flex: 1, padding: '10px 18px', borderRadius: '12px', textAlign: 'center', minWidth: '70px',
+                    border: `1px solid ${tradingAmount === val ? '#7b7dff' : '#2a2a4e'}`,
+                    background: tradingAmount === val ? '#7b7dff22' : '#141428',
+                    color: tradingAmount === val ? '#7b7dff' : '#e0e0e0',
+                    fontSize: '15px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+                  }}>${val.toLocaleString()}</button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '10px', fontSize: '12px', color: '#888' }}>
+                <span style={{ fontSize: '14px' }}>🛡️</span>
+                <span>Paper trading — this is practice money to learn with. Zero risk.</span>
+              </div>
+            </div>
+          )}
+
+          {/* Big CTA */}
+          <button
+            onClick={handleSimpleStartTrading}
+            disabled={!setupReady && !engineOn}
+            style={{
+              width: '100%', padding: '16px', borderRadius: '14px', border: 'none',
+              fontSize: '18px', fontWeight: 700, cursor: (setupReady || engineOn) ? 'pointer' : 'not-allowed',
+              marginBottom: '10px', transition: 'all 0.2s',
+              background: engineOn ? '#00e676' : 'linear-gradient(135deg, #7b7dff 0%, #5b5ddf 100%)',
+              color: engineOn ? '#0d0d1a' : 'white',
+            }}
+          >
+            {engineOn ? '✨ Bot is Running — Tap to Pause' : '▶ Start Trading'}
+          </button>
+          <div style={{ textAlign: 'center', fontSize: '11px', color: '#555', marginTop: '8px', lineHeight: 1.5 }}>
+            Your bot checks the market every 30 minutes.<br />
+            It uses proven strategies trusted by 25,000+ traders.
+          </div>
+
+          {/* How It Works */}
+          <div style={{ background: '#141428', borderRadius: '16px', padding: '20px', marginTop: '24px', marginBottom: '24px' }}>
+            <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '14px', color: 'var(--text)' }}>How It Works</div>
+            {[
+              { num: '1', title: 'You set the amount', desc: "— pick how much you want to trade with. Start small if you like." },
+              { num: '2', title: 'The bot does the rest', desc: "— it watches the market 24/7, buys when prices are low, sells when they're high." },
+              { num: '3', title: 'You check in whenever', desc: '— no charts to read, no buttons to press. Just watch your balance grow.' },
+            ].map(step => (
+              <div key={step.num} style={{ display: 'flex', gap: '12px', marginBottom: '14px', alignItems: 'flex-start' }}>
+                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#7b7dff22', color: '#7b7dff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700, flexShrink: 0 }}>{step.num}</div>
+                <div style={{ fontSize: '13px', lineHeight: 1.5, color: '#999' }}><strong style={{ color: '#e0e0e0' }}>{step.title}</strong> {step.desc}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Footer */}
+          <div style={{ textAlign: 'center', padding: '20px 0', fontSize: '11px', color: '#444' }}>
+            Powered by the TBO Trading Engine<br />
+            A product of The Better Traders
+          </div>
+        </div>
+
+        {/* Simple Mode Override Modal */}
+        {simpleOverrideModalOpen && (
+          <div onClick={e => { if (e.target === e.currentTarget) setSimpleOverrideModalOpen(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(5,5,15,0.78)', display: 'grid', placeItems: 'center', zIndex: 90 }}>
+            <div style={{ width: 'min(420px, 92vw)', background: '#1a1a2e', border: '1px solid #2a2a4e', borderRadius: '18px', padding: '24px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+              <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '12px', color: 'var(--text)' }}>You&apos;re already trading!</div>
+              <div style={{ fontSize: '14px', color: '#888', lineHeight: 1.6, marginBottom: '20px' }}>
+                {dayProgress ? `Day ${dayProgress.day} of ${dayProgress.total ?? '∞'}` : 'Active run'}, {formatCurrency(paperBalance)} balance.
+                Your bot is watching {activePositions} position{activePositions !== 1 ? 's' : ''}. Want to keep going or start fresh?
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button onClick={() => setSimpleOverrideModalOpen(false)} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid #2a2a4e', background: 'transparent', color: 'var(--text)', fontWeight: 600, cursor: 'pointer', fontSize: '14px' }}>Keep Going</button>
+                <button onClick={() => { setSimpleOverrideModalOpen(false); handleEngineToggle(); setSettingsUnlocked(true); toggleDashboardMode('advanced'); }} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', background: '#7b7dff', color: '#0d0d1a', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>Start Fresh</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <ToastStack toasts={toasts} onDismiss={(id) => { if (toastTimersRef.current[id]) { clearTimeout(toastTimersRef.current[id]); delete toastTimersRef.current[id]; } setToasts(prev => prev.filter(t => t.id !== id)); }} />
+
+        <style jsx global>{`
+          @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 20px rgba(123,125,255,0.25); } 50% { box-shadow: 0 0 35px rgba(123,125,255,0.5); } }
+          @keyframes pulse-glow-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        `}</style>
+      </>
+    );
+  }
+
+  // ─── ADVANCED MODE VIEW ───
   return (
     <>
       <div style={{ padding: '0 clamp(20px, 4vw, 48px) 40px', maxWidth: '1400px', margin: '0 auto' }}>
+
+        {/* Mode toggle in top-right */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '12px', marginBottom: '-8px' }}>
+          <button onClick={() => toggleDashboardMode('simple')} style={{ background: '#1a1a2e', border: '1px solid #2a2a4e', color: '#666', padding: '6px 12px', borderRadius: '16px', fontSize: '11px', cursor: 'pointer' }}>🧘 Simple Mode</button>
+        </div>
+
+        {/* Unlock Settings Modal */}
+        {unlockModalOpen && (
+          <div onClick={e => { if (e.target === e.currentTarget) setUnlockModalOpen(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(5,5,15,0.78)', display: 'grid', placeItems: 'center', zIndex: 90 }}>
+            <div style={{ width: 'min(420px, 92vw)', background: '#1a1a2e', border: '1px solid #2a2a4e', borderRadius: '18px', padding: '24px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+              <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '12px', color: 'var(--text)' }}>Change Trading Strategy?</div>
+              <div style={{ fontSize: '14px', color: '#888', lineHeight: 1.6, marginBottom: '20px' }}>
+                You&apos;re on {dayProgress ? `Day ${dayProgress.day} of ${dayProgress.total ?? '∞'}` : 'an active run'}. Changing your strategy mid-run may affect performance. Current open trades will continue with their existing strategy.
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button onClick={() => setUnlockModalOpen(false)} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid #2a2a4e', background: 'transparent', color: 'var(--text)', fontWeight: 600, cursor: 'pointer', fontSize: '14px' }}>Keep Current Strategy</button>
+                <button onClick={() => { setUnlockModalOpen(false); setSettingsUnlocked(true); pushToast('Settings unlocked — make your changes', 'warning'); }} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', background: '#f5b544', color: '#0d0d1a', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>Unlock Settings</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Penny's Update — copilot message */}
         <section style={{ marginTop: '20px', marginBottom: '16px' }}>
@@ -1021,10 +1310,20 @@ export default function TradingDashboardPage() {
           </div>
 
           {/* RIGHT — Trading Setup */}
-          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '20px 24px' }}>
-            <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '14px' }}>Trading Setup</div>
+          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '18px', padding: '20px 24px', position: 'relative' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600 }}>Trading Setup</div>
+              {sessionLocked && (
+                <button onClick={() => setUnlockModalOpen(true)} style={{ background: '#1a1a2e', border: '1px solid #2a2a4e', borderRadius: '8px', padding: '4px 10px', fontSize: '11px', color: '#f5b544', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                  🔒 Locked — Click to unlock
+                </button>
+              )}
+            </div>
+            {sessionLocked && <div style={{ position: 'absolute', inset: 0, borderRadius: '18px', zIndex: 5 }} />}
 
             {/* Risk Slider — continuous */}
+            <div style={sessionLocked ? { opacity: 0.5, pointerEvents: 'none', position: 'relative' } : {}}>
+            {sessionLocked && <div style={{ position: 'absolute', top: 8, right: 8, background: '#1a1a2e', border: '1px solid #2a2a4e', borderRadius: 8, padding: '4px 10px', fontSize: 11, color: '#888', display: 'flex', alignItems: 'center', gap: 4, zIndex: 10 }}>🔒 Strategy locked during active run. Pause trading to change.</div>}
             {(() => {
               const RISK_LABELS = [
                 { key: 'safe' as RiskLevel, label: 'Safe', desc: 'BTC & ETH heavy', pos: 0, color: '#6366f1' },
@@ -1110,8 +1409,11 @@ export default function TradingDashboardPage() {
               </div>
             )}
 
+            </div>
+
             {/* Trading Amount */}
-            <div style={{ marginTop: '16px' }}>
+            <div style={sessionLocked ? { opacity: 0.5, pointerEvents: 'none', position: 'relative', marginTop: '16px' } : { marginTop: '16px' }}>
+            {sessionLocked && <div style={{ position: 'absolute', top: 8, right: 8, background: '#1a1a2e', border: '1px solid #2a2a4e', borderRadius: 8, padding: '4px 10px', fontSize: 11, color: '#888', display: 'flex', alignItems: 'center', gap: 4, zIndex: 10 }}>🔒 Amount locked during active run.</div>}
               <div style={{ fontSize: '12px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600, marginBottom: '8px' }}>Trading Amount</div>
               <div style={{ display: 'flex', gap: '6px' }}>
                 {AMOUNT_PRESETS.map(val => {
@@ -1156,7 +1458,8 @@ export default function TradingDashboardPage() {
             </div>
 
             {/* Duration */}
-            <div style={{ marginTop: '16px' }}>
+            <div style={sessionLocked ? { opacity: 0.5, pointerEvents: 'none', position: 'relative', marginTop: '16px' } : { marginTop: '16px' }}>
+            {sessionLocked && <div style={{ position: 'absolute', top: 8, right: 8, background: '#1a1a2e', border: '1px solid #2a2a4e', borderRadius: 8, padding: '4px 10px', fontSize: 11, color: '#888', display: 'flex', alignItems: 'center', gap: 4, zIndex: 10 }}>🔒 Duration locked during active run.</div>}
               <div style={{ fontSize: '12px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600, marginBottom: '8px' }}>Duration</div>
               <div style={{ display: 'flex', gap: '6px' }}>
                 {TIMEFRAME_OPTIONS.map(tf => {
@@ -1202,7 +1505,8 @@ export default function TradingDashboardPage() {
             </div>
 
             {/* Market Selector */}
-            <div style={{ marginTop: '16px' }}>
+            <div style={sessionLocked ? { opacity: 0.5, pointerEvents: 'none', position: 'relative', marginTop: '16px' } : { marginTop: '16px' }}>
+            {sessionLocked && <div style={{ position: 'absolute', top: 8, right: 8, background: '#1a1a2e', border: '1px solid #2a2a4e', borderRadius: 8, padding: '4px 10px', fontSize: 11, color: '#888', display: 'flex', alignItems: 'center', gap: 4, zIndex: 10 }}>🔒 Market locked during active run.</div>}
               <div style={{ fontSize: '12px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600, marginBottom: '8px' }}>Market</div>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {[

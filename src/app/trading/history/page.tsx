@@ -534,8 +534,8 @@ export default function TradeHistoryPage() {
                     {trade.direction || '—'}
                   </span>
                   {/* Result */}
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: isParked ? 'var(--muted)' : isWin ? 'var(--green)' : 'var(--red)' }}>
-                    {isParked ? '⏸ Parked' : isWin ? '✅ Win' : '❌ Loss'}
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: isParked ? (pnl >= 0 ? 'var(--green)' : 'var(--red)') : isWin ? 'var(--green)' : 'var(--red)' }}>
+                    {isParked ? (pnl >= 0 ? '⏸ Win (Parked)' : '⏸ Loss (Parked)') : isWin ? '✅ Win' : '❌ Loss'}
                   </span>
                   {/* P&L $ */}
                   <span style={{ fontWeight: 700, fontSize: '13px', color: pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>

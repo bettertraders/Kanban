@@ -72,6 +72,7 @@ export async function PATCH(
     if (body?.rebalancer_enabled !== undefined) updates.rebalancer_enabled = Boolean(body.rebalancer_enabled);
     if (body?.rebalancer_config !== undefined) updates.rebalancer_config = body.rebalancer_config;
     if (body?.performance !== undefined) updates.performance = body.performance;
+    if (body?.metadata !== undefined) updates.metadata = body.metadata;
 
     const updated = await updateBot(botId, updates);
     if (!updated) return NextResponse.json({ error: 'No valid updates' }, { status: 400 });

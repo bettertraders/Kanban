@@ -241,9 +241,16 @@ export async function initializeDatabase() {
         rebalancer_enabled BOOLEAN DEFAULT false,
         rebalancer_config JSONB DEFAULT '{}',
         performance JSONB DEFAULT '{}',
+        metadata JSONB DEFAULT '{}',
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
+
+      -- Migration: add metadata column if missing
+      DO $$ BEGIN
+        ALTER TABLE trading_bots ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
+      EXCEPTION WHEN duplicate_column THEN NULL;
+      END $$;
 
       -- Bot executions
       CREATE TABLE IF NOT EXISTS bot_executions (
@@ -1281,6 +1288,7 @@ export async function updateBot(
     rebalancer_enabled: boolean;
     rebalancer_config: any;
     performance: any;
+    metadata: any;
   }>
 ): Promise<any> {
   const allowedFields = [
@@ -1291,7 +1299,8 @@ export async function updateBot(
     'tbo_enabled',
     'rebalancer_enabled',
     'rebalancer_config',
-    'performance'
+    'performance',
+    'metadata'
   ];
 
   const setClause: string[] = [];

@@ -385,7 +385,7 @@ export default function TradingDashboardPage() {
   const [riskLevel, setRiskLevel] = useState<RiskLevel | null>(null);
   const [riskValue, setRiskValue] = useState(50); // 0=safe, 50=balanced, 100=bold — continuous slider
   const [tradingAmount, setTradingAmount] = useState<number | null>(null);
-  const [timeframe, setTimeframe] = useState<Timeframe | null>(null);
+  const [timeframe, setTimeframe] = useState<Timeframe | null>('10');
   const [timeframeStartDate, setTimeframeStartDate] = useState<string | null>(null);
   const [tboEnabled, setTboEnabled] = useState(false);
   const [engineOn, setEngineOn] = useState(false);
@@ -1052,7 +1052,7 @@ export default function TradingDashboardPage() {
             </span>
             <div style={{ width: '1px', height: '20px', background: '#2a2a4e' }} />
             <span style={{ fontSize: '13px', color: '#888' }}>
-              {dayProgress ? (dayProgress.total ? `Day ${dayProgress.day} of ${dayProgress.total}` : `Day ${dayProgress.day}`) : 'Day 1'}
+              {dayProgress ? (dayProgress.total ? `Day ${dayProgress.day} of ${dayProgress.total}` : `Day ${dayProgress.day}`) : `Day 1 of ${timeframe && timeframe !== 'unlimited' ? timeframe : '10'}`}
             </span>
             <div style={{ width: '1px', height: '20px', background: '#2a2a4e' }} />
             <span style={{ fontSize: '13px', color: '#888' }}>{totalTrades} trades</span>
@@ -1108,7 +1108,7 @@ export default function TradingDashboardPage() {
             <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
               <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Days Active</div>
               <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>{dayProgress?.day ?? 0}</div>
-              <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>{dayProgress?.total ? `of ${dayProgress.total} day run` : 'no timeframe set'}</div>
+              <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>{`of ${dayProgress?.total ?? (timeframe && timeframe !== 'unlimited' ? parseInt(timeframe) : 10)} day run`}</div>
             </div>
           </div>
 
@@ -1381,7 +1381,7 @@ export default function TradingDashboardPage() {
                   ? dayProgress.total
                     ? `Day ${dayProgress.day} of ${dayProgress.total}`
                     : `Day ${dayProgress.day}`
-                  : 'Day 1 — No timeframe set',
+                  : `Day 1 of ${timeframe && timeframe !== 'unlimited' ? timeframe : '10'}`,
                 color: dayProgress?.total && dayProgress.day >= dayProgress.total ? '#f5b544' : undefined,
               },
             ].map((stat: { label: string; value: string; color?: string; subtitle?: string }) => {

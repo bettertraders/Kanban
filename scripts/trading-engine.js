@@ -1336,6 +1336,8 @@ async function main() {
     const portfolioRes = await apiGet(`/api/v1/portfolio?boardId=${BOARD_ID}`);
     if (portfolioRes?.trading_settings?.risk_level) {
       RISK_LEVEL = portfolioRes.trading_settings.risk_level.toLowerCase();
+      // Write risk level for Owen to read
+      try { fs.writeFileSync(path.join(__dirname, '.owen-risk-level.json'), JSON.stringify({ risk_level: RISK_LEVEL, updatedAt: Date.now() })); } catch {}
     }
   } catch (e) {
     log(`⚠ Could not fetch risk level, using default: ${RISK_LEVEL}`);

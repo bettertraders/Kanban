@@ -15,7 +15,31 @@ const path = require('path');
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
-const MIN_VOLUME_USD = 1_000_000;
+// ─── Risk-Aware Volume Thresholds ────────────────────────────────────────────
+// Owen reads the trading engine's risk level to decide volume floor.
+// Bold = hunt volatile low-cap gems ($500K+). Safe = stick to liquid coins ($5M+).
+function getRiskLevel() {
+  try {
+    const statePath = path.join(__dirname, '.trading-engine-state.json');
+    // Also check for risk override file Owen can read
+    const riskPath = path.join(__dirname, '.owen-risk-level.json');
+    if (fs.existsSync(riskPath)) {
+      const r = JSON.parse(fs.readFileSync(riskPath, 'utf8'));
+      if (r.risk_level) return r.risk_level.toLowerCase();
+    }
+    // Fallback: try to read from ClawDesk portfolio settings (file cached by engine)
+    return 'bold'; // default if no file
+  } catch { return 'bold'; }
+}
+
+const RISK_LEVEL = getRiskLevel();
+const VOLUME_THRESHOLDS = {
+  safe:     5_000_000,   // Only liquid, established coins
+  balanced: 1_000_000,   // Standard — current behavior
+  bold:       500_000,   // Hunt volatile gems with lower volume
+};
+const MIN_VOLUME_USD = VOLUME_THRESHOLDS[RISK_LEVEL] || VOLUME_THRESHOLDS.balanced;
+
 const OHLCV_TIMEFRAME = '4h';
 const OHLCV_LIMIT = 60;
 const RATE_LIMIT_MS = 100;
@@ -164,7 +188,7 @@ async function main() {
     const t = tickers[m.symbol];
     return t && t.quoteVolume && t.quoteVolume >= MIN_VOLUME_USD;
   });
-  log(`${viable.length} pairs above $1M volume (filtered ${noStables.length - viable.length})`);
+  log(`${viable.length} pairs above $${(MIN_VOLUME_USD/1e6).toFixed(1)}M volume [${RISK_LEVEL.toUpperCase()} mode] (filtered ${noStables.length - viable.length})`);
 
   // Ensure core + hedge are included
   const symbolSet = new Set(viable.map(m => m.symbol));

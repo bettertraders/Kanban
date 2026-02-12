@@ -1295,6 +1295,8 @@ export async function updateBot(
   id: number,
   data: Partial<{
     name: string;
+    strategy_style: string;
+    strategy_substyle: string;
     strategy_config: any;
     status: string;
     auto_trade: boolean;
@@ -1307,6 +1309,8 @@ export async function updateBot(
 ): Promise<any> {
   const allowedFields = [
     'name',
+    'strategy_style',
+    'strategy_substyle',
     'strategy_config',
     'status',
     'auto_trade',

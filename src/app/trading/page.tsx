@@ -960,12 +960,11 @@ export default function TradingDashboardPage() {
         fetch(`/api/v1/trades/${t.id}`, { method: 'DELETE' })
       ));
       // 4. Reset timeframe + engine off — write directly to localStorage before reload
-      const now = new Date().toISOString();
       const saved = JSON.parse(localStorage.getItem('clawdesk-trading-setup') || '{}');
-      saved.timeframeStartDate = now;
+      saved.timeframeStartDate = null;
       saved.engineOn = false;
       localStorage.setItem('clawdesk-trading-setup', JSON.stringify(saved));
-      setTimeframeStartDate(now);
+      setTimeframeStartDate(null);
       setEngineOn(false);
       // 5. Reload
       window.location.reload();
@@ -1196,7 +1195,7 @@ export default function TradingDashboardPage() {
                 color: engineOn ? '#0d0d1a' : 'white',
               }}
             >
-              {engineOn ? '✨ Bot is Running — Tap to Pause' : (totalTrades > 0 ? '▶ Resume Trading' : '▶ Start Trading')}
+              {engineOn ? '✨ Bot is Running — Tap to Pause' : (timeframeStartDate ? '▶ Resume Trading' : '▶ Start Trading')}
             </button>
           </div>
           <div style={{ textAlign: 'center', fontSize: '11px', color: '#444', marginTop: '8px' }}>
@@ -1768,7 +1767,7 @@ export default function TradingDashboardPage() {
                 transition: 'all 0.2s',
               }}
             >
-              {engineOn ? '✨ Bot is Running — Tap to Pause' : (totalTrades > 0 ? '▶ Resume Trading' : '▶ Start Trading')}
+              {engineOn ? '✨ Bot is Running — Tap to Pause' : (timeframeStartDate ? '▶ Resume Trading' : '▶ Start Trading')}
             </button>
           </div>
           <div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--muted)' }}>

@@ -1629,6 +1629,18 @@ async function main() {
       try {
         // Update existing card with entry data + strategy metadata
         const existingMetadata = typeof trade.metadata === 'string' ? JSON.parse(trade.metadata || '{}') : (trade.metadata || {});
+        // Calculate SL/TP based on ATR
+        const atrVal = ind.atr || (ind.currentPrice * 0.03);
+        const atrPct = (atrVal / ind.currentPrice) * 100;
+        const dynamicSLPct = Math.max(2, Math.min(8, atrPct * 2));
+        const dynamicTPPct = Math.max(5, Math.min(15, atrPct * 3));
+        const slPrice = dir === 'SHORT'
+          ? ind.currentPrice * (1 + dynamicSLPct / 100)
+          : ind.currentPrice * (1 - dynamicSLPct / 100);
+        const tpPrice = dir === 'SHORT'
+          ? ind.currentPrice * (1 - dynamicTPPct / 100)
+          : ind.currentPrice * (1 + dynamicTPPct / 100);
+
         await apiPatch('/api/trading/trades', {
           trade_id: trade.id,
           column_name: 'Active',
@@ -1636,13 +1648,18 @@ async function main() {
           entry_price: ind.currentPrice,
           position_size: positionSize,
           direction: dir,
-          notes: `Strategy: ${BOT_NAME} | ${dir} ${entrySignal.reason} | MACD=${ind.macdHistogram?.toFixed(3)} ATR=${ind.atr?.toFixed(4)}`,
+          stop_loss: slPrice,
+          take_profit: tpPrice,
+          notes: `Strategy: ${BOT_NAME} | ${dir} ${entrySignal.reason} | SL: $${slPrice.toFixed(2)} (${dynamicSLPct.toFixed(1)}%) | TP: $${tpPrice.toFixed(2)} (${dynamicTPPct.toFixed(1)}%)`,
           bot_id: bot.id,
           metadata: JSON.stringify({
             ...existingMetadata,
             entry_reason: entrySignal.reason,
             direction: dir,
             strategy: entrySignal.reason,
+            atr: atrVal,
+            slPercent: dynamicSLPct,
+            tpPercent: dynamicTPPct,
             fees: { entryFee: positionSize * 0.001 },
             execution: {
               signalPrice: ind.currentPrice,

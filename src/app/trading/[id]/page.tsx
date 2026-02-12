@@ -1618,6 +1618,14 @@ export default function TradingBoardPage() {
                             </div>
                           </div>
 
+                          {/* SL/TP compact line for Active + Analyzing */}
+                          {(col.name === 'Active' || col.name === 'Analyzing') && (toNumber(trade.stop_loss) || toNumber(trade.take_profit)) && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--muted)', marginBottom: '2px' }}>
+                              {toNumber(trade.stop_loss) ? <span style={{ color: '#f05b6f' }}>SL {formatPrice(toNumber(trade.stop_loss))}</span> : <span />}
+                              {toNumber(trade.take_profit) ? <span style={{ color: '#4ade80' }}>TP {formatPrice(toNumber(trade.take_profit))}</span> : <span />}
+                            </div>
+                          )}
+
                           {/* Confidence bar */}
                           <div style={{ height: '3px', borderRadius: '999px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
                             <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, confidence ?? 0))}%`, background: confidenceTone, borderRadius: '999px', transition: 'width 0.3s' }} />

@@ -379,20 +379,36 @@ async function executeEntry(trade, result, activeCount) {
 
   const sym = trade.coin_pair || 'UNKNOWN';
   try {
-    // Update the trade: move to Active, set entry price, mark as active
+    // Calculate SL/TP (default 3% ATR if no stored value)
     const existing = typeof trade.metadata === 'string' ? JSON.parse(trade.metadata || '{}') : (trade.metadata || {});
+    const atrVal = existing.atr || (result.entryPrice * 0.03);
+    const atrPct = (atrVal / result.entryPrice) * 100;
+    const slPct = Math.max(2, Math.min(8, atrPct * 2));
+    const tpPct = Math.max(5, Math.min(15, atrPct * 3));
+    const slPrice = result.direction === 'SHORT'
+      ? result.entryPrice * (1 + slPct / 100)
+      : result.entryPrice * (1 - slPct / 100);
+    const tpPrice = result.direction === 'SHORT'
+      ? result.entryPrice * (1 - tpPct / 100)
+      : result.entryPrice * (1 + tpPct / 100);
+
     await apiPatch('/api/trading/trades', {
       trade_id: trade.id,
       column_name: 'Active',
       direction: result.direction,
       entry_price: result.entryPrice,
       current_price: result.entryPrice,
+      stop_loss: slPrice,
+      take_profit: tpPrice,
       status: 'active',
-      notes: `${trade.notes || ''}\n🎯 Sentinel entry: ${result.reason}`.trim(),
+      notes: `${trade.notes || ''}\n🎯 Sentinel entry: ${result.reason} | SL: $${slPrice.toFixed(2)} | TP: $${tpPrice.toFixed(2)}`.trim(),
       metadata: JSON.stringify({
         ...existing,
         direction: result.direction,
         entry_reason: result.strategy || result.reason,
+        atr: atrVal,
+        slPercent: slPct,
+        tpPercent: tpPct,
         enteredBySentinel: true,
         entryTime: new Date().toISOString(),
         fees: { entryFee: parseFloat(trade.position_size || 0) * 0.001 },

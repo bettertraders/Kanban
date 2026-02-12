@@ -1340,7 +1340,7 @@ export default function TradingDashboardPage() {
           padding: '6px 14px', fontSize: '11px', color: 'var(--muted)', marginBottom: '8px',
         }}>
           <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#00e676', flexShrink: 0 }} />
-          Binance · Crypto / USDT Pairs · {pulse.length} coins tracked · TBO Engine v2.0
+          Binance · Crypto / USDT Pairs · {pulse.length} coins tracked · TBO Trading Engine v1.0
         </div>
 
         {/* 1. Market Summary (compact one-liner) */}

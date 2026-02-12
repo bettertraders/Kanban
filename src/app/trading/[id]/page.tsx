@@ -35,6 +35,7 @@ interface Trade {
   pause_reason?: string | null;
   lesson_tag?: string | null;
   trade_settings?: Record<string, unknown> | null;
+  metadata?: string | Record<string, unknown> | null;
 }
 
 interface EquityPoint {

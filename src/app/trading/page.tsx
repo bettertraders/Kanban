@@ -803,8 +803,8 @@ export default function TradingDashboardPage() {
     const next = !engineOn;
     setEngineOn(next);
 
-    // Set timeframe start date when engine first starts
-    if (next && !timeframeStartDate) {
+    // Reset timeframe start date when engine starts (new challenge = new day 1)
+    if (next) {
       setTimeframeStartDate(new Date().toISOString());
     }
 

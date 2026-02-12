@@ -49,6 +49,22 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Account not found' }, { status: 404 });
     }
 
+    // Also reset timeframeStartDate in trading_settings so day counter resets
+    try {
+      const existing = await pool.query(
+        `SELECT settings FROM trading_settings WHERE user_id = $1 AND board_id = $2`,
+        [user.id, boardId]
+      );
+      if (existing.rows.length > 0) {
+        const settings = existing.rows[0].settings || {};
+        settings.timeframeStartDate = new Date().toISOString();
+        await pool.query(
+          `UPDATE trading_settings SET settings = $1, updated_at = NOW() WHERE user_id = $2 AND board_id = $3`,
+          [JSON.stringify(settings), user.id, boardId]
+        );
+      }
+    } catch {}
+
     return NextResponse.json({ account: result.rows[0] });
   } catch (error) {
     console.error('PATCH /api/trading/account error:', error);

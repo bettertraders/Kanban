@@ -442,7 +442,7 @@ export default function TradingDashboardPage() {
       if (saved.riskValue != null) setRiskValue(saved.riskValue);
       if (saved.tradingAmount) setTradingAmount(saved.tradingAmount);
       if (saved.timeframe) setTimeframe(saved.timeframe);
-      if (saved.timeframeStartDate) setTimeframeStartDate(saved.timeframeStartDate);
+      // timeframeStartDate is now controlled by account.created_at — don't load from localStorage
       if (saved.tboEnabled !== undefined) setTboEnabled(saved.tboEnabled);
       if (saved.engineOn !== undefined) setEngineOn(saved.engineOn);
     } catch {}
@@ -460,7 +460,7 @@ export default function TradingDashboardPage() {
             setRiskLevel(saved.riskLevel);
             if (saved.tradingAmount) setTradingAmount(saved.tradingAmount);
             if (saved.timeframe) setTimeframe(saved.timeframe);
-            if (saved.timeframeStartDate) setTimeframeStartDate(saved.timeframeStartDate);
+            // timeframeStartDate is now controlled by account.created_at — don't override from settings
             if (saved.tboEnabled !== undefined) setTboEnabled(saved.tboEnabled);
             if (saved.engineOn !== undefined) setEngineOn(saved.engineOn);
             // Also save to localStorage so it's cached

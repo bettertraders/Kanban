@@ -113,6 +113,12 @@ function formatCurrency(value: number) {
   return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function formatCurrencyShort(value: number) {
+  if (!Number.isFinite(value)) return '—';
+  if (value === Math.floor(value)) return `$${value.toLocaleString()}`;
+  return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 function getBotQuote(pnlPct: number, _winRate: number, _activePositions: number, isEngineOn: boolean, totalTrades: number): { text: string; color: string } {
   const onFire = [
     "Penny is on fire today! 🔥",
@@ -926,7 +932,7 @@ export default function TradingDashboardPage() {
               </div>
               {dayProgress && (
                 <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
-                  Started {dayProgress.day} day{dayProgress.day !== 1 ? 's' : ''} ago with {formatCurrency(tradingAmount || startingBalance)}
+                  Started {dayProgress.day} day{dayProgress.day !== 1 ? 's' : ''} ago with {formatCurrencyShort(tradingAmount || startingBalance)}
                 </div>
               )}
             </div>
@@ -1064,7 +1070,7 @@ export default function TradingDashboardPage() {
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', background: '#141428', border: '1px solid #2a2a4e' }}>
                 <span style={{ fontSize: '13px', color: '#888' }}>Trading with</span>
-                <span style={{ fontSize: '16px', fontWeight: 700, color: '#7b7dff' }}>{formatCurrency(tradingAmount || startingBalance)}</span>
+                <span style={{ fontSize: '16px', fontWeight: 700, color: '#7b7dff' }}>{formatCurrencyShort(tradingAmount || startingBalance)}</span>
                 <span style={{ fontSize: '11px', color: '#555' }}>🔒</span>
               </div>
             )}
@@ -1212,7 +1218,7 @@ export default function TradingDashboardPage() {
             {[
               { label: 'Bot Status', value: engineOn ? '● Active' : '● Paused', color: engineOn ? '#22c55e' : '#ef4444' },
               { label: 'Balance', value: formatCurrency(paperBalance), color: paperBalance >= startingBalance ? '#4ade80' : '#f05b6f' },
-              { label: 'Trading With', value: formatCurrency(tradingAmount || startingBalance), color: '#7b7dff' },
+              { label: 'Trading With', value: formatCurrencyShort(tradingAmount || startingBalance), color: '#7b7dff' },
               { label: "Today's P&L", value: `${dailyPnl >= 0 ? '+' : ''}${formatCurrency(dailyPnl)} (${dailyPnlPct >= 0 ? '+' : ''}${dailyPnlPct.toFixed(1)}%)`, color: dailyPnl >= 0 ? '#4ade80' : '#f05b6f' },
               { label: 'Win Rate', value: `${winRate.toFixed(0)}%`, color: winRate >= 50 ? '#4ade80' : winRate > 0 ? '#f05b6f' : undefined },
               { label: 'Active Positions', value: String(activePositions), subtitle: (() => { const longs = (portfolio?.activeHoldings || []).length; const shorts = 0; return longs > 0 || shorts > 0 ? `${longs}L / ${shorts}S` : undefined; })() },
@@ -1621,13 +1627,13 @@ export default function TradingDashboardPage() {
             {engineOn ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: '12px', background: '#141428', border: '1px solid #2a2a4e' }}>
                 <span style={{ fontSize: '13px', color: '#888' }}>Trading with</span>
-                <span style={{ fontSize: '17px', fontWeight: 700, color: '#7b7dff' }}>{formatCurrency(tradingAmount || startingBalance)}</span>
+                <span style={{ fontSize: '17px', fontWeight: 700, color: '#7b7dff' }}>{formatCurrencyShort(tradingAmount || startingBalance)}</span>
                 <span style={{ fontSize: '11px', color: '#555' }}>🔒</span>
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: '12px', background: '#141428', border: '1px solid #2a2a4e' }}>
                 <span style={{ fontSize: '13px', color: '#888' }}>Trading with</span>
-                <span style={{ fontSize: '17px', fontWeight: 700, color: '#7b7dff' }}>{formatCurrency(tradingAmount || startingBalance)}</span>
+                <span style={{ fontSize: '17px', fontWeight: 700, color: '#7b7dff' }}>{formatCurrencyShort(tradingAmount || startingBalance)}</span>
               </div>
             )}
             <button

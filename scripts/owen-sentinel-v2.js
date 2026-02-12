@@ -355,20 +355,7 @@ async function executeExit(trade, result, currentPrice) {
 
   log(`🚪 EXIT ${sym} ${trade.direction} → ${targetCol} | PnL: ${result.pnlPercent >= 0 ? '+' : ''}${result.pnlPercent.toFixed(2)}% ($${result.pnlDollar.toFixed(2)}) | ${result.reason}`);
 
-  // Re-queue to Analyzing — market conditions determine re-entry, not cooldowns
-  try {
-    await apiPost('/api/trading/trades', {
-      board_id: BOARD_ID,
-      coin_pair: sym,
-      column_name: 'Analyzing',
-      status: 'analyzing',
-      priority: CORE_COINS.includes(sym) ? 'high' : 'medium',
-      notes: `♻️ Re-queued after ${result.pnlPercent >= 0 ? 'win' : 'loss'} (${result.reason}). Watching for new entry.`,
-    });
-    log(`  ♻️ ${sym} re-queued to Analyzing`);
-  } catch (err) {
-    log(`  ⚠ Failed to re-queue ${sym}: ${err.message}`);
-  }
+  // Don't auto re-queue — Owen's scanner will pick it up again if conditions are right
 }
 
 // ─── Execute Partial Exit ────────────────────────────────────────────────────
@@ -497,25 +484,7 @@ async function cycle() {
         } catch {}
       }
 
-      // Non-core coins: re-queue immediately too — market conditions decide, not timers
-      for (const trade of closed) {
-        const sym = trade.coin_pair;
-        if (!sym || sym === 'UNKNOWN') continue;
-        if (CORE_COINS.includes(sym)) continue; // Already handled above
-        if (analyzingPairs.has(sym) || activePairs.has(sym)) continue;
-        try {
-          await apiPost('/api/trading/trades', {
-            board_id: BOARD_ID,
-            coin_pair: sym,
-            column_name: 'Analyzing',
-            status: 'analyzing',
-            notes: `♻️ Re-queued for fresh evaluation. Market conditions determine re-entry.`,
-          });
-          analyzingPairs.add(sym);
-          log(`  ♻️ ${sym} re-queued to Analyzing`);
-          lastTradesFetch = 0;
-        } catch {}
-      }
+      // Non-core coins: Owen's scanner picks them up when conditions are right — no auto re-queue
     }
     
     let exits = 0, entries = 0, partials = 0;

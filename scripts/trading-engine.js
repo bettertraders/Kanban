@@ -1512,22 +1512,7 @@ async function main() {
         saveState(exitState);
         exitCount++;
 
-        // Re-queue to Analyzing — market conditions determine re-entry, not cooldowns
-        if (!decision.flip) {
-          try {
-            await apiPost('/api/trading/trades', {
-              board_id: BOARD_ID,
-              coin_pair: sym,
-              column_name: 'Analyzing',
-              status: 'analyzing',
-              priority: CORE_COINS.includes(sym) ? 'high' : 'medium',
-              notes: `♻️ Re-queued after ${decision.win ? 'win' : 'loss'} (${decision.reason}). Watching for new entry.`,
-            });
-            log(`  ♻️ ${sym} re-queued to Analyzing`);
-          } catch (err) {
-            log(`  ⚠ Re-queue failed for ${sym}: ${err.message}`);
-          }
-        }
+        // Don't auto re-queue — Owen's scanner will surface the coin again if conditions are right
 
         // Handle flip — exit first, then enter opposite direction
         if (decision.flip && decision.flipDirection && (active.length - exitCount) < MAX_POSITIONS) {

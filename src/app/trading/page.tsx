@@ -720,7 +720,7 @@ export default function TradingDashboardPage() {
     const CATS = [
       { label: 'BTC',         color: '#7b7dff' },
       { label: 'ETH',         color: '#4ade80' },
-      { label: 'Top 10',      color: '#f5b544' },
+      { label: 'Top 10',      color: '#2dd4bf' },
       { label: 'Mid Caps',    color: '#a78bfa' },
       { label: 'Small Caps',  color: '#f05b6f' },
       { label: 'Stablecoins', color: '#f5b544' },
@@ -1125,7 +1125,7 @@ export default function TradingDashboardPage() {
                 const totalPositionValue = holdings.reduce((s, h) => s + (h.position_size || 0), 0);
                 const cash = Math.max(0, displayBalance - totalPositionValue);
                 const total = totalPositionValue + cash;
-                const pieColors = ['#7b7dff', '#00e676', '#f5b544', '#e040fb', '#ff5252', '#4ade80', '#6b6b8a'];
+                const pieColors = ['#7b7dff', '#00e676', '#2dd4bf', '#a78bfa', '#ff5252', '#4ade80', '#f5b544'];
                 const rows = holdings.map((h, i) => {
                   const sym = h.coin_pair.replace(/\/?(USDT?)$/i, '');
                   const coin = getCoinDisplay(sym);
@@ -1428,7 +1428,7 @@ export default function TradingDashboardPage() {
                 const displayAlloc = isAllocationView
                   ? defaultAllocation
                   : (allocations && allocations.length > 0)
-                    ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#f5b544', '#a78bfa', '#f05b6f', '#6b6b8a'][i % 6] }))
+                    ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#2dd4bf', '#a78bfa', '#f05b6f', '#f5b544'][i % 6] }))
                     : [{ label: 'Cash', pct: 100, color: '#f5b544' }];
                 let offset = 25;
                 return (
@@ -1454,7 +1454,7 @@ export default function TradingDashboardPage() {
                 const displayAlloc = isAllocationView
                   ? defaultAllocation
                   : (allocations && allocations.length > 0)
-                    ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#f5b544', '#a78bfa', '#f05b6f', '#6b6b8a'][i % 6] }))
+                    ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#2dd4bf', '#a78bfa', '#f05b6f', '#f5b544'][i % 6] }))
                     : [{ label: 'Cash', pct: 100, color: '#f5b544' }];
                 return displayAlloc.map((seg) => (
                   <div key={seg.label} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>

@@ -263,6 +263,7 @@ export async function initializeDatabase() {
 
       -- Migration: add metadata column if missing
       ALTER TABLE trading_bots ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
+      ALTER TABLE trades ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
 
       -- Bot executions
       CREATE TABLE IF NOT EXISTS bot_executions (
@@ -1526,7 +1527,7 @@ export async function updateTrade(tradeId: number, updates: Record<string, unkno
     'exit_price', 'stop_loss', 'take_profit', 'position_size', 'tbo_signal',
     'rsi_value', 'macd_status', 'volume_assessment', 'confidence_score',
     'pnl_dollar', 'pnl_percent', 'bot_id', 'priority', 'pause_reason',
-    'lesson_tag', 'notes', 'links', 'trade_settings', 'status', 'entered_at', 'exited_at'
+    'lesson_tag', 'notes', 'links', 'trade_settings', 'metadata', 'status', 'entered_at', 'exited_at'
   ];
   const setClause: string[] = [];
   const values: unknown[] = [];
@@ -1535,7 +1536,7 @@ export async function updateTrade(tradeId: number, updates: Record<string, unkno
   for (const [key, value] of Object.entries(updates)) {
     if (allowedFields.includes(key)) {
       setClause.push(`${key} = $${paramIndex}`);
-      values.push(['links', 'trade_settings'].includes(key) ? JSON.stringify(value) : value);
+      values.push(['links', 'trade_settings', 'metadata'].includes(key) && typeof value === 'object' ? JSON.stringify(value) : value);
       paramIndex++;
     }
   }

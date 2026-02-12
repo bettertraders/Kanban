@@ -4,17 +4,17 @@
       "breakout": 1770880382059,
       "_lastSeverity": 1,
       "_lastAlertTime": 1770882842754,
-      "_cleared": false,
+      "_cleared": true,
       "alert": 1770882842754,
       "crash": 1770877262289
     },
     "BERA/USDT": {
       "breakout": 1770870542951,
       "_lastSeverity": 2,
-      "_lastAlertTime": 1770880142493,
-      "_cleared": true,
-      "alert": 1770877862040,
-      "crash": 1770880142493
+      "_lastAlertTime": 1770884282018,
+      "_cleared": false,
+      "alert": 1770883622819,
+      "crash": 1770884282018
     },
     "MANTA/USDT": {
       "alert": 1770848642319,
@@ -57,7 +57,7 @@
       "alert": 1770883261832,
       "_lastSeverity": 1,
       "_lastAlertTime": 1770883261832,
-      "_cleared": false,
+      "_cleared": true,
       "breakout": 1770880082312,
       "crash": 1770882782656
     }

@@ -1632,8 +1632,44 @@ export default function TradingBoardPage() {
                           </div>
 
                           {/* Expanded details */}
-                          {isExpanded && (
+                          {isExpanded && (() => {
+                            const meta = typeof trade.metadata === 'string' ? (() => { try { return JSON.parse(trade.metadata || '{}'); } catch { return {}; } })() : (trade.metadata || {});
+                            const strategyName = meta.strategy || meta.entry_reason || null;
+                            const strategyLabels: Record<string, string> = {
+                              oversold_bounce: '📈 Oversold Bounce', golden_cross: '✨ Golden Cross', deeply_oversold: '🔻 Deeply Oversold',
+                              momentum_catch: '🚀 Momentum Catch', overbought_reject: '📉 Overbought Reject', death_cross: '💀 Death Cross',
+                              bearish_breakdown: '🐻 Bearish Breakdown', buy_hold_core: '💎 Buy & Hold Core', bollinger_bounce: '🎯 Bollinger Bounce',
+                              range_breakout: '💥 Range Breakout', vwap_reversion: '📊 VWAP Reversion', trend_surfer: '🏄 Trend Surfer',
+                              correlation_hedge: '🛡️ Correlation Hedge', qfl_bounce: '🏗️ QFL Bounce', trend_reversal_flip: '🔄 Trend Reversal Flip',
+                            };
+                            const trailingStage = meta.trailingStopStage ?? 0;
+                            const trailingPrice = meta.trailingStopPrice ?? null;
+                            const stageLabels = ['No trailing stop', '🟢 Stage 1 — Breakeven', '🟡 Stage 2 — Trailing 1× ATR', '🟠 Stage 3 — Tight trail 0.75× ATR'];
+                            const stageColors = ['var(--muted)', '#4ade80', '#facc15', '#fb923c'];
+                            const entryPrice = toNumber(trade.entry_price);
+                            const slPrice = toNumber(trade.stop_loss);
+                            const tpPrice = toNumber(trade.take_profit);
+                            const slPct = entryPrice && slPrice ? Math.abs((slPrice - entryPrice) / entryPrice * 100) : null;
+                            const tpPct = entryPrice && tpPrice ? Math.abs((tpPrice - entryPrice) / entryPrice * 100) : null;
+                            // Visual SL/TP range bar
+                            const rangeMin = slPrice && tpPrice ? Math.min(slPrice, tpPrice) : 0;
+                            const rangeMax = slPrice && tpPrice ? Math.max(slPrice, tpPrice) : 0;
+                            const rangeSpan = rangeMax - rangeMin;
+                            const pricePos = rangeSpan > 0 && livePrice ? Math.max(0, Math.min(100, ((livePrice - rangeMin) / rangeSpan) * 100)) : 50;
+                            const entryPos = rangeSpan > 0 && entryPrice ? Math.max(0, Math.min(100, ((entryPrice - rangeMin) / rangeSpan) * 100)) : 50;
+                            const trailingPos = rangeSpan > 0 && trailingPrice ? Math.max(0, Math.min(100, ((trailingPrice - rangeMin) / rangeSpan) * 100)) : null;
+                            const isShort = (trade.direction || '').toUpperCase() === 'SHORT';
+
+                            return (
                             <div style={{ marginTop: '10px' }}>
+                              {/* Strategy Badge */}
+                              {strategyName && (
+                                <div style={{ marginBottom: '8px', padding: '4px 8px', borderRadius: '8px', background: 'rgba(123,125,255,0.15)', border: '1px solid rgba(123,125,255,0.3)', fontSize: '11px', fontWeight: 600, color: '#a5a6ff' }}>
+                                  {strategyLabels[strategyName] || `🤖 ${strategyName}`}
+                                </div>
+                              )}
+
+                              {/* Price + P&L */}
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
                                 <div>
                                   <div style={{ fontSize: '11px', color: 'var(--muted)' }}>Current</div>
@@ -1645,24 +1681,89 @@ export default function TradingBoardPage() {
                                   <div style={{ fontSize: '11px', color: pnlTone }}>{formatPercent(pnlPercent)}</div>
                                 </div>
                               </div>
+
+                              {/* Visual SL — Price — TP Range Bar */}
+                              {slPrice && tpPrice && (col.name === 'Active') && (
+                                <div style={{ marginBottom: '10px' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--muted)', marginBottom: '2px' }}>
+                                    <span style={{ color: isShort ? '#4ade80' : '#f05b6f' }}>{isShort ? 'TP' : 'SL'} {formatPrice(Math.min(slPrice, tpPrice))}</span>
+                                    <span style={{ color: isShort ? '#f05b6f' : '#4ade80' }}>{isShort ? 'SL' : 'TP'} {formatPrice(Math.max(slPrice, tpPrice))}</span>
+                                  </div>
+                                  <div style={{ position: 'relative', height: '8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', overflow: 'visible' }}>
+                                    {/* Red zone (SL side) */}
+                                    <div style={{ position: 'absolute', left: isShort ? `${Math.max(slPrice, tpPrice) === rangeMax ? 100 - ((rangeMax - Math.max(slPrice, tpPrice)) / rangeSpan * 100) : 0}%` : '0%', width: isShort ? undefined : `${entryPos}%`, right: isShort ? '0%' : undefined, height: '100%', borderRadius: '4px 0 0 4px', background: 'rgba(240,91,111,0.2)' }} />
+                                    {/* Green zone (TP side) */}
+                                    <div style={{ position: 'absolute', left: isShort ? '0%' : `${entryPos}%`, right: isShort ? `${100 - entryPos}%` : '0%', height: '100%', borderRadius: '0 4px 4px 0', background: 'rgba(74,222,128,0.2)' }} />
+                                    {/* Entry marker */}
+                                    <div style={{ position: 'absolute', left: `${entryPos}%`, top: '-2px', width: '2px', height: '12px', background: 'var(--muted)', borderRadius: '1px', transform: 'translateX(-1px)' }} title={`Entry: ${formatPrice(entryPrice)}`} />
+                                    {/* Current price marker */}
+                                    <div style={{ position: 'absolute', left: `${pricePos}%`, top: '-3px', width: '6px', height: '14px', background: pnlTone, borderRadius: '3px', transform: 'translateX(-3px)', boxShadow: `0 0 6px ${pnlTone}80`, transition: 'left 0.5s ease' }} title={`Now: ${formatPrice(livePrice)}`} />
+                                    {/* Trailing stop marker */}
+                                    {trailingPos !== null && trailingStage > 0 && (
+                                      <div style={{ position: 'absolute', left: `${trailingPos}%`, top: '-2px', width: '0', height: '0', borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderTop: `6px solid ${stageColors[trailingStage] || '#facc15'}`, transform: 'translateX(-4px)' }} title={`Trailing SL: ${formatPrice(trailingPrice)}`} />
+                                    )}
+                                  </div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', marginTop: '2px' }}>
+                                    <span style={{ color: '#f05b6f' }}>-{slPct?.toFixed(1)}%</span>
+                                    <span style={{ fontSize: '8px', color: 'var(--muted)' }}>▲ entry</span>
+                                    <span style={{ color: '#4ade80' }}>+{tpPct?.toFixed(1)}%</span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Trailing Stop Status */}
+                              {col.name === 'Active' && (
+                                <div style={{ marginBottom: '8px', padding: '4px 8px', borderRadius: '6px', background: trailingStage > 0 ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.03)', border: `1px solid ${trailingStage > 0 ? stageColors[trailingStage] + '33' : 'transparent'}`, fontSize: '10px' }}>
+                                  <div style={{ color: stageColors[trailingStage] || 'var(--muted)', fontWeight: 600, marginBottom: trailingStage > 0 ? '2px' : '0' }}>
+                                    {stageLabels[trailingStage] || stageLabels[0]}
+                                  </div>
+                                  {trailingStage > 0 && trailingPrice && (
+                                    <div style={{ color: 'var(--muted)' }}>
+                                      Trailing SL @ {formatPrice(trailingPrice)}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Grid: Entry, Size, SL, TP */}
                               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px', marginBottom: '10px' }}>
                                 <div>
                                   <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Entry</div>
-                                  <div style={{ fontSize: '12px' }}>{formatPrice(toNumber(trade.entry_price))}</div>
+                                  <div style={{ fontSize: '12px' }}>{formatPrice(entryPrice)}</div>
                                 </div>
                                 <div>
                                   <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Size</div>
-                                  <div style={{ fontSize: '12px' }}>{toNumber(trade.position_size) ?? '—'}</div>
+                                  <div style={{ fontSize: '12px' }}>${toNumber(trade.position_size)?.toFixed(0) ?? '—'}</div>
                                 </div>
                                 <div>
-                                  <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Stop</div>
-                                  <div style={{ fontSize: '12px' }}>{formatPrice(toNumber(trade.stop_loss))}</div>
+                                  <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Stop Loss</div>
+                                  <div style={{ fontSize: '12px', color: '#f05b6f' }}>{formatPrice(slPrice)} <span style={{ fontSize: '9px' }}>({slPct?.toFixed(1)}%)</span></div>
                                 </div>
                                 <div>
-                                  <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Target</div>
-                                  <div style={{ fontSize: '12px' }}>{formatPrice(toNumber(trade.take_profit))}</div>
+                                  <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Take Profit</div>
+                                  <div style={{ fontSize: '12px', color: '#4ade80' }}>{formatPrice(tpPrice)} <span style={{ fontSize: '9px' }}>({tpPct?.toFixed(1)}%)</span></div>
                                 </div>
                               </div>
+
+                              {/* Why — Entry Reason */}
+                              {meta.description && (
+                                <div style={{ marginBottom: '8px', padding: '6px 8px', borderRadius: '6px', background: 'rgba(255,255,255,0.03)', borderLeft: '3px solid rgba(123,125,255,0.5)' }}>
+                                  <div style={{ fontSize: '9px', color: 'var(--muted)', marginBottom: '2px', fontWeight: 600 }}>WHY THIS TRADE</div>
+                                  <div style={{ fontSize: '11px', color: 'var(--text)', lineHeight: '1.4' }}>{meta.description}</div>
+                                </div>
+                              )}
+
+                              {/* Indicators at entry */}
+                              {(meta.atr || meta.slPercent) && (
+                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                                  {meta.atr && <span style={{ fontSize: '9px', padding: '2px 6px', borderRadius: '999px', background: 'rgba(255,255,255,0.06)', color: 'var(--muted)' }}>ATR: {typeof meta.atr === 'number' ? meta.atr.toFixed(meta.atr > 10 ? 2 : 6) : meta.atr}</span>}
+                                  {meta.slPercent && <span style={{ fontSize: '9px', padding: '2px 6px', borderRadius: '999px', background: 'rgba(240,91,111,0.15)', color: '#f05b6f' }}>SL: {meta.slPercent}%</span>}
+                                  {meta.tpPercent && <span style={{ fontSize: '9px', padding: '2px 6px', borderRadius: '999px', background: 'rgba(74,222,128,0.15)', color: '#4ade80' }}>TP: {meta.tpPercent}%</span>}
+                                  {meta.fees?.entryFee && <span style={{ fontSize: '9px', padding: '2px 6px', borderRadius: '999px', background: 'rgba(255,255,255,0.06)', color: 'var(--muted)' }}>Fee: ${meta.fees.entryFee.toFixed(2)}</span>}
+                                </div>
+                              )}
+
+                              {/* Signal + Confidence + RSI */}
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                                 <div style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '999px', background: signal.bg, color: signal.color, border: `1px solid ${signal.color}44`, fontWeight: 600 }}>
                                   {signal.label}
@@ -1675,11 +1776,20 @@ export default function TradingBoardPage() {
                                 </div>
                                 <div style={{ fontSize: '10px', color: 'var(--muted)', minWidth: '38px', textAlign: 'right' }}>RSI {toNumber(trade.rsi_value) ?? '—'}</div>
                               </div>
+
+                              {/* Execution timestamp */}
+                              {meta.execution?.signalTime && (
+                                <div style={{ fontSize: '9px', color: 'var(--muted)', marginTop: '6px' }}>
+                                  Entered: {new Date(meta.execution.signalTime).toLocaleString()}
+                                </div>
+                              )}
+
                               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px', color: 'var(--muted)', fontSize: '12px' }}>
                                 <span style={{ cursor: 'grab' }}>⠿</span>
                               </div>
                             </div>
-                          )}
+                            );
+                          })()}
                         </article>
                       );
                     })}

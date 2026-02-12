@@ -1,14 +1,14 @@
 {
   "level": "crash",
   "direction": "down",
-  "timestamp": 1770882782653,
+  "timestamp": 1770884282015,
   "coins": [
     {
-      "symbol": "0G/USDT",
-      "change5m": -6.04,
-      "change15m": -6.04,
-      "currentPrice": 0.747
+      "symbol": "BERA/USDT",
+      "change5m": -1.39,
+      "change15m": -5.32,
+      "currentPrice": 0.783
     }
   ],
-  "message": "0G -6.04% in 5m."
+  "message": "BERA -5.32% in 15m."
 }

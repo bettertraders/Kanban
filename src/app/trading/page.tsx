@@ -883,6 +883,40 @@ export default function TradingDashboardPage() {
 
   const getCoinDisplay = (symbol: string) => COIN_NAMES[symbol] ?? { name: symbol, icon: symbol[0] ?? '?', iconBg: '#33333322', iconColor: '#888' };
 
+  // Reset Challenge handler
+  const handleResetChallenge = useCallback(async () => {
+    const amt = tradingAmount || 1000;
+    const confirmed = window.confirm(
+      `Reset challenge? This will close all positions, clear trade history, and start fresh with $${amt.toLocaleString()} balance. This cannot be undone.`
+    );
+    if (!confirmed) return;
+    try {
+      // 1. Reset balance and created_at
+      await fetch('/api/trading/account', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ boardId: 15, balance: amt }),
+      });
+      // 2. Fetch all trades
+      const tradesRes = await fetch('/api/v1/trades?boardId=15');
+      const tradesData = await tradesRes.json();
+      const trades = tradesData.trades || tradesData || [];
+      // 3. Delete each trade
+      await Promise.all(trades.map((t: { id: number }) =>
+        fetch(`/api/v1/trades/${t.id}`, { method: 'DELETE' })
+      ));
+      // 4. Reset timeframe
+      setTimeframeStartDate(new Date().toISOString());
+      // 5. Turn engine off
+      setEngineOn(false);
+      // 6. Reload
+      window.location.reload();
+    } catch (err) {
+      console.error('Reset challenge failed:', err);
+      alert('Failed to reset challenge. Check console for details.');
+    }
+  }, [tradingAmount, setTimeframeStartDate, setEngineOn]);
+
   // Simple mode handle start trading
   const handleSimpleStartTrading = useCallback(() => {
     if (engineOn) {
@@ -1109,6 +1143,11 @@ export default function TradingDashboardPage() {
           </div>
           <div style={{ textAlign: 'center', fontSize: '11px', color: '#444', marginTop: '8px' }}>
             Powered by the TBO Trading Engine · A product of The Better Traders
+          </div>
+          <div style={{ textAlign: 'center', marginTop: '12px' }}>
+            <button onClick={handleResetChallenge} style={{ background: 'none', border: 'none', color: '#f05b6f88', fontSize: '11px', cursor: 'pointer', padding: '4px 8px' }}>
+              🔄 Reset Challenge
+            </button>
           </div>
         </div>
 
@@ -1680,6 +1719,11 @@ export default function TradingDashboardPage() {
               : setupReady
                 ? 'TBO Trading Engine handles everything. You can pause anytime.'
                 : 'Choose a risk level and amount to get started'}
+          </div>
+          <div style={{ textAlign: 'center', marginTop: '8px' }}>
+            <button onClick={handleResetChallenge} style={{ background: 'none', border: 'none', color: '#f05b6f88', fontSize: '11px', cursor: 'pointer', padding: '4px 8px' }}>
+              🔄 Reset Challenge
+            </button>
           </div>
         </section>
 

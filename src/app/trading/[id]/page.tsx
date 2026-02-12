@@ -2961,6 +2961,36 @@ function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
       {dayLabel && <><span style={{ opacity: 0.4 }}>·</span><span>{dayLabel}</span></>}
       <span style={{ opacity: 0.4 }}>·</span>
       <span style={{ color: engineColor }}>{engineLabel}</span>
+      <span style={{ opacity: 0.4 }}>·</span>
+      <button
+        onClick={async () => {
+          const amt = settings.tradingAmount || 1000;
+          const confirmed = window.confirm(
+            `Reset challenge? This will close all positions, clear trade history, and start fresh with $${amt.toLocaleString()} balance. This cannot be undone.`
+          );
+          if (!confirmed) return;
+          try {
+            await fetch('/api/trading/account', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ boardId: 15, balance: amt }),
+            });
+            const tradesRes = await fetch('/api/v1/trades?boardId=15');
+            const tradesData = await tradesRes.json();
+            const trades = tradesData.trades || tradesData || [];
+            await Promise.all(trades.map((t: { id: number }) =>
+              fetch(`/api/v1/trades/${t.id}`, { method: 'DELETE' })
+            ));
+            window.location.reload();
+          } catch (err) {
+            console.error('Reset challenge failed:', err);
+            alert('Failed to reset challenge. Check console for details.');
+          }
+        }}
+        style={{ background: 'none', border: 'none', color: '#f05b6f88', fontSize: '11px', cursor: 'pointer', padding: '0 4px' }}
+      >
+        🔄 Reset
+      </button>
     </div>
   );
 }

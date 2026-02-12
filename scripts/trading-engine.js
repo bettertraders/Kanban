@@ -575,7 +575,7 @@ const RISK_PROFILES = {
     shortRsiThreshold: 65,
     longRsiThreshold: 40,
     shortMomentumThreshold: -2,
-    entrySignals: 2,
+    entrySignals: 3,  // raised from 2 — no more neutral coin spam
   },
   bold: {
     cooldownMs: 4 * 60 * 60 * 1000,  // 4h cooldown
@@ -583,7 +583,7 @@ const RISK_PROFILES = {
     shortRsiThreshold: 55,  // short earlier
     longRsiThreshold: 45,   // enter longs more aggressively too
     shortMomentumThreshold: -1,
-    entrySignals: 2,
+    entrySignals: 3,  // raised from 2 — coins must have real signals, not just exist
   },
 };
 
@@ -626,7 +626,7 @@ function shouldMoveToAnalyzing(ind) {
   // Any coin worth analyzing if it has enough signals (threshold varies by risk):
   let signals = 0;
   if (ind.rsi < rp.longRsiThreshold || ind.rsi > rp.shortRsiThreshold) signals += 2; // Strong RSI = double weight
-  else if (ind.rsi < 45 || ind.rsi > 55) signals += 1; // Mild RSI still counts
+  else if (ind.rsi < 38 || ind.rsi > 62) signals += 1; // Moderate RSI — must be clearly directional, not neutral
   if (ind.sma20 && Math.abs(ind.currentPrice - ind.sma20) / ind.sma20 < 0.03) signals += 1; // Near SMA20
   if (ind.volumeRatio > 1.0) signals += 1; // Above-average volume
   if (ind.momentum && Math.abs(ind.momentum) > 2) signals += 1; // Momentum building

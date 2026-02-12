@@ -1,14 +1,11 @@
 {
-  "level": "crash",
-  "direction": "down",
-  "timestamp": 1770865682570,
+  "level": "all_clear",
+  "direction": "neutral",
+  "timestamp": 1770866642555,
   "coins": [
     {
-      "symbol": "0G/USDT",
-      "change5m": 0.49,
-      "change15m": -5.1,
-      "currentPrice": 0.614
+      "symbol": "0G/USDT"
     }
   ],
-  "message": "0G -5.1% in 15m."
+  "message": "All clear: 0G normalized."
 }

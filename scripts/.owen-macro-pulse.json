@@ -1,24 +1,36 @@
 {
-  "timestamp": 1770866101564,
-  "alerts": [],
+  "timestamp": 1770867901665,
+  "alerts": [
+    {
+      "type": "news_keyword",
+      "message": "[CoinDesk] \"Strategy's STRC returns to $100, poised to unlock more bitcoin accumulation\" (keyword: RATE)"
+    }
+  ],
   "fearGreed": {
     "value": 5,
     "label": "Extreme Fear",
     "change24h": -6
   },
   "btcDominance": {
-    "current": 56.76,
+    "current": 56.72,
     "trend": "stable"
   },
   "totalMarketCap": {
-    "usd": 2375800412196,
-    "change24h": -1.11
+    "usd": 2376677868598,
+    "change24h": -1.07
   },
   "gold": {
-    "paxgPrice": 5077.9,
-    "change1h": 0.08,
-    "change4h": 0.01,
+    "paxgPrice": 5074.34,
+    "change1h": -0.01,
+    "change4h": -0.17,
     "btcCorrelation": "neutral"
   },
-  "newsFlags": []
+  "newsFlags": [
+    {
+      "source": "CoinDesk",
+      "title": "Strategy's STRC returns to $100, poised to unlock more bitcoin accumulation",
+      "keyword": "RATE",
+      "url": "https://www.coindesk.com/markets/2026/02/12/strategy-s-strc-returns-to-usd100-poised-to-unlock-more-bitcoin-accumulation"
+    }
+  ]
 }

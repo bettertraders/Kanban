@@ -36,6 +36,7 @@ interface Trade {
   lesson_tag?: string | null;
   trade_settings?: Record<string, unknown> | null;
   metadata?: string | Record<string, unknown> | null;
+  priority?: string | null;
 }
 
 interface EquityPoint {
@@ -1480,7 +1481,14 @@ export default function TradingBoardPage() {
           // Closed column: also include legacy Wins/Losses, show last 10 only
           if (col.name === 'Closed') {
             colTrades = trades.filter(t => t.column_name === 'Closed' || t.column_name === 'Wins' || t.column_name === 'Losses')
-              .sort((a, b) => new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime())
+              .sort((a, b) => {
+                // High priority (core coins) always first
+                const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+                const pa = priorityOrder[a.priority || 'medium'] ?? 1;
+                const pb = priorityOrder[b.priority || 'medium'] ?? 1;
+                if (pa !== pb) return pa - pb;
+                return new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime();
+              })
               .slice(0, 10);
           }
           const totals = columnTotals[col.name] || { count: 0, pnl: 0 };

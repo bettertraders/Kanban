@@ -18,6 +18,7 @@ const BOARD_ID = 15; // Paper Trading board (Michael's)
 const BOT_NAME = 'Penny Paper Trader';
 const ENGINE_VERSION = '3.4';
 const isPennyReview = process.argv.includes('--penny-review');
+const CORE_COINS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT']; // Always re-queue after close
 
 // Human-readable strategy descriptions for UI
 const STRATEGY_DESCRIPTIONS = {
@@ -1511,17 +1512,18 @@ async function main() {
         saveState(exitState);
         exitCount++;
 
-        // Re-queue coin to Analyzing for potential re-entry
-        if (!decision.flip) {
+        // Re-queue core coins to Analyzing for potential re-entry
+        if (!decision.flip && CORE_COINS.includes(sym)) {
           try {
             await apiPost('/api/trading/trades', {
               board_id: BOARD_ID,
               coin_pair: sym,
               column_name: 'Analyzing',
               status: 'analyzing',
-              notes: `♻️ Re-queued after ${decision.win ? 'win' : 'loss'} (${decision.reason}). Watching for new entry.`,
+              priority: 'high',
+              notes: `♻️ Core coin re-queued after ${decision.win ? 'win' : 'loss'} (${decision.reason}). Watching for new entry.`,
             });
-            log(`  ♻️ ${sym} re-queued to Analyzing`);
+            log(`  ♻️ ${sym} re-queued to Analyzing (core coin)`);
           } catch (err) {
             log(`  ⚠ Re-queue failed for ${sym}: ${err.message}`);
           }

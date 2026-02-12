@@ -215,3 +215,13 @@
 [2026-02-12T08:49:10.238Z] [Sentinel] 📊 Cycle #259 | Active: 4 [PAXG(L-0.5%) S(S+5.8%) SOL(L+0.2%) ETH(L-0.1%)] | Analyzing: 47 | Exits: 0 | Entries: 0 | Partials: 0
 [2026-02-12T08:50:12.983Z] [Sentinel] 📊 Cycle #265 | Active: 4 [PAXG(L-0.5%) S(S+5.9%) SOL(L+0.3%) ETH(L-0.1%)] | Analyzing: 47 | Exits: 0 | Entries: 0 | Partials: 0
 [2026-02-12T08:51:10.275Z] [Sentinel] 📊 Cycle #271 | Active: 4 [PAXG(L-0.5%) S(S+5.8%) SOL(L+0.3%) ETH(L-0.0%)] | Analyzing: 47 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T08:51:27.472Z] [Sentinel] Shutting down...
+[2026-02-12T08:51:27.562Z] [Sentinel] 🚀 Owen Sentinel v2 starting — 10-second execution loop
+[2026-02-12T08:51:27.565Z] [Sentinel]    Board: 15 | Max positions: 5 | TP: 10% | SL: 5%
+[2026-02-12T08:51:28.326Z] [Sentinel]   ♻️ BTC/USDT re-queued to Analyzing (was Closed)
+[2026-02-12T08:51:28.393Z] [Sentinel]   ♻️ DOT/USDT re-queued to Analyzing (was Closed)
+[2026-02-12T08:51:28.471Z] [Sentinel]   ♻️ AVAX/USDT re-queued to Analyzing (was Closed)
+[2026-02-12T08:51:28.531Z] [Sentinel]   ♻️ ATOM/USDT re-queued to Analyzing (was Closed)
+[2026-02-12T08:51:28.596Z] [Sentinel]   ♻️ XRP/USDT re-queued to Analyzing (was Closed)
+[2026-02-12T08:51:28.597Z] [Sentinel] 📊 Cycle #1 | Active: 4 [PAXG(L-0.5%) S(S+5.7%) SOL(L+0.3%) ETH(L-0.0%)] | Analyzing: 47 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T08:52:27.997Z] [Sentinel] 📊 Cycle #7 | Active: 4 [PAXG(L-0.5%) S(S+5.6%) SOL(L+0.3%) ETH(L+0.0%)] | Analyzing: 54 | Exits: 0 | Entries: 0 | Partials: 0

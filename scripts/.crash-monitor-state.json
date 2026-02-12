@@ -49,7 +49,7 @@
       "breakout": 1770885122575,
       "_lastSeverity": 2,
       "_lastAlertTime": 1770885422763,
-      "_cleared": false,
+      "_cleared": true,
       "alert": 1770884522577,
       "crash": 1770885422763
     },
@@ -60,6 +60,11 @@
       "_cleared": false,
       "breakout": 1770880082312,
       "crash": 1770884462650
+    },
+    "MOVE/USDT": {
+      "alert": 1770886323130,
+      "_lastSeverity": 1,
+      "_lastAlertTime": 1770886323130
     }
   }
 }

@@ -30,6 +30,7 @@ const ENGINE_STATE_FILE = path.join(__dirname, '.trading-engine-state.json');
 const STOP_LOSS_PCT = 5;
 const TAKE_PROFIT_PCT = 10;
 const MAX_POSITIONS = 5;
+const CORE_COINS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT']; // Always re-queue after close
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -354,18 +355,21 @@ async function executeExit(trade, result, currentPrice) {
 
   log(`🚪 EXIT ${sym} ${trade.direction} → ${targetCol} | PnL: ${result.pnlPercent >= 0 ? '+' : ''}${result.pnlPercent.toFixed(2)}% ($${result.pnlDollar.toFixed(2)}) | ${result.reason}`);
 
-  // Re-queue coin to Analyzing so engine can evaluate re-entry
-  try {
-    await apiPost('/api/trading/trades', {
-      board_id: BOARD_ID,
-      coin_pair: sym,
-      column_name: 'Analyzing',
-      status: 'analyzing',
-      notes: `♻️ Re-queued after ${result.pnlPercent >= 0 ? 'win' : 'loss'} (${result.reason}). Watching for new entry.`,
-    });
-    log(`  ♻️ ${sym} re-queued to Analyzing`);
-  } catch (err) {
-    log(`  ⚠ Failed to re-queue ${sym}: ${err.message}`);
+  // Re-queue core coins to Analyzing so engine can evaluate re-entry
+  if (CORE_COINS.includes(sym)) {
+    try {
+      await apiPost('/api/trading/trades', {
+        board_id: BOARD_ID,
+        coin_pair: sym,
+        column_name: 'Analyzing',
+        status: 'analyzing',
+        priority: 'high',
+        notes: `♻️ Core coin re-queued after ${result.pnlPercent >= 0 ? 'win' : 'loss'} (${result.reason}). Watching for new entry.`,
+      });
+      log(`  ♻️ ${sym} re-queued to Analyzing (core coin)`);
+    } catch (err) {
+      log(`  ⚠ Failed to re-queue ${sym}: ${err.message}`);
+    }
   }
 }
 
@@ -472,26 +476,25 @@ async function cycle() {
     const analyzing = cachedTrades.filter(t => t.column_name === 'Analyzing');
     const closed = cachedTrades.filter(t => t.column_name === 'Closed' || t.column_name === 'Parked');
 
-    // ── Re-queue closed coins that have no Analyzing card (every 60s) ──
+    // ── Re-queue core coins that have no Analyzing/Active card (every 60s) ──
     if (isVerboseCycle) {
       const analyzingPairs = new Set(analyzing.map(t => t.coin_pair));
       const activePairs = new Set(active.map(t => t.coin_pair));
-      for (const trade of closed) {
-        const sym = trade.coin_pair;
-        if (!sym || sym === 'UNKNOWN') continue;
-        if (analyzingPairs.has(sym) || activePairs.has(sym)) continue;
-        // Coin is closed with no active/analyzing card — re-queue it
+      for (const coin of CORE_COINS) {
+        if (analyzingPairs.has(coin) || activePairs.has(coin)) continue;
+        // Core coin has no active or analyzing card — re-queue it
         try {
           await apiPost('/api/trading/trades', {
             board_id: BOARD_ID,
-            coin_pair: sym,
+            coin_pair: coin,
             column_name: 'Analyzing',
             status: 'analyzing',
-            notes: `♻️ Re-queued after manual close. Watching for new entry.`,
+            priority: 'high',
+            notes: `♻️ Core coin re-queued. Always watching for entry.`,
           });
-          analyzingPairs.add(sym); // Prevent duplicates in same cycle
-          log(`  ♻️ ${sym} re-queued to Analyzing (was ${trade.column_name})`);
-          lastTradesFetch = 0; // Force cache refresh
+          analyzingPairs.add(coin);
+          log(`  ♻️ ${coin} re-queued to Analyzing (core coin — always active)`);
+          lastTradesFetch = 0;
         } catch {}
       }
     }

@@ -2876,14 +2876,15 @@ export async function ensureTradingSettingsTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS trading_settings (
       id SERIAL PRIMARY KEY,
-      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      user_id INTEGER DEFAULT 0,
       board_id INTEGER REFERENCES boards(id) ON DELETE CASCADE,
       settings JSONB NOT NULL DEFAULT '{}',
       updated_at TIMESTAMP DEFAULT NOW(),
       UNIQUE(user_id, board_id)
     )
   `);
-  // Migration: add board_id column if missing (table may have been created without it)
+  // Migration: drop FK on user_id if it exists (allow anonymous user_id=0)
+  await pool.query(`ALTER TABLE trading_settings DROP CONSTRAINT IF EXISTS trading_settings_user_id_fkey`).catch(() => {});
   await pool.query(`ALTER TABLE trading_settings ADD COLUMN IF NOT EXISTS board_id INTEGER REFERENCES boards(id) ON DELETE CASCADE`).catch(() => {});
 }
 

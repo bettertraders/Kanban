@@ -18,25 +18,18 @@ async function findTradingBoardId(userId: number, requestedBoardId?: number): Pr
 // GET /api/trading/settings?boardId=X (boardId optional — defaults to first trading board)
 export async function GET(request: NextRequest) {
   try {
-    let user = await getAuthenticatedUser(request).catch(() => null);
-    
-    // Fallback: if getAuthenticatedUser failed but API key is present, try direct lookup
-    if (!user) {
-      const apiKey = request.headers.get('x-api-key') || request.headers.get('authorization')?.replace('Bearer ', '');
-      if (apiKey?.startsWith('kb_')) {
-        const { getUserByApiKey } = await import('@/lib/database');
-        const dbUser = await getUserByApiKey(apiKey);
-        if (dbUser) user = { id: dbUser.id, email: dbUser.email, name: dbUser.name };
-      }
-    }
-    
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    let userId: number | null = null;
+    const user = await getAuthenticatedUser(request).catch(() => null);
+    if (user) userId = user.id;
 
     const requestedId = Number(new URL(request.url).searchParams.get('boardId') || 0) || undefined;
-    const boardId = await findTradingBoardId(user.id, requestedId);
+    
+    // If no auth, use boardId with user_id=0 as anonymous fallback
+    const effectiveUserId = userId ?? 0;
+    const boardId = requestedId || (userId ? await findTradingBoardId(userId, requestedId) : null);
     if (!boardId) return NextResponse.json({ settings: {} });
 
-    const settings = await getTradingSettings(user.id, boardId);
+    const settings = await getTradingSettings(effectiveUserId, boardId);
     return NextResponse.json({ settings: settings || {} });
   } catch (error) {
     console.error('GET /api/trading/settings error:', error);
@@ -47,26 +40,19 @@ export async function GET(request: NextRequest) {
 // POST/PUT /api/trading/settings — save settings
 async function saveHandler(request: NextRequest) {
   try {
-    let user = await getAuthenticatedUser(request).catch(() => null);
-    
-    if (!user) {
-      const apiKey = request.headers.get('x-api-key') || request.headers.get('authorization')?.replace('Bearer ', '');
-      if (apiKey?.startsWith('kb_')) {
-        const { getUserByApiKey } = await import('@/lib/database');
-        const dbUser = await getUserByApiKey(apiKey);
-        if (dbUser) user = { id: dbUser.id, email: dbUser.email, name: dbUser.name };
-      }
-    }
-    
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    let userId: number | null = null;
+    const user = await getAuthenticatedUser(request).catch(() => null);
+    if (user) userId = user.id;
 
     const body = await request.json();
     const requestedId = Number(body?.boardId || 0) || undefined;
-    const boardId = await findTradingBoardId(user.id, requestedId);
+    
+    const effectiveUserId = userId ?? 0;
+    const boardId = requestedId || (userId ? await findTradingBoardId(userId, requestedId) : null);
     if (!boardId) return NextResponse.json({ error: 'No trading board found' }, { status: 404 });
 
     const settings = body?.settings || {};
-    const saved = await saveTradingSettings(user.id, boardId, settings);
+    const saved = await saveTradingSettings(effectiveUserId, boardId, settings);
     return NextResponse.json({ settings: saved });
   } catch (error) {
     console.error('PUT /api/trading/settings error:', error);

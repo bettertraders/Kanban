@@ -450,7 +450,7 @@ export default function TradingDashboardPage() {
     // Then try DB — only override if DB has actual data
     (async () => {
       try {
-        const res = await fetch('/api/trading/settings');
+        const res = await fetch('/api/trading/settings?boardId=15');
         if (res.ok) {
           const { settings: saved } = await res.json();
           if (saved && Object.keys(saved).length > 0 && saved.riskLevel) {
@@ -481,7 +481,7 @@ export default function TradingDashboardPage() {
     fetch('/api/trading/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ settings: data }),
+      body: JSON.stringify({ boardId: 15, settings: data }),
     }).catch(() => {});
   }, [riskLevel, riskValue, tradingAmount, timeframe, timeframeStartDate, tboEnabled, engineOn]);
 

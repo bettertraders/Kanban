@@ -387,7 +387,7 @@ export default function TradingDashboardPage() {
   const [tradingAmount, setTradingAmount] = useState<number | null>(null);
   const [timeframe, setTimeframe] = useState<Timeframe | null>('10');
   const [timeframeStartDate, setTimeframeStartDate] = useState<string | null>(null);
-  const [tboEnabled, setTboEnabled] = useState(false);
+  const [tboEnabled, setTboEnabled] = useState(true);
   const [engineOn, setEngineOn] = useState(false);
 
   // Strategy & allocation state
@@ -1059,7 +1059,10 @@ export default function TradingDashboardPage() {
             <div style={{ width: '1px', height: '20px', background: '#2a2a4e' }} />
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600, background: simpleDirectionBadge.bg, color: simpleDirectionBadge.color }}>{simpleDirectionBadge.label}</span>
             <div style={{ width: '1px', height: '20px', background: '#2a2a4e' }} />
-            <span style={{ fontSize: '13px', color: '#666' }}>Powered by TBO Trading Engine</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: tboEnabled ? '#4ade80' : '#666' }}>
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: tboEnabled ? '#4ade80' : '#555', boxShadow: tboEnabled ? '0 0 6px #4ade80' : 'none' }} />
+              TBO
+            </span>
           </div>
 
           {/* Two-column: Balance + Penny */}
@@ -1232,24 +1235,7 @@ export default function TradingDashboardPage() {
               {engineOn ? '✨ Bot is Running — Tap to Pause' : (timeframeStartDate ? '▶ Resume Trading' : '▶ Start Trading')}
             </button>
           </div>
-          {/* TBO Toggle */}
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginTop: '12px' }}>
-            <button
-              onClick={() => setTboEnabled(prev => !prev)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: '8px',
-                padding: '6px 14px', borderRadius: '999px',
-                background: tboEnabled ? 'rgba(74,222,128,0.08)' : 'rgba(123,125,255,0.08)',
-                border: `1px solid ${tboEnabled ? 'rgba(74,222,128,0.3)' : 'rgba(123,125,255,0.2)'}`,
-                fontSize: '12px', fontWeight: 600, color: tboEnabled ? '#4ade80' : 'var(--muted)',
-                cursor: 'pointer',
-              }}
-            >
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: tboEnabled ? '#4ade80' : 'var(--muted)' }} />
-              TBO PRO {tboEnabled ? 'ON' : 'OFF'}
-              <ToggleSwitch on={tboEnabled} onChange={() => setTboEnabled(prev => !prev)} />
-            </button>
-          </div>
+          {/* TBO status removed from here — shown in status bar instead */}
           <div style={{ textAlign: 'center', fontSize: '11px', color: '#444', marginTop: '8px' }}>
             Powered by the TBO Trading Engine · A product of The Better Traders
           </div>

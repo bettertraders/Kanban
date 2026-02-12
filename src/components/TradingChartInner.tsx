@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useMemo } from 'react';
+import { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import {
   createChart,
   createSeriesMarkers,
@@ -38,6 +38,17 @@ type Props = {
 
 const CHART_BG = '#0d0d1f';
 
+const INDICATOR_MAP: Record<string, string> = {
+  RSI: 'RSI@tv-basicstudies',
+  MACD: 'MACD@tv-basicstudies',
+  BB: 'BB@tv-basicstudies',
+  EMA20: 'MAExp@tv-basicstudies',
+  EMA50: 'MAExp@tv-basicstudies',
+  EMA200: 'MAExp@tv-basicstudies',
+  Volume: 'Volume@tv-basicstudies',
+  StochRSI: 'StochasticRSI@tv-basicstudies',
+};
+
 function normalizeSymbol(pair: string) {
   return pair.replace(/[/-]/g, '').toUpperCase();
 }
@@ -51,7 +62,63 @@ function calcEMA(closes: number[], period: number): number[] {
   return ema;
 }
 
-export default function TradingChartInner({ pair, boardId, indicators = [], tboSignals }: Props) {
+/* ── TradingView Embed (default — full indicators) ── */
+function TVEmbedChart({ pair, indicators = [] }: { pair: string; indicators: string[] }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const symbol = useMemo(() => `BINANCE:${normalizeSymbol(pair)}`, [pair]);
+  const studies = useMemo(
+    () => [...new Set(indicators.map((name) => INDICATOR_MAP[name]).filter(Boolean))],
+    [indicators]
+  );
+  const widgetKey = useMemo(() => `${symbol}__${studies.join(',')}`, [symbol, studies]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    container.innerHTML = '';
+
+    const script = document.createElement('script');
+    script.src = 'https://s3.tradingview.com/tv.js';
+    script.async = true;
+    script.onload = () => {
+      if (!(window as any).TradingView || !containerRef.current) return;
+      new (window as any).TradingView.widget({
+        container_id: container.id,
+        autosize: true,
+        symbol,
+        interval: '60',
+        timezone: 'America/New_York',
+        theme: 'dark',
+        style: '1',
+        locale: 'en',
+        toolbar_bg: CHART_BG,
+        enable_publishing: false,
+        hide_top_toolbar: false,
+        hide_legend: false,
+        save_image: false,
+        studies,
+        backgroundColor: CHART_BG,
+        gridColor: 'rgba(255,255,255,0.04)',
+        allow_symbol_change: true,
+        withdateranges: true,
+      });
+    };
+    document.head.appendChild(script);
+    return () => { try { document.head.removeChild(script); } catch {} };
+  }, [widgetKey, symbol, studies]);
+
+  const containerId = `tv_chart_${widgetKey.replace(/[^a-zA-Z0-9]/g, '_')}`;
+  return (
+    <div
+      id={containerId}
+      ref={containerRef}
+      style={{ flex: 1, background: CHART_BG, borderRadius: '12px', overflow: 'hidden' }}
+    />
+  );
+}
+
+/* ── TBO Chart (lightweight-charts — custom markers + signals) ── */
+function TBOChart({ pair, boardId, tboSignals }: { pair: string; boardId: number; tboSignals: TboSignals }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
@@ -60,11 +127,9 @@ export default function TradingChartInner({ pair, boardId, indicators = [], tboS
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const markersPluginRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const fallbackRef = useRef(false);
+  const [error, setError] = useState(false);
 
   const symbol = useMemo(() => normalizeSymbol(pair), [pair]);
-  const showEMA = indicators.includes('EMA20') || indicators.includes('EMA50') || !!tboSignals;
-  const showVolume = indicators.includes('Volume');
 
   const fetchAndRender = useCallback(async () => {
     const chart = chartRef.current;
@@ -85,8 +150,6 @@ export default function TradingChartInner({ pair, boardId, indicators = [], tboS
         low: Number(c.low ?? c[3]),
         close: Number(c.close ?? c[4]),
       }));
-
-      // Sort by time
       candleData.sort((a: any, b: any) => (a.time as number) - (b.time as number));
       candleSeries.setData(candleData as any);
 
@@ -105,13 +168,11 @@ export default function TradingChartInner({ pair, boardId, indicators = [], tboS
       const closes = candleData.map((c) => c.close);
       if (ema20SeriesRef.current) {
         const ema20 = calcEMA(closes, 20);
-        const ema20Data: LineData[] = candleData.map((c, i) => ({ time: c.time, value: ema20[i] }));
-        ema20SeriesRef.current.setData(ema20Data as any);
+        ema20SeriesRef.current.setData(candleData.map((c, i) => ({ time: c.time, value: ema20[i] })) as any);
       }
       if (ema50SeriesRef.current) {
         const ema50 = calcEMA(closes, 50);
-        const ema50Data: LineData[] = candleData.map((c, i) => ({ time: c.time, value: ema50[i] }));
-        ema50SeriesRef.current.setData(ema50Data as any);
+        ema50SeriesRef.current.setData(candleData.map((c, i) => ({ time: c.time, value: ema50[i] })) as any);
       }
 
       // Markers
@@ -127,14 +188,13 @@ export default function TradingChartInner({ pair, boardId, indicators = [], tboS
         }
       }
 
-      // Chart markers from API (past trades)
+      // Past trade markers
       try {
         const mRes = await fetch(`/api/trading/chart-markers?symbol=${symbol}&boardId=${boardId}`);
         if (mRes.ok) {
           const mData = await mRes.json();
           for (const m of mData.markers || []) {
             const ts = Math.floor(new Date(m.time).getTime() / 1000);
-            // Snap to nearest candle time
             const nearest = candleData.reduce((prev, curr) =>
               Math.abs((curr.time as number) - ts) < Math.abs((prev.time as number) - ts) ? curr : prev
             );
@@ -150,106 +210,64 @@ export default function TradingChartInner({ pair, boardId, indicators = [], tboS
         }
       } catch {}
 
-      // Sort markers by time (required by lightweight-charts)
-      markers.sort((a, b) => (a.time as number) - (b.time as number));
+      markers.sort((a: any, b: any) => (a.time as number) - (b.time as number));
       if (!markersPluginRef.current) {
         markersPluginRef.current = createSeriesMarkers(candleSeries, markers);
       } else {
         markersPluginRef.current.setMarkers(markers);
       }
 
-      // TBO Price lines — clear old ones by recreating (lightweight-charts doesn't have removeAllPriceLines easily)
-      // We'll use a simple approach: price lines persist until chart is recreated
+      // TBO price lines
       if (tboSignals) {
-        if (tboSignals.tp) {
-          candleSeries.createPriceLine({ price: tboSignals.tp, color: '#4ade80', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'TP' });
-        }
-        if (tboSignals.sl) {
-          candleSeries.createPriceLine({ price: tboSignals.sl, color: '#f05b6f', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'SL' });
-        }
-        if (tboSignals.support) {
-          candleSeries.createPriceLine({ price: tboSignals.support, color: '#60a5fa', lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: 'Support' });
-        }
-        if (tboSignals.resistance) {
-          candleSeries.createPriceLine({ price: tboSignals.resistance, color: '#f59e0b', lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: 'Resistance' });
-        }
+        if (tboSignals.tp) candleSeries.createPriceLine({ price: tboSignals.tp, color: '#4ade80', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'TP' });
+        if (tboSignals.sl) candleSeries.createPriceLine({ price: tboSignals.sl, color: '#f05b6f', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'SL' });
+        if (tboSignals.support) candleSeries.createPriceLine({ price: tboSignals.support, color: '#60a5fa', lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: 'Support' });
+        if (tboSignals.resistance) candleSeries.createPriceLine({ price: tboSignals.resistance, color: '#f59e0b', lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: 'Resistance' });
       }
 
       chart.timeScale().fitContent();
+      setError(false);
     } catch (err) {
-      console.error('Chart data error:', err);
-      fallbackRef.current = true;
+      console.error('TBO Chart data error:', err);
+      setError(true);
     }
-  }, [symbol, boardId, tboSignals, showEMA, showVolume]);
+  }, [symbol, boardId, tboSignals]);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    // Clean up previous
-    if (chartRef.current) {
-      chartRef.current.remove();
-      chartRef.current = null;
-      markersPluginRef.current = null;
-    }
+    if (chartRef.current) { chartRef.current.remove(); chartRef.current = null; markersPluginRef.current = null; }
 
     const chart = createChart(container, {
       width: container.clientWidth,
       height: 440,
       layout: { background: { type: ColorType.Solid, color: CHART_BG }, textColor: '#888' },
-      grid: {
-        vertLines: { color: 'rgba(255,255,255,0.04)' },
-        horzLines: { color: 'rgba(255,255,255,0.04)' },
-      },
+      grid: { vertLines: { color: 'rgba(255,255,255,0.04)' }, horzLines: { color: 'rgba(255,255,255,0.04)' } },
       crosshair: { mode: CrosshairMode.Normal, vertLine: { color: 'rgba(123,125,255,0.5)' }, horzLine: { color: 'rgba(123,125,255,0.5)' } },
       rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' },
       timeScale: { borderColor: 'rgba(255,255,255,0.1)', timeVisible: true, secondsVisible: false },
     });
-
     chartRef.current = chart;
 
-    const candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor: '#4ade80',
-      downColor: '#f05b6f',
-      borderUpColor: '#4ade80',
-      borderDownColor: '#f05b6f',
-      wickUpColor: '#4ade80',
-      wickDownColor: '#f05b6f',
+    candleSeriesRef.current = chart.addSeries(CandlestickSeries, {
+      upColor: '#4ade80', downColor: '#f05b6f',
+      borderUpColor: '#4ade80', borderDownColor: '#f05b6f',
+      wickUpColor: '#4ade80', wickDownColor: '#f05b6f',
     });
-    candleSeriesRef.current = candleSeries;
 
-    // EMA series
-    if (showEMA) {
-      ema20SeriesRef.current = chart.addSeries(LineSeries, { color: 'rgba(123,125,255,0.8)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
-      ema50SeriesRef.current = chart.addSeries(LineSeries, { color: 'rgba(255,165,0,0.8)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
-    } else {
-      ema20SeriesRef.current = null;
-      ema50SeriesRef.current = null;
-    }
+    ema20SeriesRef.current = chart.addSeries(LineSeries, { color: 'rgba(123,125,255,0.8)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+    ema50SeriesRef.current = chart.addSeries(LineSeries, { color: 'rgba(255,165,0,0.8)', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
 
-    // Volume
-    if (showVolume) {
-      volumeSeriesRef.current = chart.addSeries(HistogramSeries, {
-        priceFormat: { type: 'volume' },
-        priceScaleId: 'volume',
-      });
-      chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
-    } else {
-      volumeSeriesRef.current = null;
-    }
+    volumeSeriesRef.current = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: 'volume' });
+    chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
 
-    // Resize observer
     const ro = new ResizeObserver(() => {
-      if (containerRef.current && chartRef.current) {
-        chartRef.current.applyOptions({ width: containerRef.current.clientWidth });
-      }
+      if (containerRef.current && chartRef.current) chartRef.current.applyOptions({ width: containerRef.current.clientWidth });
     });
     ro.observe(container);
 
-    // Fetch data
     fetchAndRender();
-
-    // Auto-refresh every 60s
     intervalRef.current = setInterval(fetchAndRender, 60000);
 
     return () => {
@@ -257,23 +275,71 @@ export default function TradingChartInner({ pair, boardId, indicators = [], tboS
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (chartRef.current) { chartRef.current.remove(); chartRef.current = null; }
     };
-  }, [symbol, showEMA, showVolume, tboSignals?.signal, tboSignals?.tp, tboSignals?.sl]);
+  }, [symbol, tboSignals?.signal, tboSignals?.tp, tboSignals?.sl]);
 
-  if (fallbackRef.current) {
+  if (error) {
     return (
-      <div style={{ width: '100%', height: '440px', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ flex: 1, background: CHART_BG, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888' }}>
-          Chart data unavailable
-        </div>
-        <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '6px', textAlign: 'right' }}>Powered by TradingView</div>
+      <div style={{ flex: 1, background: CHART_BG, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontSize: 13 }}>
+        TBO chart data unavailable — try the Standard view
       </div>
     );
   }
 
+  return <div ref={containerRef} style={{ flex: 1, background: CHART_BG, borderRadius: '12px', overflow: 'hidden' }} />;
+}
+
+/* ── Main Component with View Toggle ── */
+export default function TradingChartInner({ pair, boardId, indicators = [], tboSignals }: Props) {
+  const [view, setView] = useState<'standard' | 'tbo'>(() => {
+    try { return (localStorage.getItem('clawdesk-chart-view') as any) || 'standard'; } catch { return 'standard'; }
+  });
+
+  const toggleView = (v: 'standard' | 'tbo') => {
+    setView(v);
+    try { localStorage.setItem('clawdesk-chart-view', v); } catch {}
+  };
+
   return (
-    <div style={{ width: '100%', height: '440px', display: 'flex', flexDirection: 'column' }}>
-      <div ref={containerRef} style={{ flex: 1, background: CHART_BG, borderRadius: '12px', overflow: 'hidden' }} />
-      <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '6px', textAlign: 'right' }}>Powered by TradingView</div>
+    <div style={{ width: '100%', height: '480px', display: 'flex', flexDirection: 'column' }}>
+      {/* View toggle */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+        <button
+          onClick={() => toggleView('standard')}
+          style={{
+            padding: '4px 12px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+            border: `1px solid ${view === 'standard' ? '#7b7dff' : 'var(--border)'}`,
+            background: view === 'standard' ? 'rgba(123,125,255,0.16)' : 'transparent',
+            color: view === 'standard' ? '#7b7dff' : '#888',
+          }}
+        >
+          📊 Standard
+        </button>
+        <button
+          onClick={() => toggleView('tbo')}
+          style={{
+            padding: '4px 12px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+            border: `1px solid ${view === 'tbo' ? '#7b7dff' : 'var(--border)'}`,
+            background: view === 'tbo' ? 'rgba(123,125,255,0.16)' : 'transparent',
+            color: view === 'tbo' ? '#7b7dff' : '#888',
+          }}
+        >
+          🎯 TBO Signals
+        </button>
+        <span style={{ fontSize: '10px', color: '#555', marginLeft: '4px' }}>
+          {view === 'standard' ? 'Full indicators via TradingView' : 'Buy/sell markers, TP/SL, support/resistance'}
+        </span>
+      </div>
+
+      {/* Chart */}
+      {view === 'standard' ? (
+        <TVEmbedChart pair={pair} indicators={indicators} />
+      ) : (
+        <TBOChart pair={pair} boardId={boardId} tboSignals={tboSignals ?? null} />
+      )}
+
+      <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '6px', textAlign: 'right' }}>
+        Powered by TradingView
+      </div>
     </div>
   );
 }

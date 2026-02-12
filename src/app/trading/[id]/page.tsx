@@ -1724,8 +1724,8 @@ export default function TradingBoardPage() {
                               {col.name === 'Closed' && String(trade.notes || '').toLowerCase().includes('parked') && (
                                 <span title="Previously parked" style={{ fontSize: '11px' }}>📦</span>
                               )}
-                              <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '999px', background: sentiment.bg, color: sentiment.color, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                {sentiment.label}
+                              <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '999px', background: String(trade.direction || '').toLowerCase() === 'short' ? 'rgba(240,91,111,0.15)' : 'rgba(74,222,128,0.15)', color: String(trade.direction || '').toLowerCase() === 'short' ? '#f05b6f' : '#4ade80', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                {String(trade.direction || '').toLowerCase() === 'short' ? '↓ Short' : '↑ Long'}
                               </span>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>

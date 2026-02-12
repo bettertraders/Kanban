@@ -607,6 +607,8 @@ export default function TradingDashboardPage() {
   const dailyPnl = livePnl ?? Number(portfolio?.summary?.daily_pnl ?? portfolio?.summary?.total_unrealized_pnl ?? 0);
   // Live balance = starting balance + realized P&L + unrealized P&L
   const paperBalance = startingBalance + realizedPnl + dailyPnl;
+  const totalPnl = realizedPnl + dailyPnl;
+  const totalPnlPct = startingBalance > 0 ? (totalPnl / startingBalance) * 100 : 0;
   const dailyPnlPct = startingBalance > 0 ? (dailyPnl / startingBalance) * 100 : 0;
   const winRate = Number(portfolio?.summary?.win_rate ?? 0);
   const activePositions = Number(portfolio?.summary?.active_positions ?? 0);
@@ -898,6 +900,10 @@ export default function TradingDashboardPage() {
               {engineOn ? 'Bot is trading' : 'Paused'}
             </span>
             <div style={{ width: '1px', height: '20px', background: '#2a2a4e' }} />
+            <span style={{ fontSize: '13px', fontWeight: 600, color: totalPnl >= 0 ? '#4ade80' : '#ff5252' }}>
+              {totalPnl >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(totalPnl))} ({totalPnlPct >= 0 ? '+' : ''}{totalPnlPct.toFixed(1)}%)
+            </span>
+            <div style={{ width: '1px', height: '20px', background: '#2a2a4e' }} />
             <span style={{ fontSize: '13px', color: '#888' }}>
               {dayProgress ? (dayProgress.total ? `Day ${dayProgress.day} of ${dayProgress.total}` : `Day ${dayProgress.day}`) : 'Day 1'}
             </span>
@@ -994,8 +1000,9 @@ export default function TradingDashboardPage() {
                             offset += seg.pct;
                             return el;
                           })}
-                          <text x="18" y="17.5" textAnchor="middle" fill={paperBalance >= startingBalance ? '#4ade80' : 'var(--text)'} fontSize="4" fontWeight="700">{formatCurrency(paperBalance)}</text>
-                          <text x="18" y="21" textAnchor="middle" fill="#888" fontSize="2.2">balance</text>
+                          <text x="18" y="16.5" textAnchor="middle" fill={paperBalance >= startingBalance ? '#4ade80' : 'var(--text)'} fontSize="4" fontWeight="700">{formatCurrency(paperBalance)}</text>
+                          <text x="18" y="19.5" textAnchor="middle" fill="#888" fontSize="2">balance</text>
+                          <text x="18" y="22.5" textAnchor="middle" fill={totalPnl >= 0 ? '#4ade80' : '#ff5252'} fontSize="2.2" fontWeight="600">{totalPnl >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(totalPnl))} ({totalPnlPct >= 0 ? '+' : ''}{totalPnlPct.toFixed(1)}%)</text>
                         </svg>
                       </div>
                       {/* Legend */}

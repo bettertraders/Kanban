@@ -1,14 +1,11 @@
 {
-  "level": "crash",
-  "direction": "down",
-  "timestamp": 1770853382570,
+  "level": "all_clear",
+  "direction": "neutral",
+  "timestamp": 1770862262649,
   "coins": [
     {
-      "symbol": "TNSR/USDT",
-      "change5m": -1.81,
-      "change15m": -5.25,
-      "currentPrice": 0.0541
+      "symbol": "BERA/USDT"
     }
   ],
-  "message": "TNSR -5.25% in 15m."
+  "message": "All clear: BERA normalized."
 }

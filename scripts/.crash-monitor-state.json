@@ -3,18 +3,18 @@
     "TNSR/USDT": {
       "breakout": 1770848463110,
       "_lastSeverity": 2,
-      "_lastAlertTime": 1770853382573,
-      "_cleared": false,
-      "alert": 1770851463063,
-      "crash": 1770853382573
+      "_lastAlertTime": 1770859082837,
+      "_cleared": true,
+      "alert": 1770858482737,
+      "crash": 1770859082837
     },
     "BERA/USDT": {
-      "breakout": 1770848463110,
-      "_lastSeverity": 2,
-      "_lastAlertTime": 1770851163107,
-      "_cleared": true,
-      "alert": 1770851103565,
-      "crash": 1770851163107
+      "breakout": 1770861302760,
+      "_lastSeverity": 1,
+      "_lastAlertTime": 1770863282173,
+      "_cleared": false,
+      "alert": 1770863282173,
+      "crash": 1770860402650
     },
     "MANTA/USDT": {
       "alert": 1770848642319,
@@ -25,19 +25,33 @@
       "crash": 1770849902870
     },
     "LINEA/USDT": {
-      "alert": 1770853442970,
+      "alert": 1770861182392,
       "_lastSeverity": 1,
-      "_lastAlertTime": 1770853442970,
-      "_cleared": false,
-      "crash": 1770850682420
+      "_lastAlertTime": 1770861182392,
+      "_cleared": true,
+      "crash": 1770857702525
     },
     "DYM/USDT": {
-      "alert": 1770851282804,
+      "alert": 1770857102840,
       "_lastSeverity": 2,
-      "_lastAlertTime": 1770852242326,
+      "_lastAlertTime": 1770859561939,
       "_cleared": true,
-      "crash": 1770851882853,
-      "breakout": 1770852242326
+      "crash": 1770857702525,
+      "breakout": 1770859561939
+    },
+    "VTHO/USDT": {
+      "alert": 1770857162608,
+      "_lastSeverity": 1,
+      "_lastAlertTime": 1770857162608,
+      "_cleared": true
+    },
+    "ME/USDT": {
+      "breakout": 1770859682310,
+      "_lastSeverity": 2,
+      "_lastAlertTime": 1770860642578,
+      "_cleared": true,
+      "alert": 1770859982115,
+      "crash": 1770860642578
     }
   }
 }

@@ -515,6 +515,17 @@ export default function TradingDashboardPage() {
         const j = await portfolioRes.value.json();
         setPortfolio(j || null);
       }
+      // Use account created_at as challenge start date (resets when balance resets)
+      try {
+        const acctRes = await fetch('/api/trading/account?boardId=15');
+        if (acctRes.ok) {
+          const acctData = await acctRes.json();
+          if (acctData?.account?.created_at) {
+            setTimeframeStartDate(acctData.account.created_at);
+          }
+        }
+      } catch {}
+
       if (boardsRes.status === 'fulfilled' && boardsRes.value.ok) {
         const j = await boardsRes.value.json();
         const boards = Array.isArray(j?.boards) ? j.boards : [];

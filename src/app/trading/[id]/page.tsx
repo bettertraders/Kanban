@@ -2862,6 +2862,7 @@ function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
   const [pnl, setPnl] = useState<number | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const [startBal, setStartBal] = useState<number>(0);
+  const [accountCreatedAt, setAccountCreatedAt] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -2901,6 +2902,7 @@ function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
         if (data?.account) {
           const starting = parseFloat(data.account.starting_balance);
           if (!isNaN(starting)) setStartBal(starting);
+          if (data.account.created_at) setAccountCreatedAt(data.account.created_at);
           fetch(`/api/v1/portfolio`)
             .then(r => r.json())
             .then(portfolio => {
@@ -2922,8 +2924,9 @@ function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
   const timeframeLabel = settings.timeframe ? (settings.timeframe === 'unlimited' ? 'Unlimited' : `${settings.timeframe} days`) : '—';
 
   let dayLabel = '';
-  if (settings.timeframeStartDate) {
-    const start = new Date(settings.timeframeStartDate);
+  const challengeStart = accountCreatedAt || settings.timeframeStartDate;
+  if (challengeStart) {
+    const start = new Date(challengeStart);
     const now = new Date();
     const dayNum = Math.max(1, Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
     dayLabel = `Day ${dayNum}`;

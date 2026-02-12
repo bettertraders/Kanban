@@ -1002,7 +1002,7 @@ export default function TradingDashboardPage() {
                           })}
                           <text x="18" y="16.5" textAnchor="middle" fill={paperBalance >= startingBalance ? '#4ade80' : 'var(--text)'} fontSize="4" fontWeight="700">{formatCurrency(paperBalance)}</text>
                           <text x="18" y="19.5" textAnchor="middle" fill="#888" fontSize="2">balance</text>
-                          <text x="18" y="22.5" textAnchor="middle" fill={totalPnl >= 0 ? '#4ade80' : 'var(--text)'} fontSize="2.2" fontWeight="600">{totalPnl >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(totalPnl))} ({totalPnlPct >= 0 ? '+' : ''}{totalPnlPct.toFixed(1)}%)</text>
+                          <text x="18" y="22" textAnchor="middle" fill={totalPnl >= 0 ? '#4ade80' : 'var(--text)'} fontSize="2" fontWeight="600">{totalPnl >= 0 ? '+' : ''}{formatCurrency(totalPnl)} P&amp;L</text>
                         </svg>
                       </div>
                       {/* Legend */}

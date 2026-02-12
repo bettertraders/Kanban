@@ -1,11 +1,14 @@
 {
-  "level": "all_clear",
-  "direction": "neutral",
-  "timestamp": 1770864182174,
+  "level": "breakout",
+  "direction": "up",
+  "timestamp": 1770864842917,
   "coins": [
     {
-      "symbol": "BERA/USDT"
+      "symbol": "0G/USDT",
+      "change5m": 3.8,
+      "change15m": 5.65,
+      "currentPrice": 0.655
     }
   ],
-  "message": "All clear: BERA normalized."
+  "message": "0G +5.65% in 15m."
 }

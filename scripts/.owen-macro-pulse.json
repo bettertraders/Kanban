@@ -1,9 +1,13 @@
 {
-  "timestamp": 1770885901345,
+  "timestamp": 1770894000913,
   "alerts": [
     {
       "type": "news_keyword",
-      "message": "[CoinDesk] \"OKX Ventures backs STBL in partnership with Hamilton Lane and Securitize\" (keyword: SEC)"
+      "message": "[CoinDesk] \"Solana leans into tokenization and payments at Hong Kong’s Accelerate APAC event\" (keyword: RATE)"
+    },
+    {
+      "type": "news_keyword",
+      "message": "[CoinTelegraph] \"Bankers push OCC to slow crypto trust charters until GENIUS rules clarified\" (keyword: BAN)"
     }
   ],
   "fearGreed": {
@@ -12,25 +16,31 @@
     "change24h": -6
   },
   "btcDominance": {
-    "current": 56.56,
+    "current": 56.64,
     "trend": "stable"
   },
   "totalMarketCap": {
-    "usd": 2367097274170,
-    "change24h": 0.39
+    "usd": 2396445653888,
+    "change24h": 2.19
   },
   "gold": {
-    "paxgPrice": 5074.16,
-    "change1h": 0.04,
-    "change4h": 0.18,
+    "paxgPrice": 5072.43,
+    "change1h": -0.24,
+    "change4h": 0.1,
     "btcCorrelation": "neutral"
   },
   "newsFlags": [
     {
       "source": "CoinDesk",
-      "title": "OKX Ventures backs STBL in partnership with Hamilton Lane and Securitize",
-      "keyword": "SEC",
-      "url": "https://www.coindesk.com/business/2026/02/12/okx-ventures-backs-stbl-in-partnership-with-hamilton-lane-and-securitize"
+      "title": "Solana leans into tokenization and payments at Hong Kong’s Accelerate APAC event",
+      "keyword": "RATE",
+      "url": "https://www.coindesk.com/tech/2026/02/12/solana-leans-into-tokenization-and-payments-at-hong-kong-s-accelerate-apac-event"
+    },
+    {
+      "source": "CoinTelegraph",
+      "title": "Bankers push OCC to slow crypto trust charters until GENIUS rules clarified",
+      "keyword": "BAN",
+      "url": "https://cointelegraph.com/news/bankers-push-occ-slow-crypto-trust-bank-charters?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound"
     }
   ]
 }

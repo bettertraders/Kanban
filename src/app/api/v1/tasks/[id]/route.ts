@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/api-auth';
 import { getTask, updateTask, deleteTask, getBoard } from '@/lib/database';
+import { notifyAssignment } from '@/lib/notifications';
 
 // GET /api/v1/tasks/:id - Get a task
 export async function GET(
@@ -79,7 +80,18 @@ export async function PATCH(
         : rawUpdates.labels;
     }
     
+    const oldAssignedTo = task.assigned_to;
     const updatedTask = await updateTask(taskId, updates);
+
+    // Fire-and-forget: notify if assignee changed to someone else
+    const newAssignedTo = updates.assigned_to;
+    if (newAssignedTo && newAssignedTo !== oldAssignedTo && newAssignedTo !== user.id) {
+      notifyAssignment({
+        taskTitle: updates.title as string || task.title,
+        boardName: board.name,
+        assignedBy: user.name || user.email,
+      });
+    }
     
     return NextResponse.json({ task: updatedTask });
   } catch (error) {

@@ -1,103 +1,111 @@
 {
-  "timestamp": 1770885994931,
+  "timestamp": 1770893200288,
   "totalScanned": 446,
-  "filteredByVolume": 295,
+  "filteredByVolume": 303,
   "watchlist": [
-    {
-      "symbol": "BTC/USDT",
-      "score": 55,
-      "volume24h": 1772965795,
-      "atrPct": 2.77,
-      "rsi": 39.9,
-      "momentum": -3.02,
-      "reason": "Core holding, mega volume"
-    },
     {
       "symbol": "ETH/USDT",
       "score": 55,
-      "volume24h": 958886694,
-      "atrPct": 3.75,
-      "rsi": 40.7,
-      "momentum": -2.86,
+      "volume24h": 963129802,
+      "atrPct": 3.72,
+      "rsi": 44.2,
+      "momentum": -1.76,
       "reason": "Core holding, mega volume, ideal volatility"
     },
     {
       "symbol": "SOL/USDT",
       "score": 55,
-      "volume24h": 280493400,
-      "atrPct": 3.93,
-      "rsi": 37.5,
-      "momentum": -3,
+      "volume24h": 286571685,
+      "atrPct": 3.9,
+      "rsi": 41.6,
+      "momentum": -1.79,
       "reason": "Core holding, mega volume, ideal volatility"
     },
     {
+      "symbol": "BTC/USDT",
+      "score": 45,
+      "volume24h": 1759445306,
+      "atrPct": 2.75,
+      "rsi": 43.9,
+      "momentum": -2.01,
+      "reason": "Core holding, mega volume"
+    },
+    {
       "symbol": "MOVE/USDT",
-      "score": 75,
-      "volume24h": 2536621,
-      "atrPct": 3.8,
-      "rsi": 73.5,
-      "momentum": 19.25,
-      "reason": "ideal volatility, overbought momentum, +19.25% move"
+      "score": 80,
+      "volume24h": 9456920,
+      "atrPct": 4.01,
+      "rsi": 83.6,
+      "momentum": 38.97,
+      "reason": "ideal volatility, overbought momentum, +38.97% move"
+    },
+    {
+      "symbol": "XPL/USDT",
+      "score": 80,
+      "volume24h": 25773426,
+      "atrPct": 4.24,
+      "rsi": 65.3,
+      "momentum": 14.99,
+      "reason": "strong volume, ideal volatility, overbought momentum, +14.99% move"
+    },
+    {
+      "symbol": "ASTER/USDT",
+      "score": 80,
+      "volume24h": 61229081,
+      "atrPct": 3.91,
+      "rsi": 74.3,
+      "momentum": 13.67,
+      "reason": "strong volume, ideal volatility, overbought momentum, +13.67% move"
     },
     {
       "symbol": "ME/USDT",
       "score": 75,
-      "volume24h": 8588887,
-      "atrPct": 3.76,
-      "rsi": 87.7,
-      "momentum": 52.59,
-      "reason": "ideal volatility, overbought momentum, +52.59% move"
+      "volume24h": 13726133,
+      "atrPct": 3.6,
+      "rsi": 88.9,
+      "momentum": 59.46,
+      "reason": "ideal volatility, overbought momentum, +59.46% move"
     },
     {
-      "symbol": "0G/USDT",
+      "symbol": "TUT/USDT",
       "score": 75,
-      "volume24h": 17408603,
-      "atrPct": 4.65,
-      "rsi": 71.5,
-      "momentum": 34.62,
-      "reason": "ideal volatility, overbought momentum, +34.62% move"
+      "volume24h": 728808,
+      "atrPct": 3.01,
+      "rsi": 66.2,
+      "momentum": 9.63,
+      "reason": "ideal volatility, overbought momentum, +9.63% move"
     },
     {
-      "symbol": "TNSR/USDT",
-      "score": 70,
-      "volume24h": 16464338,
-      "atrPct": 4.15,
-      "rsi": 67.5,
-      "momentum": 28.74,
-      "reason": "ideal volatility, overbought momentum, +28.74% move"
-    },
-    {
-      "symbol": "BERA/USDT",
-      "score": 70,
-      "volume24h": 123143257,
-      "atrPct": 8.36,
-      "rsi": 67.3,
-      "momentum": 56.37,
-      "reason": "mega volume, high volatility, overbought momentum, +56.37% move"
-    },
-    {
-      "symbol": "ASTER/USDT",
-      "score": 70,
-      "volume24h": 56008395,
-      "atrPct": 4,
-      "rsi": 69.7,
-      "momentum": 8.91,
-      "reason": "strong volume, ideal volatility, overbought momentum, +8.91% move"
+      "symbol": "BIGTIME/USDT",
+      "score": 75,
+      "volume24h": 725359,
+      "atrPct": 3.39,
+      "rsi": 65.3,
+      "momentum": 10.58,
+      "reason": "ideal volatility, overbought momentum, +10.58% move"
     },
     {
       "symbol": "PAXG/USDT",
       "score": 40,
-      "volume24h": 75902627,
-      "atrPct": 1.36,
-      "rsi": 57.6,
-      "momentum": 0.83,
+      "volume24h": 71197549,
+      "atrPct": 1.37,
+      "rsi": 57.8,
+      "momentum": 0.85,
       "reason": "Gold hedge, strong volume"
     }
   ],
   "droppedCoins": [
     {
-      "symbol": "XPL/USDT",
-      "previousScore": 65
+      "symbol": "0G/USDT",
+      "previousScore": 75
+    },
+    {
+      "symbol": "OG/USDT",
+      "previousScore": 70
+    },
+    {
+      "symbol": "ASTR/USDT",
+      "previousScore": 70
     }
   ]
 }

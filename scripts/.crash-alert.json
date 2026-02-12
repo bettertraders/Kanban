@@ -1,14 +1,14 @@
 {
   "level": "crash",
   "direction": "down",
-  "timestamp": 1770886682847,
+  "timestamp": 1770893943046,
   "coins": [
     {
-      "symbol": "0G/USDT",
-      "change5m": -1.35,
-      "change15m": -5.6,
-      "currentPrice": 0.658
+      "symbol": "MOVE/USDT",
+      "change5m": -1.08,
+      "change15m": -8.97,
+      "currentPrice": 0.0274
     }
   ],
-  "message": "0G -5.6% in 15m."
+  "message": "MOVE -8.97% in 15m."
 }

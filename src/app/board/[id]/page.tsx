@@ -880,6 +880,7 @@ function TaskDetailModal({ task, board, teamMembers, onClose, onSaved }: {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [loadingComments, setLoadingComments] = useState(true);
   const [files, setFiles] = useState<{ id: number; filename: string; original_name: string; mime_type: string; size_bytes: number; uploaded_by_name: string; created_at: string }[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -1241,6 +1242,34 @@ function TaskDetailModal({ task, board, teamMembers, onClose, onSaved }: {
                 {saving ? 'Saving...' : 'Save Changes'}
               </button>
               <button onClick={onClose} style={{ ...secondaryBtnStyle, width: '100%', textAlign: 'center' }}>Cancel</button>
+              <button
+                onClick={async () => {
+                  if (!confirm('Are you sure? This cannot be undone.')) return;
+                  setDeleting(true);
+                  try {
+                    const res = await fetch(`/api/v1/tasks/${task.id}`, { method: 'DELETE' });
+                    if (res.ok) { onSaved(); }
+                  } catch {}
+                  setDeleting(false);
+                }}
+                disabled={deleting}
+                style={{
+                  background: 'transparent',
+                  color: '#ff6b6b',
+                  border: '1px solid rgba(255, 107, 107, 0.3)',
+                  padding: '10px 18px',
+                  borderRadius: '999px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  width: '100%',
+                  textAlign: 'center',
+                  marginTop: '8px',
+                  opacity: deleting ? 0.6 : 1,
+                }}
+              >
+                {deleting ? 'Deleting...' : '🗑 Delete Task'}
+              </button>
             </div>
           </div>
         </div>

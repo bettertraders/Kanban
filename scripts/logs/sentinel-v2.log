@@ -244,3 +244,124 @@
 [2026-02-12T08:57:29.788Z] [Sentinel]    Board: 15 | Max positions: 5 | TP: 10% | SL: 5%
 [2026-02-12T08:57:30.358Z] [Sentinel] 📊 Cycle #1 | Active: 4 [PAXG(L-0.4%) S(S+6.1%) SOL(L+0.5%) ETH(L+0.1%)] | Analyzing: 54 | Exits: 0 | Entries: 0 | Partials: 0
 [2026-02-12T08:58:30.089Z] [Sentinel] 📊 Cycle #7 | Active: 4 [PAXG(L-0.3%) S(S+5.9%) SOL(L+0.5%) ETH(L+0.2%)] | Analyzing: 54 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T08:59:30.108Z] [Sentinel] 📊 Cycle #13 | Active: 4 [PAXG(L-0.4%) S(S+6.0%) SOL(L+0.5%) ETH(L+0.1%)] | Analyzing: 54 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:00:30.539Z] [Sentinel] 📊 Cycle #19 | Active: 4 [PAXG(L-0.4%) S(S+6.2%) SOL(L+0.3%) ETH(L+0.1%)] | Analyzing: 54 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:01:30.089Z] [Sentinel] 📊 Cycle #25 | Active: 1 [PAXG(L-0.4%)] | Analyzing: 54 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:02:30.128Z] [Sentinel] 📊 Cycle #31 | Active: 1 [PAXG(L-0.4%)] | Analyzing: 54 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:03:30.364Z] [Sentinel] 📊 Cycle #37 | Active: 1 [PAXG(L-0.4%)] | Analyzing: 54 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:04:30.113Z] [Sentinel] 📊 Cycle #43 | Active: 1 [PAXG(L-0.3%)] | Analyzing: 54 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:05:30.114Z] [Sentinel] 📊 Cycle #49 | Active: 1 [PAXG(L-0.3%)] | Analyzing: 54 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:06:30.131Z] [Sentinel] 📊 Cycle #55 | Active: 1 [PAXG(L-0.3%)] | Analyzing: 54 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:07:30.145Z] [Sentinel] 📊 Cycle #61 | Active: 1 [PAXG(L-0.3%)] | Analyzing: 54 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:08:30.481Z] [Sentinel] 📊 Cycle #67 | Active: 1 [PAXG(L-0.3%)] | Analyzing: 57 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:09:30.325Z] [Sentinel] 📊 Cycle #73 | Active: 1 [PAXG(L-0.3%)] | Analyzing: 57 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:10:30.167Z] [Sentinel] 📊 Cycle #79 | Active: 1 [PAXG(L-0.3%)] | Analyzing: 57 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:11:30.170Z] [Sentinel] 📊 Cycle #85 | Active: 1 [PAXG(L-0.3%)] | Analyzing: 57 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:12:30.168Z] [Sentinel] 📊 Cycle #91 | Active: 5 [PAXG(L-0.3%) BTC(l+0.2%) ETH(l+0.3%) SOL(l+0.6%) LINK(l+0.2%)] | Analyzing: 57 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:13:30.192Z] [Sentinel] 📊 Cycle #97 | Active: 5 [PAXG(L-0.3%) BTC(l+0.1%) ETH(l+0.2%) SOL(l+0.5%) LINK(l+0.1%)] | Analyzing: 57 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:14:30.349Z] [Sentinel] 📊 Cycle #103 | Active: 5 [PAXG(L-0.3%) BTC(l+0.2%) ETH(l+0.3%) SOL(l+0.7%) LINK(l+0.1%)] | Analyzing: 57 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:15:30.205Z] [Sentinel] 📊 Cycle #109 | Active: 5 [PAXG(L-0.3%) BTC(l+0.2%) ETH(l+0.3%) SOL(l+0.8%) LINK(l+0.0%)] | Analyzing: 57 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:16:30.355Z] [Sentinel] 📊 Cycle #115 | Active: 5 [PAXG(L-0.2%) BTC(l+0.2%) ETH(l+0.3%) SOL(l+0.6%) LINK(l+0.1%)] | Analyzing: 57 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:17:30.715Z] [Sentinel] 📊 Cycle #121 | Active: 5 [PAXG(L-0.3%) BTC(l+0.3%) ETH(l+0.4%) SOL(l+0.6%) LINK(l+0.1%)] | Analyzing: 56 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:18:30.207Z] [Sentinel] 📊 Cycle #127 | Active: 5 [PAXG(L-0.3%) BTC(l+0.2%) ETH(l+0.3%) SOL(l+0.7%) LINK(l+0.2%)] | Analyzing: 56 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:19:30.225Z] [Sentinel] 📊 Cycle #133 | Active: 5 [PAXG(L-0.3%) BTC(l+0.2%) ETH(l+0.3%) SOL(l+0.7%) LINK(l+0.2%)] | Analyzing: 56 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:20:30.942Z] [Sentinel] 📊 Cycle #139 | Active: 5 [PAXG(L-0.3%) BTC(l+0.2%) ETH(l+0.4%) SOL(l+0.7%) LINK(l+0.2%)] | Analyzing: 56 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:21:30.268Z] [Sentinel] 📊 Cycle #145 | Active: 5 [PAXG(L-0.3%) BTC(l+0.3%) ETH(l+0.4%) SOL(l+0.7%) LINK(l+0.4%)] | Analyzing: 56 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:22:30.269Z] [Sentinel] 📊 Cycle #151 | Active: 5 [PAXG(L-0.3%) BTC(l+0.3%) ETH(l+0.4%) SOL(l+0.7%) LINK(l+0.4%)] | Analyzing: 56 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:23:30.473Z] [Sentinel] 📊 Cycle #157 | Active: 5 [PAXG(L-0.3%) BTC(l+0.3%) ETH(l+0.4%) SOL(l+0.7%) LINK(l+0.4%)] | Analyzing: 56 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:24:30.264Z] [Sentinel] 📊 Cycle #163 | Active: 5 [PAXG(L-0.3%) BTC(l+0.3%) ETH(l+0.4%) SOL(l+0.7%) LINK(l+0.2%)] | Analyzing: 56 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:25:30.428Z] [Sentinel] 📊 Cycle #169 | Active: 5 [PAXG(L-0.3%) BTC(l+0.3%) ETH(l+0.4%) SOL(l+0.6%) LINK(l+0.2%)] | Analyzing: 56 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:26:30.359Z] [Sentinel] 📊 Cycle #175 | Active: 5 [PAXG(L-0.2%) BTC(l+0.3%) ETH(l+0.5%) SOL(l+0.7%) LINK(l+0.4%)] | Analyzing: 56 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:27:30.270Z] [Sentinel] 📊 Cycle #181 | Active: 5 [PAXG(L-0.3%) BTC(l+0.3%) ETH(l+0.5%) SOL(l+1.0%) LINK(l+0.4%)] | Analyzing: 56 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:28:31.948Z] [Sentinel] 📊 Cycle #187 | Active: 5 [PAXG(L-0.3%) BTC(l+0.4%) ETH(l+0.7%) SOL(l+1.3%) LINK(l+0.6%)] | Analyzing: 56 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:29:30.318Z] [Sentinel] 📊 Cycle #193 | Active: 5 [PAXG(L-0.3%) BTC(l+0.3%) ETH(l+0.6%) SOL(l+1.3%) LINK(l+0.5%)] | Analyzing: 56 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:30:30.290Z] [Sentinel] 📊 Cycle #199 | Active: 5 [PAXG(L-0.3%) BTC(l+0.3%) ETH(l+0.6%) SOL(l+1.1%) LINK(l+0.6%)] | Analyzing: 56 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:31:30.319Z] [Sentinel] 📊 Cycle #205 | Active: 5 [PAXG(L-0.3%) BTC(l+0.3%) ETH(l+0.6%) SOL(l+1.1%) LINK(l+0.6%)] | Analyzing: 56 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:32:30.309Z] [Sentinel] 📊 Cycle #211 | Active: 5 [PAXG(L-0.3%) BTC(l+0.3%) ETH(l+0.5%) SOL(l+1.1%) LINK(l+0.6%)] | Analyzing: 56 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:33:30.465Z] [Sentinel] 📊 Cycle #217 | Active: 5 [PAXG(L-0.3%) BTC(l+0.4%) ETH(l+0.7%) SOL(l+1.3%) LINK(l+0.8%)] | Analyzing: 56 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:34:30.682Z] [Sentinel] 📊 Cycle #223 | Active: 5 [PAXG(L-0.3%) BTC(l+0.6%) ETH(l+0.8%) SOL(l+1.4%) LINK(l+0.9%)] | Analyzing: 56 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:35:30.514Z] [Sentinel] 📊 Cycle #229 | Active: 5 [PAXG(L-0.3%) BTC(l+0.5%) ETH(l+0.7%) SOL(l+1.3%) LINK(l+0.8%)] | Analyzing: 56 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:36:30.480Z] [Sentinel] 📊 Cycle #235 | Active: 5 [PAXG(L-0.4%) BTC(l+0.6%) ETH(l+0.7%) SOL(l+1.3%) LINK(l+0.8%)] | Analyzing: 56 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:37:30.365Z] [Sentinel] 📊 Cycle #241 | Active: 5 [PAXG(L-0.3%) BTC(l+0.5%) ETH(l+0.6%) SOL(l+1.1%) LINK(l+0.8%)] | Analyzing: 56 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:38:30.572Z] [Sentinel] 📊 Cycle #247 | Active: 4 [BTC(l+0.5%) ETH(l+0.7%) SOL(l+1.1%) LINK(l+0.9%)] | Analyzing: 62 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:39:30.355Z] [Sentinel] 📊 Cycle #253 | Active: 4 [BTC(l+0.4%) ETH(l+0.6%) SOL(l+1.1%) LINK(l+0.8%)] | Analyzing: 62 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:40:31.711Z] [Sentinel] 📊 Cycle #259 | Active: 4 [BTC(l+0.5%) ETH(l+0.6%) SOL(l+1.1%) LINK(l+0.8%)] | Analyzing: 62 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:41:30.574Z] [Sentinel] 📊 Cycle #265 | Active: 4 [BTC(l+0.5%) ETH(l+0.6%) SOL(l+1.1%) LINK(l+0.7%)] | Analyzing: 62 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:42:30.370Z] [Sentinel] 📊 Cycle #271 | Active: 4 [BTC(l+0.5%) ETH(l+0.6%) SOL(l+1.1%) LINK(l+0.7%)] | Analyzing: 62 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:43:30.398Z] [Sentinel] 📊 Cycle #277 | Active: 4 [BTC(l+0.5%) ETH(l+0.6%) SOL(l+1.1%) LINK(l+0.8%)] | Analyzing: 62 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:44:31.428Z] [Sentinel] 📊 Cycle #283 | Active: 4 [BTC(l+0.5%) ETH(l+0.6%) SOL(l+1.1%) LINK(l+0.8%)] | Analyzing: 62 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:45:30.391Z] [Sentinel] 📊 Cycle #289 | Active: 4 [BTC(l+0.5%) ETH(l+0.6%) SOL(l+1.2%) LINK(l+0.8%)] | Analyzing: 62 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:46:30.393Z] [Sentinel] 📊 Cycle #295 | Active: 4 [BTC(l+0.5%) ETH(l+0.7%) SOL(l+1.2%) LINK(l+0.9%)] | Analyzing: 62 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:47:30.699Z] [Sentinel] 📊 Cycle #301 | Active: 4 [BTC(l+0.5%) ETH(l+0.5%) SOL(l+1.1%) LINK(l+0.8%)] | Analyzing: 62 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:48:30.783Z] [Sentinel] 📊 Cycle #307 | Active: 4 [BTC(l+0.5%) ETH(l+0.6%) SOL(l+1.0%) LINK(l+0.7%)] | Analyzing: 62 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:49:30.754Z] [Sentinel] 📊 Cycle #313 | Active: 4 [BTC(l+0.4%) ETH(l+0.5%) SOL(l+1.0%) LINK(l+0.6%)] | Analyzing: 62 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:50:31.722Z] [Sentinel] 📊 Cycle #319 | Active: 4 [BTC(l+0.4%) ETH(l+0.6%) SOL(l+1.0%) LINK(l+0.8%)] | Analyzing: 67 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:51:30.568Z] [Sentinel] 📊 Cycle #325 | Active: 4 [BTC(l+0.4%) ETH(l+0.6%) SOL(l+1.0%) LINK(l+0.8%)] | Analyzing: 82 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:52:31.739Z] [Sentinel] 📊 Cycle #331 | Active: 4 [BTC(l+0.5%) ETH(l+0.6%) SOL(l+0.9%) LINK(l+0.8%)] | Analyzing: 82 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:53:32.277Z] [Sentinel] 📊 Cycle #337 | Active: 4 [BTC(l+0.5%) ETH(l+0.7%) SOL(l+1.0%) LINK(l+0.8%)] | Analyzing: 82 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:54:30.731Z] [Sentinel] 📊 Cycle #343 | Active: 4 [BTC(l+0.7%) ETH(l+0.8%) SOL(l+1.2%) LINK(l+1.1%)] | Analyzing: 82 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:55:30.737Z] [Sentinel] 📊 Cycle #349 | Active: 4 [BTC(l+0.7%) ETH(l+0.8%) SOL(l+1.2%) LINK(l+0.9%)] | Analyzing: 82 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:56:31.303Z] [Sentinel] 📊 Cycle #355 | Active: 4 [BTC(l+0.7%) ETH(l+0.9%) SOL(l+1.2%) LINK(l+1.1%)] | Analyzing: 82 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:57:30.681Z] [Sentinel] 📊 Cycle #361 | Active: 4 [BTC(l+0.9%) ETH(l+1.1%) SOL(l+1.4%) LINK(l+1.2%)] | Analyzing: 82 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:58:31.913Z] [Sentinel] 📊 Cycle #367 | Active: 4 [BTC(l+0.7%) ETH(l+0.9%) SOL(l+1.3%) LINK(l+0.8%)] | Analyzing: 82 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T09:59:30.465Z] [Sentinel] 📊 Cycle #373 | Active: 4 [BTC(l+0.7%) ETH(l+0.9%) SOL(l+1.4%) LINK(l+0.9%)] | Analyzing: 82 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:00:30.476Z] [Sentinel] 📊 Cycle #379 | Active: 4 [BTC(l+0.7%) ETH(l+0.9%) SOL(l+1.4%) LINK(l+0.9%)] | Analyzing: 82 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:01:30.726Z] [Sentinel] 📊 Cycle #385 | Active: 4 [BTC(l+0.7%) ETH(l+0.9%) SOL(l+1.3%) LINK(l+0.9%)] | Analyzing: 82 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:02:30.484Z] [Sentinel] 📊 Cycle #391 | Active: 4 [BTC(l+0.7%) ETH(l+1.0%) SOL(l+1.4%) LINK(l+0.9%)] | Analyzing: 82 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:03:30.719Z] [Sentinel] 📊 Cycle #397 | Active: 4 [BTC(l+0.8%) ETH(l+1.2%) SOL(l+1.6%) LINK(l+1.2%)] | Analyzing: 82 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:04:30.508Z] [Sentinel] 📊 Cycle #403 | Active: 4 [BTC(l+0.7%) ETH(l+1.1%) SOL(l+1.4%) LINK(l+1.1%)] | Analyzing: 82 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:05:30.981Z] [Sentinel] 📊 Cycle #409 | Active: 4 [BTC(l+0.7%) ETH(l+1.0%) SOL(l+1.3%) LINK(l+1.1%)] | Analyzing: 82 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:06:30.534Z] [Sentinel] 📊 Cycle #415 | Active: 4 [BTC(l+0.7%) ETH(l+1.0%) SOL(l+1.3%) LINK(l+0.9%)] | Analyzing: 82 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:07:30.512Z] [Sentinel] 📊 Cycle #421 | Active: 4 [BTC(l+0.8%) ETH(l+1.1%) SOL(l+1.3%) LINK(l+0.9%)] | Analyzing: 82 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:08:30.756Z] [Sentinel] 📊 Cycle #427 | Active: 4 [BTC(l+0.8%) ETH(l+1.0%) SOL(l+1.2%) LINK(l+0.9%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:09:30.801Z] [Sentinel] 📊 Cycle #433 | Active: 4 [BTC(l+0.7%) ETH(l+0.9%) SOL(l+1.1%) LINK(l+0.8%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:10:30.571Z] [Sentinel] 📊 Cycle #439 | Active: 4 [BTC(l+0.7%) ETH(l+1.0%) SOL(l+1.1%) LINK(l+0.8%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:11:31.695Z] [Sentinel] 📊 Cycle #445 | Active: 4 [BTC(l+0.7%) ETH(l+1.0%) SOL(l+1.1%) LINK(l+0.9%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:12:30.715Z] [Sentinel] 📊 Cycle #451 | Active: 4 [BTC(l+0.7%) ETH(l+0.9%) SOL(l+1.1%) LINK(l+1.1%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:13:30.973Z] [Sentinel] 📊 Cycle #457 | Active: 4 [BTC(l+0.6%) ETH(l+0.9%) SOL(l+1.1%) LINK(l+0.8%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:14:30.711Z] [Sentinel] 📊 Cycle #463 | Active: 4 [BTC(l+0.6%) ETH(l+0.8%) SOL(l+1.1%) LINK(l+0.9%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:15:30.761Z] [Sentinel] 📊 Cycle #469 | Active: 4 [BTC(l+0.6%) ETH(l+0.8%) SOL(l+1.0%) LINK(l+0.8%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:16:30.750Z] [Sentinel] 📊 Cycle #475 | Active: 4 [BTC(l+0.6%) ETH(l+0.8%) SOL(l+1.0%) LINK(l+0.8%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:17:30.846Z] [Sentinel] 📊 Cycle #481 | Active: 4 [BTC(l+0.6%) ETH(l+0.8%) SOL(l+0.9%) LINK(l+0.7%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:18:30.625Z] [Sentinel] 📊 Cycle #487 | Active: 4 [BTC(l+0.7%) ETH(l+0.8%) SOL(l+0.9%) LINK(l+0.8%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:19:30.661Z] [Sentinel] 📊 Cycle #493 | Active: 4 [BTC(l+0.7%) ETH(l+0.8%) SOL(l+0.9%) LINK(l+0.7%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:20:30.619Z] [Sentinel] 📊 Cycle #499 | Active: 4 [BTC(l+0.6%) ETH(l+0.8%) SOL(l+0.9%) LINK(l+0.7%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:21:31.113Z] [Sentinel] 📊 Cycle #505 | Active: 4 [BTC(l+0.7%) ETH(l+0.8%) SOL(l+1.0%) LINK(l+0.7%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:22:30.658Z] [Sentinel] 📊 Cycle #511 | Active: 4 [BTC(l+0.6%) ETH(l+0.8%) SOL(l+0.9%) LINK(l+0.7%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:23:30.637Z] [Sentinel] 📊 Cycle #517 | Active: 4 [BTC(l+0.6%) ETH(l+0.7%) SOL(l+0.8%) LINK(l+0.6%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:24:30.637Z] [Sentinel] 📊 Cycle #523 | Active: 4 [BTC(l+0.5%) ETH(l+0.7%) SOL(l+0.9%) LINK(l+0.7%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:25:30.667Z] [Sentinel] 📊 Cycle #529 | Active: 4 [BTC(l+0.6%) ETH(l+0.8%) SOL(l+1.1%) LINK(l+0.6%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:26:31.038Z] [Sentinel] 📊 Cycle #535 | Active: 4 [BTC(l+0.7%) ETH(l+0.9%) SOL(l+1.2%) LINK(l+0.8%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:27:30.655Z] [Sentinel] 📊 Cycle #541 | Active: 4 [BTC(l+0.7%) ETH(l+0.9%) SOL(l+1.2%) LINK(l+0.7%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:28:30.660Z] [Sentinel] 📊 Cycle #547 | Active: 4 [BTC(l+0.8%) ETH(l+0.9%) SOL(l+1.2%) LINK(l+0.8%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:29:30.676Z] [Sentinel] 📊 Cycle #553 | Active: 4 [BTC(l+0.8%) ETH(l+1.0%) SOL(l+1.3%) LINK(l+0.8%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:30:30.672Z] [Sentinel] 📊 Cycle #559 | Active: 4 [BTC(l+0.8%) ETH(l+1.0%) SOL(l+1.2%) LINK(l+0.9%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:31:30.682Z] [Sentinel] 📊 Cycle #565 | Active: 4 [BTC(l+0.9%) ETH(l+1.0%) SOL(l+1.3%) LINK(l+0.9%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:32:30.913Z] [Sentinel] 📊 Cycle #571 | Active: 4 [BTC(l+1.0%) ETH(l+1.1%) SOL(l+1.3%) LINK(l+0.9%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:33:30.705Z] [Sentinel] 📊 Cycle #577 | Active: 4 [BTC(l+1.0%) ETH(l+1.1%) SOL(l+1.4%) LINK(l+1.2%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:34:30.696Z] [Sentinel] 📊 Cycle #583 | Active: 4 [BTC(l+1.0%) ETH(l+1.1%) SOL(l+1.3%) LINK(l+1.2%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:35:30.702Z] [Sentinel] 📊 Cycle #589 | Active: 4 [BTC(l+0.9%) ETH(l+1.0%) SOL(l+1.2%) LINK(l+1.1%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:36:30.745Z] [Sentinel] 📊 Cycle #595 | Active: 4 [BTC(l+1.0%) ETH(l+1.1%) SOL(l+1.3%) LINK(l+1.1%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:37:30.992Z] [Sentinel] 📊 Cycle #601 | Active: 4 [BTC(l+1.1%) ETH(l+1.2%) SOL(l+1.3%) LINK(l+1.2%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:38:30.891Z] [Sentinel] 📊 Cycle #607 | Active: 4 [BTC(l+1.1%) ETH(l+1.1%) SOL(l+1.3%) LINK(l+1.1%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:39:31.014Z] [Sentinel] 📊 Cycle #613 | Active: 4 [BTC(l+1.0%) ETH(l+1.1%) SOL(l+1.3%) LINK(l+1.2%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:40:30.732Z] [Sentinel] 📊 Cycle #619 | Active: 4 [BTC(l+0.9%) ETH(l+1.0%) SOL(l+1.2%) LINK(l+0.9%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:41:30.899Z] [Sentinel] 📊 Cycle #625 | Active: 4 [BTC(l+0.9%) ETH(l+1.0%) SOL(l+1.1%) LINK(l+0.9%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:42:31.144Z] [Sentinel] 📊 Cycle #631 | Active: 4 [BTC(l+0.9%) ETH(l+1.0%) SOL(l+1.2%) LINK(l+1.1%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:43:30.770Z] [Sentinel] 📊 Cycle #637 | Active: 4 [BTC(l+0.9%) ETH(l+0.9%) SOL(l+1.1%) LINK(l+0.9%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:44:30.755Z] [Sentinel] 📊 Cycle #643 | Active: 4 [BTC(l+0.9%) ETH(l+0.9%) SOL(l+1.1%) LINK(l+0.8%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:45:30.776Z] [Sentinel] 📊 Cycle #649 | Active: 4 [BTC(l+0.9%) ETH(l+0.9%) SOL(l+1.1%) LINK(l+0.9%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:46:30.772Z] [Sentinel] 📊 Cycle #655 | Active: 4 [BTC(l+0.9%) ETH(l+0.9%) SOL(l+1.1%) LINK(l+0.8%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:47:30.803Z] [Sentinel] 📊 Cycle #661 | Active: 4 [BTC(l+1.1%) ETH(l+1.2%) SOL(l+1.3%) LINK(l+1.2%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:48:30.984Z] [Sentinel] 📊 Cycle #667 | Active: 4 [BTC(l+1.1%) ETH(l+1.1%) SOL(l+1.3%) LINK(l+1.2%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:49:31.159Z] [Sentinel] 📊 Cycle #673 | Active: 4 [BTC(l+1.2%) ETH(l+1.4%) SOL(l+1.5%) LINK(l+1.3%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:50:31.240Z] [Sentinel] 📊 Cycle #679 | Active: 4 [BTC(l+1.1%) ETH(l+1.3%) SOL(l+1.4%) LINK(l+1.3%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:51:30.802Z] [Sentinel] 📊 Cycle #685 | Active: 4 [BTC(l+1.2%) ETH(l+1.4%) SOL(l+1.5%) LINK(l+1.4%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:52:31.680Z] [Sentinel] 📊 Cycle #691 | Active: 4 [BTC(l+1.1%) ETH(l+1.4%) SOL(l+1.5%) LINK(l+1.5%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:53:31.229Z] [Sentinel] 📊 Cycle #697 | Active: 4 [BTC(l+1.2%) ETH(l+1.4%) SOL(l+1.6%) LINK(l+1.4%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:54:30.977Z] [Sentinel] 📊 Cycle #703 | Active: 4 [BTC(l+1.2%) ETH(l+1.5%) SOL(l+1.7%) LINK(l+1.5%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:55:31.017Z] [Sentinel] 📊 Cycle #709 | Active: 4 [BTC(l+1.2%) ETH(l+1.5%) SOL(l+1.7%) LINK(l+1.7%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:56:31.062Z] [Sentinel] 📊 Cycle #715 | Active: 4 [BTC(l+1.2%) ETH(l+1.4%) SOL(l+1.7%) LINK(l+1.5%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:57:30.851Z] [Sentinel] 📊 Cycle #721 | Active: 4 [BTC(l+1.2%) ETH(l+1.5%) SOL(l+1.7%) LINK(l+1.7%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:58:31.007Z] [Sentinel] 📊 Cycle #727 | Active: 4 [BTC(l+1.3%) ETH(l+1.5%) SOL(l+1.8%) LINK(l+1.7%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T10:59:30.896Z] [Sentinel] 📊 Cycle #733 | Active: 4 [BTC(l+1.3%) ETH(l+1.5%) SOL(l+1.8%) LINK(l+1.7%)] | Analyzing: 83 | Exits: 0 | Entries: 0 | Partials: 0

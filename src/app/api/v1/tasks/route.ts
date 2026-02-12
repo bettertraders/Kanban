@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/api-auth';
 import { createTask, getBoard, getTasksForBoard } from '@/lib/database';
+import { notifyAssignment } from '@/lib/notifications';
 
 // GET /api/v1/tasks?boardId=N - List tasks for a board
 export async function GET(request: NextRequest) {
@@ -73,6 +74,15 @@ export async function POST(request: NextRequest) {
       dueDate: dueDate ? new Date(dueDate) : undefined,
       labels: normalizedLabels
     });
+
+    // Fire-and-forget: notify assignee if assigned to someone else
+    if (assignedTo && assignedTo !== user.id) {
+      notifyAssignment({
+        taskTitle: title,
+        boardName: board.name,
+        assignedBy: user.name || user.email,
+      });
+    }
     
     return NextResponse.json({ task }, { status: 201 });
   } catch (error) {

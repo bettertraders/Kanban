@@ -1,39 +1,38 @@
 {
-  "timestamp": 1770882900952,
-  "status": "degraded",
+  "timestamp": 1770883200888,
+  "status": "healthy",
   "modules": {
     "scanner": {
       "status": "ok",
       "lastRun": "2026-02-12T07:16:35.411Z",
-      "ageMinutes": 38
+      "ageMinutes": 43
     },
     "marketPulse": {
       "status": "ok",
       "lastRun": "2026-02-12T07:53:02.653Z",
-      "ageMinutes": 2
+      "ageMinutes": 7,
+      "note": "No recent alerts"
     },
     "positionSentinel": {
       "status": "ok",
       "lastRun": "2026-02-12T04:51:01.932Z",
-      "ageMinutes": 184,
+      "ageMinutes": 189,
       "note": "No recent alerts"
     },
     "macroPulse": {
       "status": "ok",
       "lastRun": "2026-02-12T07:30:01.450Z",
-      "ageMinutes": 25
+      "ageMinutes": 30
     },
     "newsScanner": {
-      "status": "stale",
-      "lastRun": "2026-02-12T07:30:01.672Z",
-      "ageMinutes": 25
+      "status": "ok",
+      "lastRun": "2026-02-12T07:55:01.687Z",
+      "ageMinutes": 5
     }
   },
   "api": {
     "binance": "ok",
     "consecutiveFailures": 0
   },
-  "alerts": [
-    "News Scanner: 25min old (max 15min)"
-  ]
+  "alerts": []
 }

@@ -827,6 +827,20 @@ export default function TradingBoardPage() {
     if (!trade || trade.column_name === col) return;
 
     if (col === 'Closed') {
+      // If trade already has exit_price and pnl (e.g. from Parked), skip the exit prompt
+      const alreadyClosed = trade.exit_price && trade.pnl_dollar !== null && trade.pnl_dollar !== undefined;
+      if (alreadyClosed) {
+        setTrades(prev => prev.map(t => t.id === dragTradeId ? { ...t, column_name: col } : t));
+        try {
+          await fetch(`/api/trading/trades`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ trade_id: trade.id, column_name: 'Closed' }),
+          });
+        } catch {}
+        setDragTradeId(null);
+        return;
+      }
       setExitPrompt({ trade, target: col });
       setDragTradeId(null);
       return;

@@ -54,9 +54,9 @@
       "crash": 1770860642578
     },
     "0G/USDT": {
-      "alert": 1770879845706,
-      "_lastSeverity": 2,
-      "_lastAlertTime": 1770882782656,
+      "alert": 1770883261832,
+      "_lastSeverity": 1,
+      "_lastAlertTime": 1770883261832,
       "_cleared": false,
       "breakout": 1770880082312,
       "crash": 1770882782656

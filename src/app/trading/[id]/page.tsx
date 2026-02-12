@@ -1122,12 +1122,12 @@ export default function TradingBoardPage() {
       </section>
 
       {/* Dashboard settings status bar */}
-      <DashboardStatusBar livePnl={columnTotals['Active']?.pnl ?? null} />
+      <DashboardStatusBar livePnl={null} />
 
       {/* Board action bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <div style={{ color: 'var(--muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.18em' }}>
-          {board.team_name || 'Personal Board'} · {trades.length} trades tracked
+          {board.team_name || 'Personal Board'} · {trades.filter(t => ['Wins','Losses','Parked'].includes(t.column_name)).length} closed trades · {trades.filter(t => t.column_name === 'Active').length} active
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '999px', background: 'var(--panel-2)', border: '1px solid var(--border)', fontSize: '12px', color: 'var(--muted)' }}>
@@ -2640,6 +2640,8 @@ function NewTradeModal({
 function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
   const [settings, setSettings] = useState<{ riskLevel: string | null; tradingAmount: number | null; timeframe: string | null; timeframeStartDate: string | null; tboEnabled: boolean; engineOn: boolean } | null>(null);
   const [pnl, setPnl] = useState<number | null>(null);
+  const [balance, setBalance] = useState<number | null>(null);
+  const [startBal, setStartBal] = useState<number>(0);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -2656,7 +2658,6 @@ function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
     } catch {
       setSettings(null);
     }
-    // Also try server settings (overrides localStorage if available)
     fetch('/api/trading/settings').then(r => r.json()).then(({ settings: s }) => {
       if (s && s.riskLevel) {
         setSettings({
@@ -2678,19 +2679,18 @@ function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
       .then(r => r.json())
       .then(data => {
         if (data?.account) {
-          const current = parseFloat(data.account.current_balance);
           const starting = parseFloat(data.account.starting_balance);
-          if (!isNaN(current) && !isNaN(starting)) {
-            // Also fetch unrealized P&L from active trades
-            fetch(`/api/v1/portfolio`)
-              .then(r => r.json())
-              .then(portfolio => {
-                const realized = Number(portfolio?.summary?.total_realized_pnl ?? 0);
-                const unrealized = Number(portfolio?.summary?.total_unrealized_pnl ?? 0);
-                setPnl(realized + unrealized);
-              })
-              .catch(() => setPnl(current - starting));
-          }
+          if (!isNaN(starting)) setStartBal(starting);
+          fetch(`/api/v1/portfolio`)
+            .then(r => r.json())
+            .then(portfolio => {
+              const realized = Number(portfolio?.summary?.total_realized_pnl ?? 0);
+              const unrealized = Number(portfolio?.summary?.total_unrealized_pnl ?? 0);
+              const totalPnl = realized + unrealized;
+              setPnl(totalPnl);
+              setBalance(starting + totalPnl);
+            })
+            .catch(() => {});
         }
       })
       .catch(() => {});
@@ -2699,7 +2699,6 @@ function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
   if (!settings) return null;
 
   const riskLabel = settings.riskLevel ? settings.riskLevel.charAt(0).toUpperCase() + settings.riskLevel.slice(1) : 'Not Set';
-  const amountLabel = settings.tradingAmount ? `$${settings.tradingAmount.toLocaleString()}` : 'Not Set';
   const timeframeLabel = settings.timeframe ? (settings.timeframe === 'unlimited' ? 'Unlimited' : `${settings.timeframe} days`) : '—';
 
   let dayLabel = '';
@@ -2716,6 +2715,8 @@ function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
   const displayPnl = livePnl ?? pnl;
   const pnlColor = displayPnl === null ? 'var(--muted)' : displayPnl >= 0 ? '#4ade80' : '#f05b6f';
   const pnlLabel = displayPnl === null ? '' : `${displayPnl >= 0 ? '+' : ''}$${displayPnl.toFixed(2)}`;
+  const balanceLabel = balance !== null ? `$${balance >= 1000 ? balance.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : balance.toFixed(2)}` : '';
+  const balanceColor = balance !== null && balance >= startBal ? '#4ade80' : '#f05b6f';
 
   return (
     <div style={{
@@ -2730,7 +2731,8 @@ function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
     }}>
       <span>{riskLabel}</span>
       <span style={{ opacity: 0.4 }}>·</span>
-      <span>{amountLabel}{pnlLabel && <span style={{ color: pnlColor, marginLeft: '4px' }}>({pnlLabel})</span>}</span>
+      {balanceLabel && <span style={{ color: balanceColor, fontWeight: 600 }}>{balanceLabel}</span>}
+      {pnlLabel && <span style={{ color: pnlColor }}>({pnlLabel})</span>}
       <span style={{ opacity: 0.4 }}>·</span>
       <span>{timeframeLabel}</span>
       {dayLabel && <><span style={{ opacity: 0.4 }}>·</span><span>{dayLabel}</span></>}

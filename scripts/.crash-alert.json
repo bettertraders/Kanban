@@ -1,14 +1,11 @@
 {
-  "level": "breakout",
-  "direction": "up",
-  "timestamp": 1770880382056,
+  "level": "all_clear",
+  "direction": "neutral",
+  "timestamp": 1770881282304,
   "coins": [
     {
-      "symbol": "TNSR/USDT",
-      "change5m": 1.52,
-      "change15m": 6.38,
-      "currentPrice": 0.06
+      "symbol": "TNSR/USDT"
     }
   ],
-  "message": "TNSR +6.38% in 15m."
+  "message": "All clear: TNSR normalized."
 }

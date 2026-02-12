@@ -2883,8 +2883,16 @@ export async function ensureTradingSettingsTable() {
       UNIQUE(user_id, board_id)
     )
   `);
-  // Migration: drop FK on user_id if it exists (allow anonymous user_id=0)
-  await pool.query(`ALTER TABLE trading_settings DROP CONSTRAINT IF EXISTS trading_settings_user_id_fkey`).catch(() => {});
+  // Migration: drop ALL FK constraints on user_id (allow anonymous user_id=0)
+  await pool.query(`
+    DO $$ DECLARE r RECORD;
+    BEGIN
+      FOR r IN (SELECT conname FROM pg_constraint WHERE conrelid = 'trading_settings'::regclass AND contype = 'f' AND conkey @> ARRAY[(SELECT attnum FROM pg_attribute WHERE attrelid = 'trading_settings'::regclass AND attname = 'user_id')])
+      LOOP EXECUTE 'ALTER TABLE trading_settings DROP CONSTRAINT ' || r.conname; END LOOP;
+    END $$;
+  `).catch(() => {});
+  // Set default for user_id to 0 and make nullable
+  await pool.query(`ALTER TABLE trading_settings ALTER COLUMN user_id SET DEFAULT 0`).catch(() => {});
   await pool.query(`ALTER TABLE trading_settings ADD COLUMN IF NOT EXISTS board_id INTEGER REFERENCES boards(id) ON DELETE CASCADE`).catch(() => {});
 }
 

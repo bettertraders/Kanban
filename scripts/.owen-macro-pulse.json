@@ -1,5 +1,5 @@
 {
-  "timestamp": 1770863401801,
+  "timestamp": 1770864301000,
   "alerts": [],
   "fearGreed": {
     "value": 5,
@@ -11,13 +11,13 @@
     "trend": "stable"
   },
   "totalMarketCap": {
-    "usd": 2372307287886,
-    "change24h": -1.69
+    "usd": 2381841827235,
+    "change24h": -1.29
   },
   "gold": {
-    "paxgPrice": 5075.1,
-    "change1h": 0.36,
-    "change4h": -0.31,
+    "paxgPrice": 5065.55,
+    "change1h": -0.06,
+    "change4h": -0.62,
     "btcCorrelation": "neutral"
   },
   "newsFlags": []

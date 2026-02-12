@@ -40,13 +40,24 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'boardId and balance required' }, { status: 400 });
     }
 
+    // Reset ALL accounts on this board (not just current user's)
+    await pool.query(
+      `UPDATE paper_accounts SET starting_balance = $1, current_balance = $1, created_at = NOW(), updated_at = NOW() WHERE board_id = $2`,
+      [balance, boardId]
+    );
+
     const result = await pool.query(
-      `UPDATE paper_accounts SET starting_balance = $1, current_balance = $1, created_at = NOW(), updated_at = NOW() WHERE board_id = $2 AND user_id = $3 RETURNING *`,
-      [balance, boardId, user.id]
+      `SELECT * FROM paper_accounts WHERE board_id = $1 AND user_id = $2`,
+      [boardId, user.id]
     );
 
     if (result.rows.length === 0) {
-      return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+      // Create one if doesn't exist for this user
+      const ins = await pool.query(
+        `INSERT INTO paper_accounts (board_id, user_id, starting_balance, current_balance) VALUES ($1, $2, $3, $3) RETURNING *`,
+        [boardId, user.id, balance]
+      );
+      return NextResponse.json({ account: ins.rows[0] });
     }
 
     // Also reset timeframeStartDate in trading_settings so day counter resets

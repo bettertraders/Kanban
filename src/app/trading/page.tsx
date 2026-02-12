@@ -854,51 +854,58 @@ export default function TradingDashboardPage() {
         pushToast('Failed to start engine', 'error');
       }
     } else if (!next) {
+      // Confirm before pausing
+      const confirmed = window.confirm('Pause engine? This will close all active positions at market price.');
+      if (!confirmed) {
+        setEngineOn(true); // revert toggle
+        return;
+      }
       try {
         // Close all active positions at current price
-        const tradesRes = await fetch(`/api/v1/trades?boardId=${boardId}&column_name=Active`);
-        if (tradesRes.ok) {
-          const tradesData = await tradesRes.json();
-          const activeTrades = Array.isArray(tradesData) ? tradesData : (tradesData.trades || []);
-          if (activeTrades.length > 0) {
-            // Fetch current prices
-            const pairs = activeTrades.map((t: { coin_pair?: string }) => t.coin_pair?.replace('/', '') || '').filter(Boolean).join(',');
-            let prices: Record<string, number> = {};
-            try {
-              const priceRes = await fetch(`/api/v1/prices?pairs=${encodeURIComponent(pairs)}`);
-              if (priceRes.ok) {
-                const priceData = await priceRes.json();
-                if (priceData?.prices) {
-                  for (const [k, v] of Object.entries(priceData.prices)) {
-                    prices[k] = Number(v);
+        if (boardId) {
+          const tradesRes = await fetch(`/api/v1/trades?boardId=${boardId}&column_name=Active`);
+          if (tradesRes.ok) {
+            const tradesData = await tradesRes.json();
+            const activeTrades = Array.isArray(tradesData) ? tradesData : (tradesData.trades || []);
+            if (activeTrades.length > 0) {
+              const pairs = activeTrades.map((t: { coin_pair?: string }) => t.coin_pair?.replace('/', '') || '').filter(Boolean).join(',');
+              let prices: Record<string, number> = {};
+              try {
+                const priceRes = await fetch(`/api/v1/prices?pairs=${encodeURIComponent(pairs)}`);
+                if (priceRes.ok) {
+                  const priceData = await priceRes.json();
+                  if (priceData?.prices) {
+                    for (const [k, v] of Object.entries(priceData.prices)) {
+                      prices[k] = Number(v);
+                    }
                   }
                 }
+              } catch {}
+              for (const trade of activeTrades) {
+                const entry = Number(trade.entry_price) || 0;
+                const pair = (trade.coin_pair || '').replace('/', '');
+                const currentPrice = prices[pair] || prices[pair + 'USDT'] || entry;
+                const isLong = (trade.direction || '').toUpperCase() !== 'SHORT';
+                const pct = entry ? (isLong ? (currentPrice - entry) / entry : (entry - currentPrice) / entry) : 0;
+                const posSize = Number(trade.position_size) || 200;
+                const pnlDollar = posSize * pct;
+                const outcome = pnlDollar >= 0 ? 'Won' : 'Lost';
+                await fetch(`/api/v1/trades/${trade.id}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    column_name: outcome,
+                    exit_price: currentPrice,
+                    pnl_dollar: parseFloat(pnlDollar.toFixed(2)),
+                    pnl_percent: parseFloat((pct * 100).toFixed(2)),
+                    status: 'closed',
+                    exited_at: new Date().toISOString(),
+                    notes: `Engine paused — closed at market price $${currentPrice}`
+                  }),
+                });
               }
-            } catch {}
-            for (const trade of activeTrades) {
-              const entry = Number(trade.entry_price) || 0;
-              const pair = (trade.coin_pair || '').replace('/', '');
-              const currentPrice = prices[pair] || prices[pair + 'USDT'] || entry;
-              const isLong = (trade.direction || '').toUpperCase() !== 'SHORT';
-              const pct = entry ? (isLong ? (currentPrice - entry) / entry : (entry - currentPrice) / entry) : 0;
-              const posSize = Number(trade.position_size) || 200;
-              const pnlDollar = posSize * pct;
-              const outcome = pnlDollar >= 0 ? 'Won' : 'Lost';
-              await fetch(`/api/v1/trades/${trade.id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  column_name: outcome,
-                  exit_price: currentPrice,
-                  pnl_dollar: parseFloat(pnlDollar.toFixed(2)),
-                  pnl_percent: parseFloat((pct * 100).toFixed(2)),
-                  status: 'closed',
-                  exited_at: new Date().toISOString(),
-                  notes: `Engine paused — closed at market price $${currentPrice}`
-                }),
-              });
+              pushToast(`Closed ${activeTrades.length} position${activeTrades.length > 1 ? 's' : ''} at market`, 'info');
             }
-            pushToast(`Closed ${activeTrades.length} position${activeTrades.length > 1 ? 's' : ''} at market`, 'info');
           }
         }
         // Stop bots
@@ -1185,7 +1192,7 @@ export default function TradingDashboardPage() {
                 color: engineOn ? '#0d0d1a' : 'white',
               }}
             >
-              {engineOn ? '✨ Bot is Running — Tap to Pause' : '▶ Start Trading'}
+              {engineOn ? '✨ Bot is Running — Tap to Pause' : (timeframeStartDate ? '▶ Resume Trading' : '▶ Start Trading')}
             </button>
           </div>
           <div style={{ textAlign: 'center', fontSize: '11px', color: '#444', marginTop: '8px' }}>
@@ -1755,7 +1762,7 @@ export default function TradingDashboardPage() {
                 transition: 'all 0.2s',
               }}
             >
-              {engineOn ? '✨ Bot is Running — Tap to Pause' : '▶ Start Trading'}
+              {engineOn ? '✨ Bot is Running — Tap to Pause' : (timeframeStartDate ? '▶ Resume Trading' : '▶ Start Trading')}
             </button>
           </div>
           <div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--muted)' }}>

@@ -1,9 +1,9 @@
 {
-  "timestamp": 1770868801960,
+  "timestamp": 1770880501846,
   "alerts": [
     {
       "type": "news_keyword",
-      "message": "[CoinDesk] \"Strategy's STRC returns to $100, poised to unlock more bitcoin accumulation\" (keyword: RATE)"
+      "message": "[CoinTelegraph] \"Strategy CEO eyes more preferred stock to fund Bitcoin buys\" (keyword: RATE)"
     }
   ],
   "fearGreed": {
@@ -12,25 +12,25 @@
     "change24h": -6
   },
   "btcDominance": {
-    "current": 56.74,
+    "current": 56.52,
     "trend": "stable"
   },
   "totalMarketCap": {
-    "usd": 2378362485335,
-    "change24h": -1
+    "usd": 2366552594088,
+    "change24h": 0.29
   },
   "gold": {
-    "paxgPrice": 5066.48,
-    "change1h": 0.02,
-    "change4h": -0.15,
+    "paxgPrice": 5073.14,
+    "change1h": -0.21,
+    "change4h": -0.02,
     "btcCorrelation": "neutral"
   },
   "newsFlags": [
     {
-      "source": "CoinDesk",
-      "title": "Strategy's STRC returns to $100, poised to unlock more bitcoin accumulation",
+      "source": "CoinTelegraph",
+      "title": "Strategy CEO eyes more preferred stock to fund Bitcoin buys",
       "keyword": "RATE",
-      "url": "https://www.coindesk.com/markets/2026/02/12/strategy-s-strc-returns-to-usd100-poised-to-unlock-more-bitcoin-accumulation"
+      "url": "https://cointelegraph.com/news/strategy-ceo-preferred-stock-fund-bitcoin-buys?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound"
     }
   ]
 }

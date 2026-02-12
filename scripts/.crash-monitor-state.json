@@ -1,20 +1,20 @@
 {
   "lastAlerts": {
     "TNSR/USDT": {
-      "breakout": 1770848463110,
+      "breakout": 1770880382059,
       "_lastSeverity": 2,
-      "_lastAlertTime": 1770859082837,
-      "_cleared": true,
-      "alert": 1770858482737,
-      "crash": 1770859082837
+      "_lastAlertTime": 1770880382059,
+      "_cleared": false,
+      "alert": 1770879961965,
+      "crash": 1770877262289
     },
     "BERA/USDT": {
-      "breakout": 1770861302760,
-      "_lastSeverity": 1,
-      "_lastAlertTime": 1770863282173,
-      "_cleared": true,
-      "alert": 1770863282173,
-      "crash": 1770860402650
+      "breakout": 1770870542951,
+      "_lastSeverity": 2,
+      "_lastAlertTime": 1770880142493,
+      "_cleared": false,
+      "alert": 1770877862040,
+      "crash": 1770880142493
     },
     "MANTA/USDT": {
       "alert": 1770848642319,
@@ -40,9 +40,9 @@
       "breakout": 1770859561939
     },
     "VTHO/USDT": {
-      "alert": 1770857162608,
+      "alert": 1770873842068,
       "_lastSeverity": 1,
-      "_lastAlertTime": 1770857162608,
+      "_lastAlertTime": 1770873842068,
       "_cleared": true
     },
     "ME/USDT": {
@@ -54,11 +54,11 @@
       "crash": 1770860642578
     },
     "0G/USDT": {
-      "alert": 1770864602675,
+      "alert": 1770879845706,
       "_lastSeverity": 2,
-      "_lastAlertTime": 1770865682573,
-      "_cleared": true,
-      "breakout": 1770864842920,
+      "_lastAlertTime": 1770880082312,
+      "_cleared": false,
+      "breakout": 1770880082312,
       "crash": 1770865682573
     }
   }

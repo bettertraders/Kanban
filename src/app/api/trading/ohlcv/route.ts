@@ -4,8 +4,9 @@ import { getOHLCV } from '@/lib/price-service';
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getAuthenticatedUser(request);
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Auth optional — public market data
+    let user: any = null;
+    try { user = await getAuthenticatedUser(request); } catch {}
 
     const symbol = request.nextUrl.searchParams.get('symbol');
     const timeframe = request.nextUrl.searchParams.get('timeframe') || '4h';

@@ -1388,7 +1388,7 @@ export default function TradingBoardPage() {
                 </span>
               </button>
             </div>
-            <TradingChart pair={chartPair} boardId={Number(boardId)} indicators={effectiveIndicators} />
+            <TradingChart pair={chartPair} boardId={Number(boardId)} indicators={effectiveIndicators} tboSignals={tboEnabled ? tboSignal : null} />
 
             {/* TBO PRO Signal Panel */}
             {tboEnabled && chartPair && (() => {

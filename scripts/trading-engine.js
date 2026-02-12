@@ -1590,7 +1590,7 @@ async function main() {
   try {
   const currentActive = active.length - exitCount;
 
-  if (false) { // Step 5 disabled — Penny decides entries now
+  if (true) { // Step 5 re-enabled — engine enters trades autonomously
   for (const trade of analyzing) {
     if (currentActive + entryCount >= MAX_POSITIONS) break;
 
@@ -1674,7 +1674,7 @@ async function main() {
   // SKIPPED in monitor mode — Penny (Opus) now handles Watchlist → Analyzing
   let analyzeCount = 0;
   try {
-  if (false) { // Step 6 disabled — Penny decides analysis targets now
+  if (true) { // Step 6 re-enabled — engine moves watchlist to analyzing autonomously
   for (const trade of watchlist) {
     const sym = normalizePair(trade.coin_pair);
     const ind = indicators[sym];

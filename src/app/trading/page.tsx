@@ -1061,7 +1061,7 @@ export default function TradingDashboardPage() {
             <div style={{ width: '1px', height: '20px', background: '#2a2a4e' }} />
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: tboEnabled ? '#4ade80' : '#666' }}>
               <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: tboEnabled ? '#4ade80' : '#555', boxShadow: tboEnabled ? '0 0 6px #4ade80' : 'none' }} />
-              TBO
+              TBO PRO
             </span>
           </div>
 

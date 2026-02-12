@@ -994,7 +994,7 @@ export default function TradingDashboardPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                       {/* Pie */}
                       <div style={{ flexShrink: 0 }}>
-                        <svg viewBox="0 0 36 36" style={{ width: '140px', height: '140px' }}>
+                        <svg viewBox="0 0 36 36" style={{ width: '210px', height: '210px' }}>
                           {rows.map((seg) => {
                             const el = <circle key={seg.name} r="15.9" cx="18" cy="18" fill="none" stroke={seg.color} strokeWidth="3.5" strokeDasharray={`${seg.pct} ${100 - seg.pct}`} strokeDashoffset={`${-offset + 25}`} style={{ transition: 'all 0.4s ease' }} />;
                             offset += seg.pct;
@@ -1064,7 +1064,7 @@ export default function TradingDashboardPage() {
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', background: '#141428', border: '1px solid #2a2a4e' }}>
                 <span style={{ fontSize: '13px', color: '#888' }}>Trading with</span>
-                <span style={{ fontSize: '16px', fontWeight: 700, color: '#7b7dff' }}>{formatCurrency(tradingAmount || 0)}</span>
+                <span style={{ fontSize: '16px', fontWeight: 700, color: '#7b7dff' }}>{formatCurrency(tradingAmount || startingBalance)}</span>
                 <span style={{ fontSize: '11px', color: '#555' }}>🔒</span>
               </div>
             )}

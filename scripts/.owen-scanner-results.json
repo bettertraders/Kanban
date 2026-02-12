@@ -1,107 +1,103 @@
 {
-  "timestamp": 1770863471475,
+  "timestamp": 1770865272251,
   "totalScanned": 446,
-  "filteredByVolume": 217,
+  "filteredByVolume": 218,
   "watchlist": [
     {
       "symbol": "SOL/USDT",
       "score": 60,
-      "volume24h": 309834311,
-      "atrPct": 4.03,
-      "rsi": 36.3,
-      "momentum": -4.33,
+      "volume24h": 308989473,
+      "atrPct": 4.02,
+      "rsi": 36.7,
+      "momentum": -4.22,
       "reason": "Core holding, mega volume, ideal volatility"
     },
     {
       "symbol": "ETH/USDT",
-      "score": 55,
-      "volume24h": 1056584011,
+      "score": 50,
+      "volume24h": 1059866495,
       "atrPct": 3.89,
-      "rsi": 41.7,
-      "momentum": -2.03,
+      "rsi": 41.1,
+      "momentum": -2.22,
       "reason": "Core holding, mega volume, ideal volatility"
     },
     {
       "symbol": "BTC/USDT",
       "score": 45,
-      "volume24h": 1964193556,
+      "volume24h": 1965749338,
       "atrPct": 2.79,
-      "rsi": 42.8,
-      "momentum": -1.49,
+      "rsi": 42.4,
+      "momentum": -1.6,
       "reason": "Core holding, mega volume"
+    },
+    {
+      "symbol": "BERA/USDT",
+      "score": 90,
+      "volume24h": 113538104,
+      "atrPct": 6.85,
+      "rsi": 82.8,
+      "momentum": 75.98,
+      "reason": "mega volume, ideal volatility, overbought momentum, +75.98% move"
     },
     {
       "symbol": "S/USDT",
       "score": 80,
-      "volume24h": 8319521,
-      "atrPct": 4.21,
-      "rsi": 67.1,
-      "momentum": 17.15,
-      "reason": "ideal volatility, overbought momentum, +17.15% move"
-    },
-    {
-      "symbol": "BERA/USDT",
-      "score": 80,
-      "volume24h": 112294033,
-      "atrPct": 6.57,
-      "rsi": 87.4,
-      "momentum": 83.59,
-      "reason": "mega volume, ideal volatility, overbought momentum, +83.59% move"
+      "volume24h": 8486020,
+      "atrPct": 4.17,
+      "rsi": 68.2,
+      "momentum": 18.41,
+      "reason": "ideal volatility, overbought momentum, +18.41% move"
     },
     {
       "symbol": "LINEA/USDT",
       "score": 80,
-      "volume24h": 21152238,
-      "atrPct": 4.39,
-      "rsi": 77.3,
-      "momentum": 34.32,
-      "reason": "strong volume, ideal volatility, overbought momentum, +34.32% move"
+      "volume24h": 21435895,
+      "atrPct": 4.37,
+      "rsi": 77.6,
+      "momentum": 34.98,
+      "reason": "strong volume, ideal volatility, overbought momentum, +34.98% move"
     },
     {
       "symbol": "0G/USDT",
       "score": 80,
-      "volume24h": 6024483,
-      "atrPct": 4.5,
-      "rsi": 68.5,
-      "momentum": 15.75,
-      "reason": "ideal volatility, overbought momentum, +15.75% move"
+      "volume24h": 6616663,
+      "atrPct": 4.51,
+      "rsi": 70.2,
+      "momentum": 17.84,
+      "reason": "ideal volatility, overbought momentum, +17.84% move"
+    },
+    {
+      "symbol": "MANTA/USDT",
+      "score": 75,
+      "volume24h": 6605435,
+      "atrPct": 4.06,
+      "rsi": 74.3,
+      "momentum": 22.34,
+      "reason": "ideal volatility, overbought momentum, +22.34% move"
     },
     {
       "symbol": "TNSR/USDT",
       "score": 75,
-      "volume24h": 11178328,
-      "atrPct": 3.64,
-      "rsi": 80.9,
-      "momentum": 31.44,
-      "reason": "ideal volatility, overbought momentum, +31.44% move"
-    },
-    {
-      "symbol": "ME/USDT",
-      "score": 75,
-      "volume24h": 2320764,
-      "atrPct": 3.88,
-      "rsi": 68.6,
-      "momentum": 13.17,
-      "reason": "ideal volatility, overbought momentum, +13.17% move"
+      "volume24h": 11290229,
+      "atrPct": 3.66,
+      "rsi": 80.5,
+      "momentum": 30.73,
+      "reason": "ideal volatility, overbought momentum, +30.73% move"
     },
     {
       "symbol": "PAXG/USDT",
       "score": 40,
-      "volume24h": 80188146,
+      "volume24h": 79864258,
       "atrPct": 1.48,
       "rsi": 57.6,
-      "momentum": 0.28,
+      "momentum": 0.27,
       "reason": "Gold hedge, strong volume"
     }
   ],
   "droppedCoins": [
     {
-      "symbol": "DYM/USDT",
-      "previousScore": 80
-    },
-    {
-      "symbol": "ASTER/USDT",
-      "previousScore": 80
+      "symbol": "ME/USDT",
+      "previousScore": 75
     }
   ]
 }

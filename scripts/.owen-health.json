@@ -1,32 +1,32 @@
 {
-  "timestamp": 1770864600978,
+  "timestamp": 1770865200833,
   "status": "healthy",
   "modules": {
     "scanner": {
       "status": "ok",
       "lastRun": "2026-02-12T02:31:11.475Z",
-      "ageMinutes": 19
+      "ageMinutes": 29
     },
     "marketPulse": {
       "status": "ok",
-      "lastRun": "2026-02-12T02:43:02.174Z",
-      "ageMinutes": 7,
+      "lastRun": "2026-02-12T02:54:02.917Z",
+      "ageMinutes": 6,
       "note": "No recent alerts"
     },
     "positionSentinel": {
       "status": "ok",
       "lastRun": "2026-02-11T23:00:02.149Z",
-      "ageMinutes": 230,
+      "ageMinutes": 240,
       "note": "No recent alerts"
     },
     "macroPulse": {
       "status": "ok",
       "lastRun": "2026-02-12T02:45:01.000Z",
-      "ageMinutes": 5
+      "ageMinutes": 15
     },
     "newsScanner": {
       "status": "ok",
-      "lastRun": "2026-02-12T02:45:01.240Z",
+      "lastRun": "2026-02-12T02:55:01.419Z",
       "ageMinutes": 5
     }
   },

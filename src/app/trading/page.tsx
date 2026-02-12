@@ -39,7 +39,7 @@ type PortfolioStats = {
     total_trades?: number;
   };
   byCoin?: Array<{ coin_pair: string; total_pnl: number; total_trades?: number; allocation_pct?: number }>;
-  activeHoldings?: Array<{ coin_pair: string; position_size: number; entry_price: number }>;
+  activeHoldings?: Array<{ coin_pair: string; position_size: number; entry_price: number; direction?: string }>;
 };
 
 type Board = {
@@ -1039,13 +1039,12 @@ export default function TradingDashboardPage() {
     // Determine direction badge from active holdings
     const simpleDirectionBadge = (() => {
       const holdings = portfolio?.activeHoldings ?? [];
-      // For now, all holdings are LONG (no short field on activeHoldings)
-      const hasLongs = holdings.length > 0;
-      const hasShorts = false; // TODO: detect shorts when API provides direction
+      const hasLongs = holdings.some(h => (h.direction || 'long') === 'long');
+      const hasShorts = holdings.some(h => h.direction === 'short');
       if (hasLongs && hasShorts) return { label: '↑↓ Long & Short', color: '#7b7dff', bg: '#7b7dff22' };
       if (hasShorts) return { label: '↓ Short', color: '#ff5252', bg: '#ff525222' };
       if (hasLongs) return { label: '↑ Long', color: '#00e676', bg: '#00e67622' };
-      return { label: '↑↓ Long & Short', color: '#7b7dff', bg: '#7b7dff22' };
+      return { label: '—', color: '#888', bg: '#88822' };
     })();
 
     return (
@@ -1151,11 +1150,15 @@ export default function TradingDashboardPage() {
                   const coin = getCoinDisplay(sym);
                   const pulseCoin = pulse.find(c => c.pair?.includes(sym));
                   const change = pulseCoin?.change24h ?? 0;
+                  const isShort = h.direction === 'short';
+                  // For shorts, a negative price change = profit
+                  const effectiveChange = isShort ? -change : change;
                   const pct = total > 0 ? (h.position_size / total) * 100 : 0;
-                  return { name: coin.name, icon: coin.icon, iconBg: coin.iconBg, iconColor: coin.iconColor, value: h.position_size, change, pct, color: pieColors[i % pieColors.length] };
+                  const label = isShort ? `${coin.name} ↓S` : coin.name;
+                  return { name: label, icon: coin.icon, iconBg: coin.iconBg, iconColor: coin.iconColor, value: h.position_size, change: effectiveChange, rawChange: change, isShort, pct, color: pieColors[i % pieColors.length] };
                 });
                 const cashPct = total > 0 ? (cash / total) * 100 : 100;
-                rows.push({ name: 'Cash', icon: '$', iconBg: '#f5b54422', iconColor: '#f5b544', value: cash, change: 0, pct: cashPct, color: '#f5b544' });
+                rows.push({ name: 'Cash', icon: '$', iconBg: '#f5b54422', iconColor: '#f5b544', value: cash, change: 0, rawChange: 0, isShort: false, pct: cashPct, color: '#f5b544' });
 
                 // Build pie chart
                 let offset = 25;
@@ -1185,7 +1188,7 @@ export default function TradingDashboardPage() {
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <span style={{ fontSize: '12px', color: row.name === 'Cash' ? '#888' : row.change >= 0 ? '#00e676' : '#ff5252' }}>
-                                {row.name === 'Cash' ? 'safe' : `${row.change >= 0 ? '▲' : '▼'}${Math.abs(row.change).toFixed(1)}%`}
+                                {row.name === 'Cash' ? 'safe' : `${row.change >= 0 ? '▲' : '▼'}${Math.abs(row.change).toFixed(1)}%${(row as any).isShort ? '' : ''}`}
                               </span>
                               <span style={{ fontSize: '12px', color: '#888', minWidth: '32px', textAlign: 'right' }}>{row.pct.toFixed(0)}%</span>
                             </div>
@@ -1408,7 +1411,7 @@ export default function TradingDashboardPage() {
               { label: 'Trading With', value: formatCurrencyShort(tradingAmount || startingBalance), color: '#7b7dff' },
               { label: "Today's P&L", value: `${dailyPnl >= 0 ? '+' : ''}${formatCurrency(dailyPnl)} (${dailyPnlPct >= 0 ? '+' : ''}${dailyPnlPct.toFixed(1)}%)`, color: dailyPnl >= 0 ? '#4ade80' : '#f05b6f' },
               { label: 'Win Rate', value: `${winRate.toFixed(0)}%`, color: winRate >= 50 ? '#4ade80' : winRate > 0 ? '#f05b6f' : undefined },
-              { label: 'Active Positions', value: String(activePositions), subtitle: (() => { const longs = (portfolio?.activeHoldings || []).length; const shorts = 0; return longs > 0 || shorts > 0 ? `${longs}L / ${shorts}S` : undefined; })() },
+              { label: 'Active Positions', value: String(activePositions), subtitle: (() => { const h = portfolio?.activeHoldings || []; const longs = h.filter(p => (p.direction || 'long') === 'long').length; const shorts = h.filter(p => p.direction === 'short').length; return longs > 0 || shorts > 0 ? `${longs}L / ${shorts}S` : undefined; })() },
               { label: 'Total Trades', value: String(totalTrades) },
               {
                 label: 'Progress',

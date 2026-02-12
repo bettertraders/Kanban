@@ -959,11 +959,15 @@ export default function TradingDashboardPage() {
       await Promise.all(trades.map((t: { id: number }) =>
         fetch(`/api/v1/trades/${t.id}`, { method: 'DELETE' })
       ));
-      // 4. Reset timeframe
-      setTimeframeStartDate(new Date().toISOString());
-      // 5. Turn engine off
+      // 4. Reset timeframe + engine off — write directly to localStorage before reload
+      const now = new Date().toISOString();
+      const saved = JSON.parse(localStorage.getItem('clawdesk-trading-setup') || '{}');
+      saved.timeframeStartDate = now;
+      saved.engineOn = false;
+      localStorage.setItem('clawdesk-trading-setup', JSON.stringify(saved));
+      setTimeframeStartDate(now);
       setEngineOn(false);
-      // 6. Reload
+      // 5. Reload
       window.location.reload();
     } catch (err) {
       console.error('Reset challenge failed:', err);

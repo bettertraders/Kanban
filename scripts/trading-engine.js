@@ -1512,7 +1512,8 @@ async function main() {
         saveState(exitState);
         exitCount++;
 
-        // Re-queue core coins to Analyzing for potential re-entry
+        // Re-queue coins to Analyzing for potential re-entry
+        // Core coins: immediately. Others: sentinel handles after 24h cooldown.
         if (!decision.flip && CORE_COINS.includes(sym)) {
           try {
             await apiPost('/api/trading/trades', {

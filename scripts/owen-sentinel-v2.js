@@ -476,13 +476,14 @@ async function cycle() {
     const analyzing = cachedTrades.filter(t => t.column_name === 'Analyzing');
     const closed = cachedTrades.filter(t => t.column_name === 'Closed' || t.column_name === 'Parked');
 
-    // ── Re-queue core coins that have no Analyzing/Active card (every 60s) ──
+    // ── Re-queue coins that have no Analyzing/Active card (every 60s) ──
     if (isVerboseCycle) {
       const analyzingPairs = new Set(analyzing.map(t => t.coin_pair));
       const activePairs = new Set(active.map(t => t.coin_pair));
+
+      // Core coins: re-queue immediately (always in pipeline)
       for (const coin of CORE_COINS) {
         if (analyzingPairs.has(coin) || activePairs.has(coin)) continue;
-        // Core coin has no active or analyzing card — re-queue it
         try {
           await apiPost('/api/trading/trades', {
             board_id: BOARD_ID,
@@ -493,7 +494,31 @@ async function cycle() {
             notes: `♻️ Core coin re-queued. Always watching for entry.`,
           });
           analyzingPairs.add(coin);
-          log(`  ♻️ ${coin} re-queued to Analyzing (core coin — always active)`);
+          log(`  ♻️ ${coin} re-queued to Analyzing (core coin)`);
+          lastTradesFetch = 0;
+        } catch {}
+      }
+
+      // Non-core coins: re-queue after cooldown (closed >24h ago)
+      const REQUEUE_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
+      for (const trade of closed) {
+        const sym = trade.coin_pair;
+        if (!sym || sym === 'UNKNOWN') continue;
+        if (CORE_COINS.includes(sym)) continue; // Already handled above
+        if (analyzingPairs.has(sym) || activePairs.has(sym)) continue;
+        // Check if trade was closed long enough ago
+        const closedAt = new Date(trade.updated_at || trade.created_at || 0).getTime();
+        if (Date.now() - closedAt < REQUEUE_COOLDOWN_MS) continue;
+        try {
+          await apiPost('/api/trading/trades', {
+            board_id: BOARD_ID,
+            coin_pair: sym,
+            column_name: 'Analyzing',
+            status: 'analyzing',
+            notes: `♻️ Re-queued after 24h cooldown. Fresh evaluation for re-entry.`,
+          });
+          analyzingPairs.add(sym);
+          log(`  ♻️ ${sym} re-queued to Analyzing (24h cooldown passed)`);
           lastTradesFetch = 0;
         } catch {}
       }

@@ -47,19 +47,19 @@
     },
     "ME/USDT": {
       "breakout": 1770859682310,
-      "_lastSeverity": 2,
-      "_lastAlertTime": 1770860642578,
-      "_cleared": true,
-      "alert": 1770859982115,
+      "_lastSeverity": 1,
+      "_lastAlertTime": 1770884522577,
+      "_cleared": false,
+      "alert": 1770884522577,
       "crash": 1770860642578
     },
     "0G/USDT": {
       "alert": 1770883261832,
-      "_lastSeverity": 1,
-      "_lastAlertTime": 1770883261832,
-      "_cleared": true,
+      "_lastSeverity": 2,
+      "_lastAlertTime": 1770884462650,
+      "_cleared": false,
       "breakout": 1770880082312,
-      "crash": 1770882782656
+      "crash": 1770884462650
     }
   }
 }

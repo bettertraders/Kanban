@@ -12,6 +12,7 @@ async function runMigrations() {
   _migrationsRan = true;
   try {
     await pool.query(`ALTER TABLE trading_bots ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'`);
+    await pool.query(`ALTER TABLE trades ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'`);
     await pool.query(`ALTER TABLE trading_settings ADD COLUMN IF NOT EXISTS board_id INTEGER`);
   } catch (e) {
     // Tables might not exist yet — that's fine, initializeDatabase will create them

@@ -1,13 +1,9 @@
 {
-  "timestamp": 1770884101114,
+  "timestamp": 1770885901345,
   "alerts": [
     {
       "type": "news_keyword",
       "message": "[CoinDesk] \"OKX Ventures backs STBL in partnership with Hamilton Lane and Securitize\" (keyword: SEC)"
-    },
-    {
-      "type": "news_keyword",
-      "message": "[CoinTelegraph] \"Strategy CEO eyes more preferred stock to fund Bitcoin buys\" (keyword: RATE)"
     }
   ],
   "fearGreed": {
@@ -20,13 +16,13 @@
     "trend": "stable"
   },
   "totalMarketCap": {
-    "usd": 2374699774066,
-    "change24h": 0.71
+    "usd": 2367097274170,
+    "change24h": 0.39
   },
   "gold": {
-    "paxgPrice": 5077.9,
-    "change1h": 0.21,
-    "change4h": 0.23,
+    "paxgPrice": 5074.16,
+    "change1h": 0.04,
+    "change4h": 0.18,
     "btcCorrelation": "neutral"
   },
   "newsFlags": [
@@ -35,12 +31,6 @@
       "title": "OKX Ventures backs STBL in partnership with Hamilton Lane and Securitize",
       "keyword": "SEC",
       "url": "https://www.coindesk.com/business/2026/02/12/okx-ventures-backs-stbl-in-partnership-with-hamilton-lane-and-securitize"
-    },
-    {
-      "source": "CoinTelegraph",
-      "title": "Strategy CEO eyes more preferred stock to fund Bitcoin buys",
-      "keyword": "RATE",
-      "url": "https://cointelegraph.com/news/strategy-ceo-preferred-stock-fund-bitcoin-buys?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound"
     }
   ]
 }

@@ -353,6 +353,20 @@ async function executeExit(trade, result, currentPrice) {
   }
 
   log(`🚪 EXIT ${sym} ${trade.direction} → ${targetCol} | PnL: ${result.pnlPercent >= 0 ? '+' : ''}${result.pnlPercent.toFixed(2)}% ($${result.pnlDollar.toFixed(2)}) | ${result.reason}`);
+
+  // Re-queue coin to Analyzing so engine can evaluate re-entry
+  try {
+    await apiPost('/api/trading/trades', {
+      board_id: BOARD_ID,
+      coin_pair: sym,
+      column_name: 'Analyzing',
+      status: 'analyzing',
+      notes: `♻️ Re-queued after ${result.pnlPercent >= 0 ? 'win' : 'loss'} (${result.reason}). Watching for new entry.`,
+    });
+    log(`  ♻️ ${sym} re-queued to Analyzing`);
+  } catch (err) {
+    log(`  ⚠ Failed to re-queue ${sym}: ${err.message}`);
+  }
 }
 
 // ─── Execute Partial Exit ────────────────────────────────────────────────────
@@ -456,6 +470,31 @@ async function cycle() {
 
     const active = cachedTrades.filter(t => t.column_name === 'Active');
     const analyzing = cachedTrades.filter(t => t.column_name === 'Analyzing');
+    const closed = cachedTrades.filter(t => t.column_name === 'Closed' || t.column_name === 'Parked');
+
+    // ── Re-queue closed coins that have no Analyzing card (every 60s) ──
+    if (isVerboseCycle) {
+      const analyzingPairs = new Set(analyzing.map(t => t.coin_pair));
+      const activePairs = new Set(active.map(t => t.coin_pair));
+      for (const trade of closed) {
+        const sym = trade.coin_pair;
+        if (!sym || sym === 'UNKNOWN') continue;
+        if (analyzingPairs.has(sym) || activePairs.has(sym)) continue;
+        // Coin is closed with no active/analyzing card — re-queue it
+        try {
+          await apiPost('/api/trading/trades', {
+            board_id: BOARD_ID,
+            coin_pair: sym,
+            column_name: 'Analyzing',
+            status: 'analyzing',
+            notes: `♻️ Re-queued after manual close. Watching for new entry.`,
+          });
+          analyzingPairs.add(sym); // Prevent duplicates in same cycle
+          log(`  ♻️ ${sym} re-queued to Analyzing (was ${trade.column_name})`);
+          lastTradesFetch = 0; // Force cache refresh
+        } catch {}
+      }
+    }
     
     let exits = 0, entries = 0, partials = 0;
 

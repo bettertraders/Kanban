@@ -1389,7 +1389,8 @@ async function main() {
   const watchlist = byColumn['Watchlist'] || [];
   const analyzing = byColumn['Analyzing'] || [];
   const active = byColumn['Active'] || [];
-  log(`   Watchlist: ${watchlist.length} | Analyzing: ${analyzing.length} | Active: ${active.length}`);
+  const parked = byColumn['Parked'] || [];
+  log(`   Watchlist: ${watchlist.length} | Analyzing: ${analyzing.length} | Active: ${active.length} | Parked: ${parked.length}`);
 
   // ── Step 2: Get account balance ────────────────────────────────────────
   const { account } = await apiGet(`/api/trading/account?boardId=${BOARD_ID}`);
@@ -1417,7 +1418,7 @@ async function main() {
   const state = loadState();
 
   // ── Step 3: Fetch indicators for all relevant coins ────────────────────
-  const allTrades = [...watchlist, ...analyzing, ...active];
+  const allTrades = [...watchlist, ...analyzing, ...active, ...parked];
   const symbols = [...new Set(allTrades.map(t => normalizePair(t.coin_pair)))];
   const indicators = {};
 

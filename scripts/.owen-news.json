@@ -1,6 +1,14 @@
 {
-  "timestamp": 1770881401672,
-  "articles": [],
+  "timestamp": 1770882901687,
+  "articles": [
+    {
+      "title": "OKX Ventures backs STBL in partnership with Hamilton Lane and Securitize",
+      "keyword": "SEC",
+      "source": "coindesk",
+      "publishedAt": "Thu, 12 Feb 2026 07:45:06 +0000",
+      "severity": "medium"
+    }
+  ],
   "highRiskCount": 0,
-  "summary": "No new relevant headlines"
+  "summary": "0 high-risk, 1 total headlines detected"
 }

@@ -2,10 +2,10 @@
   "lastAlerts": {
     "TNSR/USDT": {
       "breakout": 1770880382059,
-      "_lastSeverity": 2,
-      "_lastAlertTime": 1770880382059,
-      "_cleared": true,
-      "alert": 1770879961965,
+      "_lastSeverity": 1,
+      "_lastAlertTime": 1770882842754,
+      "_cleared": false,
+      "alert": 1770882842754,
       "crash": 1770877262289
     },
     "BERA/USDT": {
@@ -56,10 +56,10 @@
     "0G/USDT": {
       "alert": 1770879845706,
       "_lastSeverity": 2,
-      "_lastAlertTime": 1770880082312,
-      "_cleared": true,
+      "_lastAlertTime": 1770882782656,
+      "_cleared": false,
       "breakout": 1770880082312,
-      "crash": 1770865682573
+      "crash": 1770882782656
     }
   }
 }

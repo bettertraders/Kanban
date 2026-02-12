@@ -2872,11 +2872,21 @@ export async function seedTradingBoard(userId: number) {
 export { pool };
 
 // ── Trading Settings (per user, per board) ──────────────────────────────
+let tradingSettingsReady = false;
 export async function ensureTradingSettingsTable() {
-  // Drop and recreate — no important data, and old FK on user_id blocks user_id=0
-  await pool.query(`DROP TABLE IF EXISTS trading_settings`);
+  if (tradingSettingsReady) return;
+  // Check if table has FK on user_id — if so, drop and recreate cleanly
+  const fkCheck = await pool.query(`
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'trading_settings'::regclass
+      AND contype = 'f'
+      AND conkey @> ARRAY[(SELECT attnum FROM pg_attribute WHERE attrelid = 'trading_settings'::regclass AND attname = 'user_id')]
+  `).catch(() => ({ rows: [] }));
+  if (fkCheck.rows.length > 0) {
+    await pool.query(`DROP TABLE trading_settings`);
+  }
   await pool.query(`
-    CREATE TABLE trading_settings (
+    CREATE TABLE IF NOT EXISTS trading_settings (
       id SERIAL PRIMARY KEY,
       user_id INTEGER DEFAULT 0,
       board_id INTEGER REFERENCES boards(id) ON DELETE CASCADE,
@@ -2885,6 +2895,7 @@ export async function ensureTradingSettingsTable() {
       UNIQUE(user_id, board_id)
     )
   `);
+  tradingSettingsReady = true;
 }
 
 export async function getTradingSettings(userId: number, boardId: number) {

@@ -18,6 +18,25 @@ const BOARD_ID = 15; // Paper Trading board (Michael's)
 const BOT_NAME = 'Penny Paper Trader';
 const ENGINE_VERSION = '3.4';
 const isPennyReview = process.argv.includes('--penny-review');
+
+// Human-readable strategy descriptions for UI
+const STRATEGY_DESCRIPTIONS = {
+  oversold_bounce: (sym, ind) => `${sym} oversold bounce — RSI ${ind?.rsi?.toFixed(1) || '?'} near SMA20 support${ind?.volume_ratio > 1.2 ? `, volume ${ind.volume_ratio.toFixed(1)}x average` : ''}. Expecting mean reversion bounce.`,
+  golden_cross: (sym) => `${sym} golden cross — SMA20 crossed above SMA50, signaling bullish trend shift. Momentum building.`,
+  deeply_oversold: (sym, ind) => `${sym} deeply oversold — RSI ${ind?.rsi?.toFixed(1) || '?'} below 20. Extreme fear = opportunity. Positioning for sharp relief rally.`,
+  momentum_catch: (sym, ind) => `${sym} momentum breakout — strong volume surge ${ind?.volume_ratio ? ind.volume_ratio.toFixed(1) + 'x' : ''} with price acceleration. Riding the wave.`,
+  overbought_reject: (sym, ind) => `${sym} overbought rejection — RSI ${ind?.rsi?.toFixed(1) || '?'} above Bollinger upper band. Overextended, shorting for mean reversion.`,
+  death_cross: (sym) => `${sym} death cross — SMA20 crossed below SMA50, bearish trend confirmed. Shorting the breakdown.`,
+  bearish_breakdown: (sym) => `${sym} bearish breakdown — price broke below key support with volume. Riding the drop.`,
+  buy_hold_core: (sym) => `${sym} core position — long-term accumulation at attractive price levels.`,
+  bollinger_bounce: (sym) => `${sym} Bollinger bounce — price touched lower band and reversing. Statistical mean reversion play.`,
+  range_breakout: (sym) => `${sym} range breakout — price breaking out of consolidation range with volume confirmation.`,
+  vwap_reversion: (sym) => `${sym} VWAP reversion — price deviated significantly from VWAP, expecting snap back.`,
+  trend_surfer: (sym, ind) => `${sym} trend surf — ADX ${ind?.adx?.toFixed(1) || '?'} confirms strong trend. Riding with the flow.`,
+  correlation_hedge: (sym) => `${sym} correlation hedge — portfolio protection during adverse market conditions.`,
+  qfl_bounce: (sym) => `${sym} QFL bounce — price hit a base level (quick fingers Luc strategy). Historical support held.`,
+  trend_reversal_flip: (sym) => `${sym} trend reversal flip — indicators show momentum shifting. Flipping direction to catch the reversal.`,
+};
 const STRATEGY_STYLE = 'swing';
 const STRATEGY_SUBSTYLE = 'momentum';
 const MAX_POSITIONS = 5;
@@ -1657,14 +1676,20 @@ async function main() {
             entry_reason: entrySignal.reason,
             direction: dir,
             strategy: entrySignal.reason,
+            description: STRATEGY_DESCRIPTIONS[entrySignal.reason]?.(sym, ind) || `${sym} ${dir} — ${entrySignal.reason}`,
             atr: atrVal,
             slPercent: dynamicSLPct,
             tpPercent: dynamicTPPct,
+            rsiAtEntry: ind.rsi,
+            adxAtEntry: ind.adx,
+            volumeRatioAtEntry: ind.volumeRatio,
             fees: { entryFee: positionSize * 0.001 },
             execution: {
               signalPrice: ind.currentPrice,
               signalTime: new Date().toISOString(),
             },
+            trailingStopStage: 0,
+            trailingStopPrice: null,
           }),
         });
         // Deduct from paper balance

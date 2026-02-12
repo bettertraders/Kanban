@@ -2873,8 +2873,10 @@ export { pool };
 
 // ── Trading Settings (per user, per board) ──────────────────────────────
 export async function ensureTradingSettingsTable() {
+  // Drop and recreate — no important data, and old FK on user_id blocks user_id=0
+  await pool.query(`DROP TABLE IF EXISTS trading_settings`);
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS trading_settings (
+    CREATE TABLE trading_settings (
       id SERIAL PRIMARY KEY,
       user_id INTEGER DEFAULT 0,
       board_id INTEGER REFERENCES boards(id) ON DELETE CASCADE,
@@ -2883,17 +2885,6 @@ export async function ensureTradingSettingsTable() {
       UNIQUE(user_id, board_id)
     )
   `);
-  // Migration: drop ALL FK constraints on user_id (allow anonymous user_id=0)
-  await pool.query(`
-    DO $$ DECLARE r RECORD;
-    BEGIN
-      FOR r IN (SELECT conname FROM pg_constraint WHERE conrelid = 'trading_settings'::regclass AND contype = 'f' AND conkey @> ARRAY[(SELECT attnum FROM pg_attribute WHERE attrelid = 'trading_settings'::regclass AND attname = 'user_id')])
-      LOOP EXECUTE 'ALTER TABLE trading_settings DROP CONSTRAINT ' || r.conname; END LOOP;
-    END $$;
-  `).catch(() => {});
-  // Set default for user_id to 0 and make nullable
-  await pool.query(`ALTER TABLE trading_settings ALTER COLUMN user_id SET DEFAULT 0`).catch(() => {});
-  await pool.query(`ALTER TABLE trading_settings ADD COLUMN IF NOT EXISTS board_id INTEGER REFERENCES boards(id) ON DELETE CASCADE`).catch(() => {});
 }
 
 export async function getTradingSettings(userId: number, boardId: number) {

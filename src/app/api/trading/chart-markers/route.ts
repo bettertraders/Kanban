@@ -6,8 +6,8 @@ import { pool } from '@/lib/database';
 // Returns buy/sell markers from paper trades for chart overlay
 export async function GET(request: NextRequest) {
   try {
-    const user = await getAuthenticatedUser(request);
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Auth optional — trading pages work without login
+    const user = await getAuthenticatedUser(request).catch(() => null);
 
     const symbol = request.nextUrl.searchParams.get('symbol');
     const boardId = request.nextUrl.searchParams.get('boardId');

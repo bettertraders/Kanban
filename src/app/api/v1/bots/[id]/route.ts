@@ -65,6 +65,8 @@ export async function PATCH(
     const updates: Record<string, unknown> = {};
 
     if (body?.name !== undefined) updates.name = body.name;
+    if (body?.strategy_style !== undefined) updates.strategy_style = body.strategy_style;
+    if (body?.strategy_substyle !== undefined) updates.strategy_substyle = body.strategy_substyle;
     if (body?.strategy_config !== undefined) updates.strategy_config = body.strategy_config;
     if (body?.status !== undefined) updates.status = body.status;
     if (body?.auto_trade !== undefined) updates.auto_trade = Boolean(body.auto_trade);

@@ -360,6 +360,35 @@ export default function TradingBoardPage() {
       return [];
     }
   });
+  const [tboEnabled, setTboEnabled] = useState(() => { try { return typeof window !== 'undefined' && JSON.parse(localStorage.getItem('clawdesk-tbo-enabled') || 'false'); } catch { return false; } });
+  const [tboSignal, setTboSignal] = useState<any>(null);
+  const [tboLoading, setTboLoading] = useState(false);
+
+  // Fetch TBO signals when enabled
+  useEffect(() => {
+    if (!tboEnabled || !chartPair) { setTboSignal(null); return; }
+    let cancelled = false;
+    const fetchTbo = async () => {
+      setTboLoading(true);
+      try {
+        const symbol = chartPair.replace(/[/-]/g, '').toUpperCase();
+        const res = await fetch(`/api/trading/tbo-signals?symbol=${symbol}`);
+        if (!cancelled && res.ok) setTboSignal(await res.json());
+      } catch { if (!cancelled) setTboSignal(null); }
+      if (!cancelled) setTboLoading(false);
+    };
+    fetchTbo();
+    const iv = setInterval(fetchTbo, 30000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [tboEnabled, chartPair]);
+
+  // Compute effective indicators (add EMAs when TBO active)
+  const effectiveIndicators = useMemo(() => {
+    if (!tboEnabled) return activeIndicators;
+    const extras = ['EMA20', 'EMA50'];
+    return [...new Set([...activeIndicators, ...extras])];
+  }, [activeIndicators, tboEnabled]);
+
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [tradeStreamConnected, setTradeStreamConnected] = useState(false);
   const [priceStreamConnected, setPriceStreamConnected] = useState(false);

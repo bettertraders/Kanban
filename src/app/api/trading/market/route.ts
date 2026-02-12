@@ -2,12 +2,24 @@ import { NextResponse } from 'next/server';
 
 // In-memory cache
 let cache: { data: any; ts: number } | null = null;
-const CACHE_TTL = 5 * 60_000; // 5 minutes — CoinGecko free tier rate limits aggressively
+const CACHE_TTL = 15 * 60_000; // 15 minutes — CoinGecko free tier rate limits aggressively
 
-async function fetchJSON(url: string) {
-  const res = await fetch(url, { next: { revalidate: 60 } });
-  if (!res.ok) throw new Error(`${url} returned ${res.status}`);
-  return res.json();
+async function fetchJSON(url: string, retries = 2): Promise<any> {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const res = await fetch(url, { next: { revalidate: 120 } });
+      if (res.status === 429) {
+        // Rate limited — wait and retry
+        if (i < retries) { await new Promise(r => setTimeout(r, 3000 * (i + 1))); continue; }
+        throw new Error(`${url} returned 429 (rate limited)`);
+      }
+      if (!res.ok) throw new Error(`${url} returned ${res.status}`);
+      return res.json();
+    } catch (err) {
+      if (i === retries) throw err;
+      await new Promise(r => setTimeout(r, 2000 * (i + 1)));
+    }
+  }
 }
 
 async function fetchMarketData() {
@@ -16,17 +28,27 @@ async function fetchMarketData() {
 
   try {
 
-  const [markets, trending, global, fng, watchlistRaw] = await Promise.all([
+  // Stagger CoinGecko calls to avoid rate limits (free tier: ~10-30/min)
+  const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+  
+  // Batch 1: main markets + non-CoinGecko Fear&Greed (parallel)
+  const [markets, fng] = await Promise.all([
     fetchJSON(
       'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&sparkline=false&price_change_percentage=24h,7d'
     ),
+    fetchJSON('https://api.alternative.me/fng/?limit=1').catch(() => ({ data: [{ value: '50', value_classification: 'Neutral' }] })),
+  ]);
+
+  await delay(1500);
+
+  // Batch 2: trending + global (parallel)
+  const [trending, global] = await Promise.all([
     fetchJSON('https://api.coingecko.com/api/v3/search/trending'),
     fetchJSON('https://api.coingecko.com/api/v3/global'),
-    fetchJSON('https://api.alternative.me/fng/?limit=1').catch(() => ({ data: [{ value: '50', value_classification: 'Neutral' }] })),
-    fetchJSON(
-      'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=5&sparkline=false&price_change_percentage=24h,7d'
-    ).catch(() => []),
   ]);
+
+  // Watchlist is redundant — top 5 by market cap already in `markets`
+  const watchlistRaw = markets.slice(0, 5);
 
   // BTC & ETH
   const btc = markets.find((c: any) => c.id === 'bitcoin');

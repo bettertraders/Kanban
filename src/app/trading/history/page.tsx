@@ -89,14 +89,14 @@ function detectPatterns(closed: Trade[]) {
   const patterns: Pattern[] = [];
   if (closed.length < 2) return patterns;
 
-  const wins = closed.filter(t => t.column_name === 'Wins');
-  const losses = closed.filter(t => t.column_name === 'Losses');
+  const wins = closed.filter(t => n(t.pnl_dollar) > 0);
+  const losses = closed.filter(t => n(t.pnl_dollar) <= 0);
   const sorted = [...closed].sort((a, b) => new Date(a.exited_at || a.created_at).getTime() - new Date(b.exited_at || b.created_at).getTime());
 
   // ── 1. Win/Loss Streak ──
   let streak = 0; let streakType = '';
   for (let i = sorted.length - 1; i >= 0; i--) {
-    const isWin = sorted[i].column_name === 'Wins';
+    const isWin = n(sorted[i].pnl_dollar) > 0;
     if (i === sorted.length - 1) { streakType = isWin ? 'win' : 'loss'; streak = 1; }
     else if ((isWin && streakType === 'win') || (!isWin && streakType === 'loss')) streak++;
     else break;
@@ -112,8 +112,8 @@ function detectPatterns(closed: Trade[]) {
   if (withMacd.length >= 3) {
     const macdBullish = withMacd.filter(t => (t.macd_status || '').toLowerCase().includes('bull') || (t.macd_status || '').toLowerCase().includes('positive') || (t.macd_status || '').toLowerCase().includes('above'));
     const macdOther = withMacd.filter(t => !macdBullish.includes(t));
-    const bullWinRate = macdBullish.length ? (macdBullish.filter(t => t.column_name === 'Wins').length / macdBullish.length) * 100 : 0;
-    const otherWinRate = macdOther.length ? (macdOther.filter(t => t.column_name === 'Wins').length / macdOther.length) * 100 : 0;
+    const bullWinRate = macdBullish.length ? (macdBullish.filter(t => n(t.pnl_dollar) > 0).length / macdBullish.length) * 100 : 0;
+    const otherWinRate = macdOther.length ? (macdOther.filter(t => n(t.pnl_dollar) > 0).length / macdOther.length) * 100 : 0;
     const improvement = bullWinRate - otherWinRate;
     if (macdBullish.length >= 2 && improvement > 10) {
       patterns.push({
@@ -156,8 +156,8 @@ function detectPatterns(closed: Trade[]) {
   if (oversold.length >= 3) {
     const largeCap = oversold.filter(t => LARGE_CAPS.includes(coinBase(t.coin_pair)));
     const smallCap = oversold.filter(t => !LARGE_CAPS.includes(coinBase(t.coin_pair)));
-    const lcWinRate = largeCap.length ? (largeCap.filter(t => t.column_name === 'Wins').length / largeCap.length) * 100 : 0;
-    const scWinRate = smallCap.length ? (smallCap.filter(t => t.column_name === 'Wins').length / smallCap.length) * 100 : 0;
+    const lcWinRate = largeCap.length ? (largeCap.filter(t => n(t.pnl_dollar) > 0).length / largeCap.length) * 100 : 0;
+    const scWinRate = smallCap.length ? (smallCap.filter(t => n(t.pnl_dollar) > 0).length / smallCap.length) * 100 : 0;
     if (largeCap.length >= 2 && smallCap.length >= 1 && lcWinRate - scWinRate > 15) {
       const lcCoins = [...new Set(largeCap.map(t => coinBase(t.coin_pair)))].join('/');
       patterns.push({
@@ -173,8 +173,8 @@ function detectPatterns(closed: Trade[]) {
   const shorts = closed.filter(t => (t.direction || '').toUpperCase() === 'SHORT');
   const longs = closed.filter(t => (t.direction || '').toUpperCase() === 'LONG');
   if (shorts.length >= 1 && longs.length >= 1) {
-    const shortWR = shorts.length ? (shorts.filter(t => t.column_name === 'Wins').length / shorts.length) * 100 : 0;
-    const longWR = longs.length ? (longs.filter(t => t.column_name === 'Wins').length / longs.length) * 100 : 0;
+    const shortWR = shorts.length ? (shorts.filter(t => n(t.pnl_dollar) > 0).length / shorts.length) * 100 : 0;
+    const longWR = longs.length ? (longs.filter(t => n(t.pnl_dollar) > 0).length / longs.length) * 100 : 0;
     if (shortWR > longWR && shortWR >= 60) {
       patterns.push({
         icon: '🩳', tag: 'Insight',
@@ -222,8 +222,8 @@ function detectPatterns(closed: Trade[]) {
   if (withConf.length >= 4) {
     const highConf = withConf.filter(t => (t.confidence_score || 0) >= 70);
     const lowConf = withConf.filter(t => (t.confidence_score || 0) < 70);
-    const highWR = highConf.length ? (highConf.filter(t => t.column_name === 'Wins').length / highConf.length) * 100 : 0;
-    const lowWR = lowConf.length ? (lowConf.filter(t => t.column_name === 'Wins').length / lowConf.length) * 100 : 0;
+    const highWR = highConf.length ? (highConf.filter(t => n(t.pnl_dollar) > 0).length / highConf.length) * 100 : 0;
+    const lowWR = lowConf.length ? (lowConf.filter(t => n(t.pnl_dollar) > 0).length / lowConf.length) * 100 : 0;
     if (highConf.length >= 2 && highWR - lowWR > 15) {
       patterns.push({
         icon: '🎯', tag: 'Actionable',
@@ -241,7 +241,7 @@ function detectPatterns(closed: Trade[]) {
     if (!t.entered_at) continue;
     const h = new Date(t.entered_at).getHours();
     hourTotal.set(h, (hourTotal.get(h) || 0) + 1);
-    if (t.column_name === 'Wins') hourWins.set(h, (hourWins.get(h) || 0) + 1);
+    if (n(t.pnl_dollar) > 0) hourWins.set(h, (hourWins.get(h) || 0) + 1);
   }
   let bestHour = -1, bestWR = 0, bestCount = 0;
   for (const [h, total] of hourTotal) {
@@ -259,8 +259,8 @@ function detectPatterns(closed: Trade[]) {
   if (withVol.length >= 3) {
     const highVol = withVol.filter(t => (t.volume_assessment || '').toLowerCase().includes('high') || (t.volume_assessment || '').toLowerCase().includes('strong'));
     const lowVol = withVol.filter(t => !highVol.includes(t));
-    const hvWR = highVol.length ? (highVol.filter(t => t.column_name === 'Wins').length / highVol.length) * 100 : 0;
-    const lvWR = lowVol.length ? (lowVol.filter(t => t.column_name === 'Wins').length / lowVol.length) * 100 : 0;
+    const hvWR = highVol.length ? (highVol.filter(t => n(t.pnl_dollar) > 0).length / highVol.length) * 100 : 0;
+    const lvWR = lowVol.length ? (lowVol.filter(t => n(t.pnl_dollar) > 0).length / lowVol.length) * 100 : 0;
     if (highVol.length >= 2 && hvWR - lvWR > 10) {
       patterns.push({
         icon: '📊', tag: 'Actionable',
@@ -284,7 +284,7 @@ function getStrategyPerformance(closed: Trade[]) {
     const entry = strategies.get(key) || { trades: 0, wins: 0, pnl: 0, avgConfidence: 0, confidenceCount: 0 };
     entry.trades++;
     entry.pnl += n(t.pnl_dollar);
-    if (t.column_name === 'Wins') entry.wins++;
+    if (n(t.pnl_dollar) > 0) entry.wins++;
     if (t.confidence_score != null) { entry.avgConfidence += t.confidence_score; entry.confidenceCount++; }
     strategies.set(key, entry);
   }
@@ -302,9 +302,9 @@ function getStrategyPerformance(closed: Trade[]) {
 function TradeDetail({ trade }: { trade: Trade }) {
   const pnl = n(trade.pnl_dollar);
   const pnlPct = n(trade.pnl_percent);
-  const isWin = trade.column_name === 'Wins';
+  const isWin = n(trade.pnl_dollar) > 0;
   const isParked = trade.column_name === 'Parked';
-  const isLoss = trade.column_name === 'Losses';
+  const isLoss = n(trade.pnl_dollar) <= 0;
   const entryPrice = n(trade.entry_price);
   const exitPrice = n(trade.exit_price);
   const rsi = n(trade.rsi_value);
@@ -482,7 +482,7 @@ export default function TradeHistoryPage() {
 
   // Closed trades (Wins + Losses + Parked) — no Analyzing, Watchlist, Active
   const closed = useMemo(() =>
-    trades.filter(t => t.column_name === 'Wins' || t.column_name === 'Losses' || t.column_name === 'Parked')
+    trades.filter(t => t.column_name === 'Closed' || t.column_name === 'Wins' || t.column_name === 'Losses' || t.column_name === 'Parked')
       .sort((a, b) => new Date(b.exited_at || b.created_at).getTime() - new Date(a.exited_at || a.created_at).getTime()),
     [trades]
   );
@@ -490,8 +490,8 @@ export default function TradeHistoryPage() {
   const active = useMemo(() => trades.filter(t => t.column_name === 'Active'), [trades]);
 
   // Stats
-  const wins = closed.filter(t => t.column_name === 'Wins');
-  const losses = closed.filter(t => t.column_name === 'Losses');
+  const wins = closed.filter(t => n(t.pnl_dollar) > 0);
+  const losses = closed.filter(t => n(t.pnl_dollar) <= 0);
   const totalPnl = closed.reduce((s, t) => s + n(t.pnl_dollar), 0);
   const winRate = closed.length ? (wins.length / closed.length) * 100 : 0;
   const avgTrade = closed.length ? totalPnl / closed.length : 0;
@@ -609,7 +609,7 @@ export default function TradeHistoryPage() {
               {searchResults.map((trade) => {
                 const pnl = n(trade.pnl_dollar);
                 const pnlPct = n(trade.pnl_percent);
-                const isWin = trade.column_name === 'Wins';
+                const isWin = n(trade.pnl_dollar) > 0;
                 const isParked = trade.column_name === 'Parked';
                 const isExpanded = expandedId === trade.id;
                 const coin = coinBase(trade.coin_pair);

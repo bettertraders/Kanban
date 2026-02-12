@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     if (statusFilter === 'open') {
       trades = trades.filter(t => t.status === 'active' || t.column_name === 'Active');
     } else if (statusFilter === 'closed') {
-      trades = trades.filter(t => t.status === 'closed' || t.column_name === 'Wins' || t.column_name === 'Losses');
+      trades = trades.filter(t => t.status === 'closed' || t.column_name === 'Closed' || t.column_name === 'Wins' || t.column_name === 'Losses');
     }
 
     return NextResponse.json({ trades });

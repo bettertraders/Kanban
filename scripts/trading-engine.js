@@ -1470,7 +1470,7 @@ async function main() {
       log(`  🚪 Exiting ${sym}: ${decision.reason}`);
       try {
         await apiPost('/api/trading/trade/exit', { trade_id: trade.id });
-        const targetCol = decision.win ? 'Wins' : 'Losses';
+        const targetCol = 'Closed';
         await moveCard(trade.id, targetCol);
         await journalLog(trade.id, 'exit', `Exit: ${decision.reason}. Price: ${ind?.currentPrice}`);
 
@@ -1741,6 +1741,7 @@ const COLUMN_STATUS_MAP = {
   'Analyzing': 'analyzing',
   'Active': 'active',
   'Parked': 'parked',
+  'Closed': 'closed',
   'Wins': 'closed',
   'Losses': 'closed',
 };
@@ -1954,7 +1955,7 @@ async function updateBotStats(botId, exits, entries, indicators) {
   try {
     const { trades } = await apiGet(`/api/trading/trades?boardId=${BOARD_ID}&status=closed`);
     const botTrades = trades.filter(t => t.bot_id == botId);
-    const wins = botTrades.filter(t => t.column_name === 'Wins');
+    const wins = botTrades.filter(t => (t.column_name === 'Wins' || t.column_name === 'Closed') && parseFloat(t.pnl_dollar || 0) > 0);
     const totalTrades = botTrades.length;
     const winRate = totalTrades > 0 ? (wins.length / totalTrades) * 100 : 0;
     const totalReturn = botTrades.reduce((sum, t) => sum + parseFloat(t.pnl_percent || 0), 0);

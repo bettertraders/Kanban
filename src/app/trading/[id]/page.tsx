@@ -28,6 +28,7 @@ interface Trade {
   notes?: string | null;
   status?: string | null;
   created_at?: string;
+  updated_at?: string;
   entered_at?: string | null;
   exited_at?: string | null;
   created_by_name?: string;
@@ -140,8 +141,7 @@ const columns = [
   { name: 'Analyzing', color: '#8aa5ff' },
   { name: 'Active', color: '#f5b544' },
   { name: 'Parked', color: '#9ca3af' },
-  { name: 'Wins', color: '#4ade80' },
-  { name: 'Losses', color: '#f05b6f' },
+  { name: 'Closed', color: '#7b7dff' },
 ];
 
 const BOT_STYLE_MAP: Record<string, { icon: string; substyles: Record<string, string> }> = {
@@ -826,7 +826,7 @@ export default function TradingBoardPage() {
     const trade = trades.find(t => t.id === dragTradeId);
     if (!trade || trade.column_name === col) return;
 
-    if (col === 'Wins' || col === 'Losses') {
+    if (col === 'Closed') {
       setExitPrompt({ trade, target: col });
       setDragTradeId(null);
       return;
@@ -928,7 +928,7 @@ export default function TradingBoardPage() {
   const bestWorstTrades = useMemo(() => {
     const closedTrades = trades.filter((trade) => {
       const status = String(trade.status || '').toLowerCase();
-      return trade.column_name === 'Wins' || trade.column_name === 'Losses' || ['closed', 'won', 'lost'].includes(status);
+      return trade.column_name === 'Closed' || trade.column_name === 'Wins' || trade.column_name === 'Losses' || ['closed', 'won', 'lost'].includes(status);
     });
 
     const withPnl = closedTrades.map((trade) => {
@@ -1078,8 +1078,8 @@ export default function TradingBoardPage() {
               {(() => {
                 const analyzing = trades.filter(t => t.column_name === 'Analyzing');
                 const active = trades.filter(t => t.column_name === 'Active');
-                const wins = trades.filter(t => t.column_name === 'Wins');
-                const losses = trades.filter(t => t.column_name === 'Losses');
+                const wins = trades.filter(t => (t.column_name === 'Closed' || t.column_name === 'Wins') && Number(t.pnl_dollar) > 0);
+                const losses = trades.filter(t => (t.column_name === 'Closed' || t.column_name === 'Losses') && Number(t.pnl_dollar) <= 0);
 
                 const quotes = [
                   { text: 'The stock market is a device for transferring money from the impatient to the patient.', author: 'Warren Buffett' },
@@ -1127,7 +1127,7 @@ export default function TradingBoardPage() {
       {/* Board action bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <div style={{ color: 'var(--muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.18em' }}>
-          {board.team_name || 'Personal Board'} · {trades.filter(t => ['Wins','Losses','Parked'].includes(t.column_name)).length} closed trades · {trades.filter(t => t.column_name === 'Active').length} active
+          {board.team_name || 'Personal Board'} · {trades.filter(t => ['Closed','Wins','Losses','Parked'].includes(t.column_name)).length} closed trades · {trades.filter(t => t.column_name === 'Active').length} active
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '999px', background: 'var(--panel-2)', border: '1px solid var(--border)', fontSize: '12px', color: 'var(--muted)' }}>
@@ -1459,9 +1459,15 @@ export default function TradingBoardPage() {
         )}
 
         {/* Main Kanban Columns (excluding Watchlist) */}
-        <div className="trading-columns" style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(5, minmax(200px, 1fr))', gap: '16px', alignItems: 'start', overflowX: 'auto' }}>
+        <div className="trading-columns" style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(4, minmax(200px, 1fr))', gap: '16px', alignItems: 'start', overflowX: 'auto' }}>
         {columns.filter(col => col.name !== 'Watchlist').map((col) => {
-          const colTrades = trades.filter(t => t.column_name === col.name);
+          let colTrades = trades.filter(t => t.column_name === col.name);
+          // Closed column: also include legacy Wins/Losses, show last 10 only
+          if (col.name === 'Closed') {
+            colTrades = trades.filter(t => t.column_name === 'Closed' || t.column_name === 'Wins' || t.column_name === 'Losses')
+              .sort((a, b) => new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime())
+              .slice(0, 10);
+          }
           const totals = columnTotals[col.name] || { count: 0, pnl: 0 };
           const pnlColor = totals.pnl >= 0 ? '#4ade80' : '#f05b6f';
 
@@ -1538,6 +1544,7 @@ export default function TradingBoardPage() {
                           style={{
                             background: 'var(--panel-2)',
                             border: '1px solid var(--border)',
+                            borderLeft: col.name === 'Closed' ? `3px solid ${(toNumber(trade.pnl_dollar) ?? 0) >= 0 ? '#4ade80' : '#f05b6f'}` : undefined,
                             borderRadius: '14px',
                             padding: '8px 10px',
                             cursor: 'pointer',
@@ -1558,6 +1565,9 @@ export default function TradingBoardPage() {
                               >
                                 {pair}
                               </button>
+                              {col.name === 'Closed' && String(trade.notes || '').toLowerCase().includes('parked') && (
+                                <span title="Previously parked" style={{ fontSize: '11px' }}>📦</span>
+                              )}
                               <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '999px', background: sentiment.bg, color: sentiment.color, fontWeight: 600, whiteSpace: 'nowrap' }}>
                                 {sentiment.label}
                               </span>

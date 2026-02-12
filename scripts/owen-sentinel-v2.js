@@ -325,8 +325,8 @@ async function executeExit(trade, result, currentPrice) {
     log(`  ⚠ Exit endpoint failed (${err.message}), using PATCH fallback`);
   }
 
-  // Move to Wins or Losses
-  const targetCol = result.win ? 'Wins' : 'Losses';
+  // Move to Closed
+  const targetCol = 'Closed';
   try {
     await apiPatch('/api/trading/trades', {
       trade_id: trade.id,

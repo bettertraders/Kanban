@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
         const stratId = reason;
         if (!tradeCounts[stratId]) tradeCounts[stratId] = { total: 0, wins: 0, avgHold: 0 };
         tradeCounts[stratId].total++;
-        if (row.column_name === 'Wins') tradeCounts[stratId].wins++;
+        if (row.column_name === 'Wins' || row.column_name === 'Closed') tradeCounts[stratId].wins++;
       }
     } catch {}
 

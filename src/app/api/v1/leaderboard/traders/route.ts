@@ -15,14 +15,14 @@ export async function GET(request: NextRequest) {
         u.name as trader_name,
         b.name as board_name,
         b.id as board_id,
-        COUNT(*) FILTER (WHERE t.column_name IN ('Wins','Losses','Parked')) as total_trades,
-        COUNT(*) FILTER (WHERE t.column_name = 'Wins' OR (t.column_name = 'Parked' AND t.pnl_dollar > 0)) as wins,
-        COUNT(*) FILTER (WHERE t.column_name = 'Losses' OR (t.column_name = 'Parked' AND t.pnl_dollar <= 0)) as losses,
+        COUNT(*) FILTER (WHERE t.column_name IN ('Closed','Wins','Losses','Parked')) as total_trades,
+        COUNT(*) FILTER (WHERE (t.column_name IN ('Closed','Wins') AND COALESCE(t.pnl_dollar, 0) > 0) OR (t.column_name = 'Parked' AND t.pnl_dollar > 0)) as wins,
+        COUNT(*) FILTER (WHERE (t.column_name IN ('Closed','Losses') AND COALESCE(t.pnl_dollar, 0) <= 0) OR (t.column_name = 'Parked' AND t.pnl_dollar <= 0)) as losses,
         COUNT(*) FILTER (WHERE t.column_name = 'Active') as open_trades,
-        COALESCE(SUM(t.pnl_dollar) FILTER (WHERE t.column_name IN ('Wins','Losses','Parked')), 0) as total_pnl,
-        COALESCE(SUM(t.position_size) FILTER (WHERE t.column_name IN ('Wins','Losses','Parked')), 0) as total_volume,
-        MAX(t.pnl_dollar) FILTER (WHERE t.column_name IN ('Wins','Losses','Parked')) as best_trade,
-        MIN(t.pnl_dollar) FILTER (WHERE t.column_name IN ('Wins','Losses','Parked')) as worst_trade,
+        COALESCE(SUM(t.pnl_dollar) FILTER (WHERE t.column_name IN ('Closed','Wins','Losses','Parked')), 0) as total_pnl,
+        COALESCE(SUM(t.position_size) FILTER (WHERE t.column_name IN ('Closed','Wins','Losses','Parked')), 0) as total_volume,
+        MAX(t.pnl_dollar) FILTER (WHERE t.column_name IN ('Closed','Wins','Losses','Parked')) as best_trade,
+        MIN(t.pnl_dollar) FILTER (WHERE t.column_name IN ('Closed','Wins','Losses','Parked')) as worst_trade,
         AVG(EXTRACT(EPOCH FROM (t.exited_at - t.entered_at))) FILTER (WHERE t.exited_at IS NOT NULL AND t.entered_at IS NOT NULL) as avg_hold_seconds,
         MAX(t.exited_at) as last_trade_at
       FROM trades t
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       JOIN boards b ON t.board_id = b.id
       WHERE b.board_type = 'trading'
       GROUP BY t.created_by, u.name, b.name, b.id
-      ORDER BY COALESCE(SUM(t.pnl_dollar) FILTER (WHERE t.column_name IN ('Wins','Losses')), 0) DESC
+      ORDER BY COALESCE(SUM(t.pnl_dollar) FILTER (WHERE t.column_name IN ('Closed','Wins','Losses')), 0) DESC
     `);
 
     const leaderboard = result.rows.map((row, index) => {

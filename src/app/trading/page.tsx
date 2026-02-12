@@ -1418,13 +1418,9 @@ export default function TradingDashboardPage() {
             {/* Donut chart */}
             <div style={{ flexShrink: 0 }}>
               {(() => {
-                const allocationView = pieView === 'allocation' && strategyAllocation;
-                const displayAlloc = allocationView
-                  ? [
-                      { label: 'Investment', pct: strategyAllocation!.investment, color: '#7b7dff' },
-                      { label: 'Active Trading', pct: strategyAllocation!.activeTrading, color: '#ff5252' },
-                      { label: 'Cash', pct: strategyAllocation!.cash, color: '#444' },
-                    ]
+                const isAllocationView = pieView === 'allocation';
+                const displayAlloc = isAllocationView
+                  ? defaultAllocation
                   : (allocations && allocations.length > 0)
                     ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#f5b544', '#a78bfa', '#f05b6f', '#6b6b8a'][i % 6] }))
                     : [{ label: 'Cash', pct: 100, color: '#6b6b8a' }];
@@ -1437,7 +1433,7 @@ export default function TradingDashboardPage() {
                       return el;
                     })}
                     <text x="18" y="15.5" textAnchor="middle" fill={(paperBalance || startingBalance) >= startingBalance ? '#4ade80' : 'var(--text)'} fontSize="4.5" fontWeight="700">{formatCurrency(paperBalance || startingBalance)}</text>
-                    <text x="18" y="19" textAnchor="middle" fill="var(--muted)" fontSize="2">{allocationView ? 'allocation' : 'balance'}</text>
+                    <text x="18" y="19" textAnchor="middle" fill="var(--muted)" fontSize="2">{isAllocationView ? 'target allocation' : 'balance'}</text>
                     <text x="18" y="22" textAnchor="middle" fill={totalPnl >= 0 ? '#4ade80' : '#f05b6f'} fontSize="2" fontWeight="600">{totalPnl >= 0 ? '+' : ''}{formatCurrency(totalPnl)} P&amp;L</text>
                   </svg>
                 );
@@ -1446,15 +1442,11 @@ export default function TradingDashboardPage() {
 
             {/* Legend */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', minWidth: 0, flexShrink: 1 }}>
-              <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '1px' }}>{pieView === 'allocation' ? 'Allocation' : 'Current Holdings'}</div>
+              <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--muted)', fontWeight: 600, marginBottom: '1px' }}>{pieView === 'allocation' ? 'Target Allocation' : 'Current Holdings'}</div>
               {(() => {
-                const allocationView = pieView === 'allocation' && strategyAllocation;
-                const displayAlloc = allocationView
-                  ? [
-                      { label: 'Investment', pct: strategyAllocation!.investment, color: '#7b7dff' },
-                      { label: 'Active Trading', pct: strategyAllocation!.activeTrading, color: '#ff5252' },
-                      { label: 'Cash', pct: strategyAllocation!.cash, color: '#444' },
-                    ]
+                const isAllocationView = pieView === 'allocation';
+                const displayAlloc = isAllocationView
+                  ? defaultAllocation
                   : (allocations && allocations.length > 0)
                     ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#f5b544', '#a78bfa', '#f05b6f', '#6b6b8a'][i % 6] }))
                     : [{ label: 'Cash', pct: 100, color: '#6b6b8a' }];

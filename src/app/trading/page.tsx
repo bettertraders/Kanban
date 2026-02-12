@@ -1345,8 +1345,9 @@ export default function TradingDashboardPage() {
                       offset += seg.pct;
                       return el;
                     })}
-                    <text x="18" y="17" textAnchor="middle" fill={(paperBalance || startingBalance) >= startingBalance ? '#4ade80' : 'var(--text)'} fontSize="4.5" fontWeight="700">{formatCurrency(paperBalance || startingBalance)}</text>
-                    <text x="18" y="21" textAnchor="middle" fill="var(--muted)" fontSize="2.5">{allocationView ? 'allocation' : 'balance'}</text>
+                    <text x="18" y="15.5" textAnchor="middle" fill={(paperBalance || startingBalance) >= startingBalance ? '#4ade80' : 'var(--text)'} fontSize="4.5" fontWeight="700">{formatCurrency(paperBalance || startingBalance)}</text>
+                    <text x="18" y="19" textAnchor="middle" fill="var(--muted)" fontSize="2">{allocationView ? 'allocation' : 'balance'}</text>
+                    <text x="18" y="22" textAnchor="middle" fill={totalPnl >= 0 ? '#4ade80' : '#f05b6f'} fontSize="2" fontWeight="600">{totalPnl >= 0 ? '+' : ''}{formatCurrency(totalPnl)} P&amp;L</text>
                   </svg>
                 );
               })()}

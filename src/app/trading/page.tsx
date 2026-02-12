@@ -37,6 +37,7 @@ type PortfolioStats = {
     win_rate?: number;
     active_positions?: number;
     total_trades?: number;
+    closed_trades?: number;
   };
   byCoin?: Array<{ coin_pair: string; total_pnl: number; total_trades?: number; allocation_pct?: number }>;
   activeHoldings?: Array<{ coin_pair: string; position_size: number; entry_price: number; direction?: string }>;

@@ -2875,16 +2875,7 @@ export { pool };
 let tradingSettingsReady = false;
 export async function ensureTradingSettingsTable() {
   if (tradingSettingsReady) return;
-  // Check if table has FK on user_id — if so, drop and recreate cleanly
-  const fkCheck = await pool.query(`
-    SELECT 1 FROM pg_constraint
-    WHERE conrelid = 'trading_settings'::regclass
-      AND contype = 'f'
-      AND conkey @> ARRAY[(SELECT attnum FROM pg_attribute WHERE attrelid = 'trading_settings'::regclass AND attname = 'user_id')]
-  `).catch(() => ({ rows: [] }));
-  if (fkCheck.rows.length > 0) {
-    await pool.query(`DROP TABLE trading_settings`);
-  }
+  // Create table if not exists (no FK on user_id)
   await pool.query(`
     CREATE TABLE IF NOT EXISTS trading_settings (
       id SERIAL PRIMARY KEY,
@@ -2895,6 +2886,20 @@ export async function ensureTradingSettingsTable() {
       UNIQUE(user_id, board_id)
     )
   `);
+  // Migration: drop any FK constraints on user_id (from old schema)
+  await pool.query(`
+    DO $$ DECLARE r RECORD;
+    BEGIN
+      FOR r IN (
+        SELECT conname FROM pg_constraint
+        WHERE conrelid = 'trading_settings'::regclass
+          AND contype = 'f'
+          AND conkey @> ARRAY[(SELECT attnum FROM pg_attribute WHERE attrelid = 'trading_settings'::regclass AND attname = 'user_id')]
+      ) LOOP
+        EXECUTE 'ALTER TABLE trading_settings DROP CONSTRAINT ' || quote_ident(r.conname);
+      END LOOP;
+    END $$;
+  `).catch((e: unknown) => console.error('FK migration error:', e));
   tradingSettingsReady = true;
 }
 

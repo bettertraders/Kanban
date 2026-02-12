@@ -639,6 +639,7 @@ export default function TradingDashboardPage() {
   const winRate = Number(portfolio?.summary?.win_rate ?? 0);
   const activePositions = Number(portfolio?.summary?.active_positions ?? 0);
   const totalTrades = Number(portfolio?.summary?.total_trades ?? bots.reduce((sum, b) => sum + (b.total_trades ?? b.performance?.total_trades ?? 0), 0));
+  const closedTrades = Number(portfolio?.summary?.closed_trades ?? 0);
 
   const botQuote = useMemo(() => getBotQuote(dailyPnlPct, winRate, activePositions, engineOn, totalTrades), [dailyPnlPct, winRate, activePositions, engineOn, totalTrades]);
 
@@ -1074,7 +1075,7 @@ export default function TradingDashboardPage() {
               {dayProgress ? (dayProgress.total ? `Day ${dayProgress.day} of ${dayProgress.total}` : `Day ${dayProgress.day}`) : `Day 1 of ${timeframe && timeframe !== 'unlimited' ? timeframe : '10'}`}
             </span>
             <div style={{ width: '1px', height: '20px', background: '#2a2a4e' }} />
-            <span style={{ fontSize: '13px', color: '#888' }}>{totalTrades} trades</span>
+            <span style={{ fontSize: '13px', color: '#888' }}>{closedTrades} closed · {activePositions} active</span>
             <div style={{ width: '1px', height: '20px', background: '#2a2a4e' }} />
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600, background: simpleDirectionBadge.bg, color: simpleDirectionBadge.color }}>{simpleDirectionBadge.label}</span>
             <div style={{ width: '1px', height: '20px', background: '#2a2a4e' }} />
@@ -1113,9 +1114,9 @@ export default function TradingDashboardPage() {
           {/* Four-column stats row */}
           <div className="simple-stats-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
             <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
-              <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Trades Made</div>
-              <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>{totalTrades}</div>
-              <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>across {pulse.length > 0 ? Math.min(pulse.length, boardCoinCount) : 0} coins</div>
+              <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Trades</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>{closedTrades} <span style={{ fontSize: '13px', fontWeight: 500, color: '#888' }}>closed</span></div>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: activePositions > 0 ? '#7b7dff' : '#666', marginTop: '2px' }}>{activePositions} active</div>
             </div>
             <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
               <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Best Day</div>
@@ -1412,7 +1413,7 @@ export default function TradingDashboardPage() {
               { label: "Today's P&L", value: `${dailyPnl >= 0 ? '+' : ''}${formatCurrency(dailyPnl)} (${dailyPnlPct >= 0 ? '+' : ''}${dailyPnlPct.toFixed(1)}%)`, color: dailyPnl >= 0 ? '#4ade80' : '#f05b6f' },
               { label: 'Win Rate', value: `${winRate.toFixed(0)}%`, color: winRate >= 50 ? '#4ade80' : winRate > 0 ? '#f05b6f' : undefined },
               { label: 'Active Positions', value: String(activePositions), subtitle: (() => { const h = portfolio?.activeHoldings || []; const longs = h.filter(p => (p.direction || 'long') === 'long').length; const shorts = h.filter(p => p.direction === 'short').length; return longs > 0 || shorts > 0 ? `${longs}L / ${shorts}S` : undefined; })() },
-              { label: 'Total Trades', value: String(totalTrades) },
+              { label: 'Closed', value: String(closedTrades) }, { label: 'Active', value: String(activePositions) },
               {
                 label: 'Progress',
                 value: dayProgress

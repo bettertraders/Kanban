@@ -2720,7 +2720,8 @@ export async function getPortfolioStats(userId: number) {
       starting_balance: startingBalance,
       win_rate: Math.round(winRate * 100) / 100,
       active_positions: Number(summaryRow.active_positions || 0),
-      total_trades: closedTrades,
+      total_trades: Number(summaryRow.total_trades || 0),
+      closed_trades: closedTrades,
       board_count: Number(summaryRow.board_count || 0)
     },
     byCoin,

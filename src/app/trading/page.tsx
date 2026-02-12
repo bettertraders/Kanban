@@ -1120,7 +1120,7 @@ export default function TradingDashboardPage() {
               {(() => {
                 const holdings = portfolio?.activeHoldings ?? [];
                 const totalPositionValue = holdings.reduce((s, h) => s + (h.position_size || 0), 0);
-                const cash = Math.max(0, paperBalance - totalPositionValue);
+                const cash = Math.max(0, displayBalance - totalPositionValue);
                 const total = totalPositionValue + cash;
                 const pieColors = ['#7b7dff', '#00e676', '#f5b544', '#e040fb', '#ff5252', '#4ade80', '#6b6b8a'];
                 const rows = holdings.map((h, i) => {
@@ -1147,7 +1147,7 @@ export default function TradingDashboardPage() {
                             offset += seg.pct;
                             return el;
                           })}
-                          <text x="18" y="16.5" textAnchor="middle" fill={paperBalance >= startingBalance ? '#4ade80' : 'var(--text)'} fontSize="4" fontWeight="700">{formatCurrency(paperBalance)}</text>
+                          <text x="18" y="16.5" textAnchor="middle" fill={displayBalance >= startingBalance ? '#4ade80' : 'var(--text)'} fontSize="4" fontWeight="700">{formatCurrency(displayBalance)}</text>
                           <text x="18" y="19.5" textAnchor="middle" fill="#888" fontSize="2">balance</text>
                           <text x="18" y="22" textAnchor="middle" fill={totalPnl >= 0 ? '#4ade80' : 'var(--text)'} fontSize="2" fontWeight="600">{totalPnl >= 0 ? '+' : ''}{formatCurrency(totalPnl)} P&amp;L</text>
                         </svg>

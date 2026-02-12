@@ -1395,66 +1395,7 @@ export default function TradingDashboardPage() {
           </div>
         </section>
 
-        {/* Compact Strategy Bar */}
-        {strategies.length > 0 && (() => {
-          const activeLongs = strategies.filter(s => s.active && (s.direction === 'long' || s.direction === 'both')).length;
-          const activeShorts = strategies.filter(s => s.active && (s.direction === 'short' || s.direction === 'both')).length;
-          return (
-            <section style={{ marginBottom: '16px' }}>
-              <div style={{ background: 'var(--card, #141428)', borderRadius: 12, padding: '12px 16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '13px', color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Active Strategies</span>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    {activeLongs > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600, background: '#00e67622', color: '#00e676' }}>↑ {activeLongs} Long</span>}
-                    {activeShorts > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600, background: '#ff525222', color: '#ff5252' }}>↓ {activeShorts} Short</span>}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {strategies.map((s) => {
-                    const dirColor = s.type === 'investment' ? { bg: '#7b7dff22', color: '#7b7dff', label: 'INVEST' } : s.direction === 'short' ? { bg: '#ff525222', color: '#ff5252', label: 'SHORT' } : { bg: '#00e67622', color: '#00e676', label: 'LONG' };
-                    return (
-                      <div
-                        key={s.id}
-                        onClick={() => setExpandedStrategy(expandedStrategy === s.id ? null : s.id)}
-                        style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer',
-                          border: expandedStrategy === s.id ? '1px solid #2a2a4e' : '1px solid transparent',
-                          background: s.active ? '#1a1a2e' : '#0d0d1a',
-                          color: s.active ? '#e0e0e0' : '#555',
-                          opacity: s.active ? 1 : 0.5,
-                          transition: 'all 0.2s',
-                        }}
-                      >
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.active ? '#00e676' : '#333', boxShadow: s.active ? '0 0 6px #00e676' : 'none', flexShrink: 0 }} />
-                        <span style={{ fontWeight: 500 }}>{s.name}</span>
-                        <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, fontWeight: 600, background: dirColor.bg, color: dirColor.color }}>{dirColor.label}</span>
-                        {(s.tradeCount ?? 0) > 0 && <span style={{ fontSize: 10, color: '#666' }}>{s.tradeCount}</span>}
-                      </div>
-                    );
-                  })}
-                </div>
-                {/* Expanded detail */}
-                {expandedStrategy && (() => {
-                  const s = strategies.find(st => st.id === expandedStrategy);
-                  if (!s) return null;
-                  return (
-                    <div style={{ background: '#0d0d1a', borderRadius: 8, padding: '12px 16px', marginTop: 8, fontSize: 12, lineHeight: 1.6 }}>
-                      {s.conditions && <div style={{ color: '#aaa', marginBottom: '6px' }}>{s.conditions}</div>}
-                      {s.indicators && s.indicators.length > 0 && (
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                          {s.indicators.map(ind => (
-                            <span key={ind} style={{ background: '#7b7dff22', color: '#7b7dff', padding: '2px 8px', borderRadius: 10, fontSize: 10 }}>{ind}</span>
-                          ))}
-                        </div>
-                      )}
-                      {s.avgHoldTime && <div style={{ color: '#888', fontStyle: 'italic', marginTop: '6px' }}>Avg hold: {s.avgHoldTime}</div>}
-                    </div>
-                  );
-                })()}
-              </div>
-            </section>
-          );
-        })()}
+        {/* Active Strategies section removed — too complex for beginner traders */}
 
         {/* Two-column: Portfolio Mix + Trading Setup */}
         <section className="portfolio-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>

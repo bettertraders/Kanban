@@ -1665,7 +1665,7 @@ async function main() {
     }
   }
   } // end disabled Step 5
-  log(`🎯 Entries: ${entryCount} (disabled — Penny decides)`);
+  log(`🎯 Entries: ${entryCount}`);
   } catch (err) {
     log(`❌ Step 5 failed (entry processing): ${err.message} — continuing`);
   }
@@ -1699,7 +1699,7 @@ async function main() {
   }
   } // end disabled Step 6
   saveState(state);
-  log(`🔍 Moved to Analyzing: ${analyzeCount} (disabled — Penny decides)`);
+  log(`🔍 Moved to Analyzing: ${analyzeCount}`);
   } catch (err) {
     log(`❌ Step 6 failed (watchlist processing): ${err.message} — continuing`);
   }

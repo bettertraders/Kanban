@@ -723,7 +723,7 @@ export default function TradingDashboardPage() {
       { label: 'Top 10',      color: '#f5b544' },
       { label: 'Mid Caps',    color: '#a78bfa' },
       { label: 'Small Caps',  color: '#f05b6f' },
-      { label: 'Stablecoins', color: '#6b6b8a' },
+      { label: 'Stablecoins', color: '#f5b544' },
     ];
     //                          BTC  ETH  T10  Mid  Small Stable
     const conservative = [      45,  30,  15,   0,   0,   10 ];
@@ -1135,7 +1135,7 @@ export default function TradingDashboardPage() {
                   return { name: coin.name, icon: coin.icon, iconBg: coin.iconBg, iconColor: coin.iconColor, value: h.position_size, change, pct, color: pieColors[i % pieColors.length] };
                 });
                 const cashPct = total > 0 ? (cash / total) * 100 : 100;
-                rows.push({ name: 'Cash', icon: '$', iconBg: '#44444422', iconColor: '#888', value: cash, change: 0, pct: cashPct, color: '#444' });
+                rows.push({ name: 'Cash', icon: '$', iconBg: '#f5b54422', iconColor: '#f5b544', value: cash, change: 0, pct: cashPct, color: '#f5b544' });
 
                 // Build pie chart
                 let offset = 25;
@@ -1429,7 +1429,7 @@ export default function TradingDashboardPage() {
                   ? defaultAllocation
                   : (allocations && allocations.length > 0)
                     ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#f5b544', '#a78bfa', '#f05b6f', '#6b6b8a'][i % 6] }))
-                    : [{ label: 'Cash', pct: 100, color: '#6b6b8a' }];
+                    : [{ label: 'Cash', pct: 100, color: '#f5b544' }];
                 let offset = 25;
                 return (
                   <svg viewBox="0 0 36 36" style={{ width: '240px', height: '240px' }}>
@@ -1455,7 +1455,7 @@ export default function TradingDashboardPage() {
                   ? defaultAllocation
                   : (allocations && allocations.length > 0)
                     ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#f5b544', '#a78bfa', '#f05b6f', '#6b6b8a'][i % 6] }))
-                    : [{ label: 'Cash', pct: 100, color: '#6b6b8a' }];
+                    : [{ label: 'Cash', pct: 100, color: '#f5b544' }];
                 return displayAlloc.map((seg) => (
                   <div key={seg.label} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
                     <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: seg.color, flexShrink: 0 }} />

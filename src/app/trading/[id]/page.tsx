@@ -1477,7 +1477,14 @@ export default function TradingBoardPage() {
         {/* Main Kanban Columns (excluding Watchlist) */}
         <div className="trading-columns" style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(4, minmax(200px, 1fr))', gap: '16px', alignItems: 'start', overflowX: 'auto' }}>
         {columns.filter(col => col.name !== 'Watchlist').map((col) => {
-          let colTrades = trades.filter(t => t.column_name === col.name);
+          let colTrades = trades.filter(t => t.column_name === col.name)
+            .sort((a, b) => {
+              const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+              const pa = priorityOrder[a.priority || 'medium'] ?? 1;
+              const pb = priorityOrder[b.priority || 'medium'] ?? 1;
+              if (pa !== pb) return pa - pb;
+              return new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime();
+            });
           // Closed column: also include legacy Wins/Losses, show last 10 only
           if (col.name === 'Closed') {
             colTrades = trades.filter(t => t.column_name === 'Closed' || t.column_name === 'Wins' || t.column_name === 'Losses')

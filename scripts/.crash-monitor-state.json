@@ -55,11 +55,11 @@
     },
     "0G/USDT": {
       "alert": 1770885842575,
-      "_lastSeverity": 1,
-      "_lastAlertTime": 1770885842575,
+      "_lastSeverity": 2,
+      "_lastAlertTime": 1770886682850,
       "_cleared": false,
       "breakout": 1770880082312,
-      "crash": 1770884462650
+      "crash": 1770886682850
     },
     "MOVE/USDT": {
       "alert": 1770886323130,

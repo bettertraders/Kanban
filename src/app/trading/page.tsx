@@ -393,7 +393,7 @@ export default function TradingDashboardPage() {
   // Strategy & allocation state
   const [strategies, setStrategies] = useState<StrategyData[]>([]);
   const [strategyAllocation, setStrategyAllocation] = useState<{ investment: number; activeTrading: number; cash: number } | null>(null);
-  const [pieView, setPieView] = useState<'holdings' | 'allocation'>('holdings');
+  const [pieView, setPieView] = useState<'holdings' | 'allocation'>('allocation');
 
   // Dashboard mode (simple vs advanced)
   const [dashboardMode, setDashboardMode] = useState<'simple' | 'advanced'>('advanced');
@@ -1432,7 +1432,7 @@ export default function TradingDashboardPage() {
                       offset += seg.pct;
                       return el;
                     })}
-                    <text x="18" y="15.5" textAnchor="middle" fill={(paperBalance || startingBalance) >= startingBalance ? '#4ade80' : 'var(--text)'} fontSize="4.5" fontWeight="700">{formatCurrency(paperBalance || startingBalance)}</text>
+                    <text x="18" y="15.5" textAnchor="middle" fill={(paperBalance || startingBalance) >= startingBalance ? '#4ade80' : 'var(--text)'} fontSize="4.5" fontWeight="700">{formatCurrency(isAllocationView ? (tradingAmount || paperBalance || startingBalance) : (paperBalance || startingBalance))}</text>
                     <text x="18" y="19" textAnchor="middle" fill="var(--muted)" fontSize="2">{isAllocationView ? 'target allocation' : 'balance'}</text>
                     <text x="18" y="22" textAnchor="middle" fill={totalPnl >= 0 ? '#4ade80' : '#f05b6f'} fontSize="2" fontWeight="600">{totalPnl >= 0 ? '+' : ''}{formatCurrency(totalPnl)} P&amp;L</text>
                   </svg>

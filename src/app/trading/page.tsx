@@ -389,6 +389,7 @@ export default function TradingDashboardPage() {
   const [timeframeStartDate, setTimeframeStartDate] = useState<string | null>(null);
   const [tboEnabled, setTboEnabled] = useState(true);
   const [engineOn, setEngineOn] = useState(false);
+  const [scanningStatus, setScanningStatus] = useState<string | null>(null);
 
   // Strategy & allocation state
   const [strategies, setStrategies] = useState<StrategyData[]>([]);
@@ -878,7 +879,26 @@ export default function TradingDashboardPage() {
             }),
           });
         }
-        pushToast('Engine started! 🚀', 'success');
+        pushToast('Engine started! 🚀 Scanning for opportunities...', 'success');
+        setScanningStatus('scanning');
+        // Poll for scan results — Owen detects engine start within 60s
+        let scanChecks = 0;
+        const scanPoll = setInterval(async () => {
+          scanChecks++;
+          try {
+            const scanRes = await fetch('/api/trading/scan-status');
+            if (scanRes.ok) {
+              const scanData = await scanRes.json();
+              if (scanData?.message) {
+                setScanningStatus(scanData.message);
+              }
+            }
+          } catch {}
+          if (scanChecks >= 12) { // Stop after 2 minutes
+            clearInterval(scanPoll);
+            setScanningStatus(null);
+          }
+        }, 10_000);
         await loadDashboard();
       } catch {
         pushToast('Failed to start engine', 'error');
@@ -1239,6 +1259,17 @@ export default function TradingDashboardPage() {
           <div style={{ textAlign: 'center', fontSize: '11px', color: '#444', marginTop: '8px' }}>
             Powered by the TBO Trading Engine · A product of The Better Traders
           </div>
+          {scanningStatus && (
+            <div style={{
+              textAlign: 'center', marginTop: '10px', padding: '10px 16px',
+              background: 'rgba(123,125,255,0.08)', border: '1px solid rgba(123,125,255,0.2)',
+              borderRadius: '10px', fontSize: '13px', color: '#7b7dff', fontWeight: 500,
+              animation: 'pulse-glow-dot 2s infinite',
+            }}>
+              <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#7b7dff', marginRight: '8px', animation: 'pulse-glow-dot 1.5s infinite' }} />
+              {scanningStatus === 'scanning' ? '🔍 Scanning watchlist for opportunities...' : scanningStatus}
+            </div>
+          )}
           {!engineOn && (
             <div style={{ textAlign: 'center', marginTop: '16px' }}>
               <button onClick={handleResetChallenge} style={{ background: 'none', border: '1px solid #f05b6f44', color: '#f05b6f', fontSize: '13px', cursor: 'pointer', padding: '8px 20px', borderRadius: '8px' }}>
@@ -1743,6 +1774,16 @@ export default function TradingDashboardPage() {
               {engineOn ? '✨ Bot is Running — Tap to Pause' : (timeframeStartDate ? '▶ Resume Trading' : '▶ Start Trading')}
             </button>
           </div>
+          {scanningStatus && (
+            <div style={{
+              textAlign: 'center', marginTop: '10px', padding: '10px 16px',
+              background: 'rgba(123,125,255,0.08)', border: '1px solid rgba(123,125,255,0.2)',
+              borderRadius: '10px', fontSize: '13px', color: '#7b7dff', fontWeight: 500,
+            }}>
+              <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#7b7dff', marginRight: '8px', animation: 'pulse-glow-dot 1.5s infinite' }} />
+              {scanningStatus === 'scanning' ? '🔍 Scanning watchlist for opportunities...' : scanningStatus}
+            </div>
+          )}
           <div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--muted)' }}>
             {engineOn
               ? boardId

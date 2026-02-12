@@ -41,7 +41,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const result = await pool.query(
-      `UPDATE paper_accounts SET starting_balance = $1, current_balance = $1, updated_at = NOW() WHERE board_id = $2 AND user_id = $3 RETURNING *`,
+      `UPDATE paper_accounts SET starting_balance = $1, current_balance = $1, created_at = NOW(), updated_at = NOW() WHERE board_id = $2 AND user_id = $3 RETURNING *`,
       [balance, boardId, user.id]
     );
 

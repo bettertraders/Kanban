@@ -1192,7 +1192,7 @@ export default function TradingDashboardPage() {
                 color: engineOn ? '#0d0d1a' : 'white',
               }}
             >
-              {engineOn ? '✨ Bot is Running — Tap to Pause' : (timeframeStartDate ? '▶ Resume Trading' : '▶ Start Trading')}
+              {engineOn ? '✨ Bot is Running — Tap to Pause' : (totalTrades > 0 ? '▶ Resume Trading' : '▶ Start Trading')}
             </button>
           </div>
           <div style={{ textAlign: 'center', fontSize: '11px', color: '#444', marginTop: '8px' }}>
@@ -1764,7 +1764,7 @@ export default function TradingDashboardPage() {
                 transition: 'all 0.2s',
               }}
             >
-              {engineOn ? '✨ Bot is Running — Tap to Pause' : (timeframeStartDate ? '▶ Resume Trading' : '▶ Start Trading')}
+              {engineOn ? '✨ Bot is Running — Tap to Pause' : (totalTrades > 0 ? '▶ Resume Trading' : '▶ Start Trading')}
             </button>
           </div>
           <div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--muted)' }}>

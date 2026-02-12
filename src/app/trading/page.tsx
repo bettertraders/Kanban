@@ -659,9 +659,26 @@ export default function TradingDashboardPage() {
 
   const AMOUNT_PRESETS = [100, 500, 1000, 5000];
 
+  const syncPaperBalance = useCallback(async (amount: number) => {
+    // When paused mid-challenge, update paper account balance to match new amount
+    if (!engineOn && timeframeStartDate && boardId) {
+      try {
+        await fetch('/api/trading/account', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ boardId, balance: amount }),
+        });
+        loadDashboard();
+      } catch (err) {
+        console.error('Failed to sync paper balance:', err);
+      }
+    }
+  }, [engineOn, timeframeStartDate, boardId, loadDashboard]);
+
   const handleAmountPreset = (val: number) => {
     setCustomAmountMode(false);
     setTradingAmount(val);
+    syncPaperBalance(val);
     pushToast(`Amount set to ${formatCurrency(val)}`, 'success');
   };
 
@@ -669,6 +686,7 @@ export default function TradingDashboardPage() {
     const parsed = Number(customAmountInput.replace(/[^0-9.]/g, ''));
     if (Number.isFinite(parsed) && parsed > 0) {
       setTradingAmount(parsed);
+      syncPaperBalance(parsed);
       pushToast(`Amount set to ${formatCurrency(parsed)}`, 'success');
     }
   };

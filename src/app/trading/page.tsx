@@ -655,6 +655,8 @@ export default function TradingDashboardPage() {
 
   const setupReady = riskLevel !== null && tradingAmount !== null;
   const allConfigured = setupReady && tboEnabled && engineOn;
+  // When not in active challenge, show tradingAmount as balance (live update on amount change)
+  const displayBalance = (!engineOn && !timeframeStartDate && tradingAmount) ? tradingAmount : paperBalance;
 
   const AMOUNT_PRESETS = [100, 500, 1000, 5000];
 
@@ -1065,7 +1067,7 @@ export default function TradingDashboardPage() {
             {/* Money Card */}
             <div style={{ background: 'linear-gradient(135deg, #1a1a3e 0%, #141428 100%)', borderRadius: '16px', padding: '28px 24px', position: 'relative', overflow: 'hidden' }}>
               <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>Your Balance</div>
-              <div style={{ fontSize: '42px', fontWeight: 800, letterSpacing: '-1px', color: paperBalance >= startingBalance ? '#4ade80' : 'var(--text)' }}>{formatCurrency(paperBalance)}</div>
+              <div style={{ fontSize: '42px', fontWeight: 800, letterSpacing: '-1px', color: (displayBalance) >= startingBalance ? '#4ade80' : 'var(--text)' }}>{formatCurrency(displayBalance)}</div>
               <div style={{ fontSize: '16px', marginTop: '6px', fontWeight: 600, color: dailyPnl >= 0 ? '#00e676' : '#ff5252' }}>
                 {dailyPnl >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(dailyPnl))} today
               </div>

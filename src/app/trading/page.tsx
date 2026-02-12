@@ -1198,11 +1198,13 @@ export default function TradingDashboardPage() {
           <div style={{ textAlign: 'center', fontSize: '11px', color: '#444', marginTop: '8px' }}>
             Powered by the TBO Trading Engine · A product of The Better Traders
           </div>
-          <div style={{ textAlign: 'center', marginTop: '12px' }}>
-            <button onClick={handleResetChallenge} style={{ background: 'none', border: 'none', color: '#f05b6f88', fontSize: '11px', cursor: 'pointer', padding: '4px 8px' }}>
-              🔄 Reset Challenge
-            </button>
-          </div>
+          {!engineOn && (
+            <div style={{ textAlign: 'center', marginTop: '16px' }}>
+              <button onClick={handleResetChallenge} style={{ background: 'none', border: '1px solid #f05b6f44', color: '#f05b6f', fontSize: '13px', cursor: 'pointer', padding: '8px 20px', borderRadius: '8px' }}>
+                🔄 Reset &amp; Start New Challenge
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Simple Mode Override Modal */}
@@ -1774,11 +1776,13 @@ export default function TradingDashboardPage() {
                 ? 'TBO Trading Engine handles everything. You can pause anytime.'
                 : 'Choose a risk level and amount to get started'}
           </div>
-          <div style={{ textAlign: 'center', marginTop: '8px' }}>
-            <button onClick={handleResetChallenge} style={{ background: 'none', border: 'none', color: '#f05b6f88', fontSize: '11px', cursor: 'pointer', padding: '4px 8px' }}>
-              🔄 Reset Challenge
-            </button>
-          </div>
+          {!engineOn && (
+            <div style={{ textAlign: 'center', marginTop: '16px' }}>
+              <button onClick={handleResetChallenge} style={{ background: 'none', border: '1px solid #f05b6f44', color: '#f05b6f', fontSize: '13px', cursor: 'pointer', padding: '8px 20px', borderRadius: '8px' }}>
+                🔄 Reset &amp; Start New Challenge
+              </button>
+            </div>
+          )}
         </section>
 
         {/* Advanced Settings */}

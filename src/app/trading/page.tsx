@@ -675,7 +675,14 @@ export default function TradingDashboardPage() {
     }
   }, [engineOn, timeframeStartDate, boardId, loadDashboard]);
 
+  // When paused mid-challenge, can only increase amount (not decrease)
+  const isMidChallenge = !engineOn && !!timeframeStartDate;
+
   const handleAmountPreset = (val: number) => {
+    if (isMidChallenge && tradingAmount && val < tradingAmount) {
+      pushToast('Can\'t reduce amount mid-challenge. Reset to start lower.', 'error');
+      return;
+    }
     setCustomAmountMode(false);
     setTradingAmount(val);
     syncPaperBalance(val);
@@ -685,6 +692,10 @@ export default function TradingDashboardPage() {
   const handleCustomAmount = () => {
     const parsed = Number(customAmountInput.replace(/[^0-9.]/g, ''));
     if (Number.isFinite(parsed) && parsed > 0) {
+      if (isMidChallenge && tradingAmount && parsed < tradingAmount) {
+        pushToast('Can\'t reduce amount mid-challenge. Reset to start lower.', 'error');
+        return;
+      }
       setTradingAmount(parsed);
       syncPaperBalance(parsed);
       pushToast(`Amount set to ${formatCurrency(parsed)}`, 'success');
@@ -1187,14 +1198,18 @@ export default function TradingDashboardPage() {
           <div className="simple-bottom-bar" style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '12px' }}>
             {!engineOn ? (
               <div style={{ display: 'flex', gap: '8px' }}>
-                {AMOUNT_PRESETS.map(val => (
-                  <button key={val} onClick={() => handleAmountPreset(val)} style={{
-                    padding: '8px 16px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer',
+                {AMOUNT_PRESETS.map(val => {
+                  const frozen = isMidChallenge && tradingAmount != null && val < tradingAmount;
+                  return (
+                  <button key={val} onClick={() => handleAmountPreset(val)} disabled={frozen} style={{
+                    padding: '8px 16px', borderRadius: '10px', fontSize: '14px', fontWeight: 600,
+                    cursor: frozen ? 'not-allowed' : 'pointer', opacity: frozen ? 0.35 : 1,
                     border: `1px solid ${tradingAmount === val ? '#7b7dff' : '#2a2a4e'}`,
                     background: tradingAmount === val ? '#7b7dff22' : '#141428',
                     color: tradingAmount === val ? '#7b7dff' : '#e0e0e0',
                   }}>${val.toLocaleString()}</button>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', background: '#141428', border: '1px solid #2a2a4e' }}>
@@ -1646,13 +1661,15 @@ export default function TradingDashboardPage() {
               <div style={{ display: 'flex', gap: '6px' }}>
                 {AMOUNT_PRESETS.map(val => {
                   const isActive = !customAmountMode && tradingAmount === val;
+                  const frozen = isMidChallenge && tradingAmount != null && val < tradingAmount;
                   return (
-                    <button key={val} onClick={() => handleAmountPreset(val)} style={{
+                    <button key={val} onClick={() => handleAmountPreset(val)} disabled={frozen} style={{
                       flex: 1, padding: '10px 0', borderRadius: '12px', textAlign: 'center',
                       border: `1px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
                       background: isActive ? 'rgba(123,125,255,0.15)' : 'var(--panel-2)',
                       color: isActive ? 'var(--accent)' : 'var(--text)',
-                      fontSize: '14px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
+                      fontSize: '14px', fontWeight: 600, cursor: frozen ? 'not-allowed' : 'pointer',
+                      opacity: frozen ? 0.35 : 1, transition: 'all 0.15s',
                     }}>
                       ${val.toLocaleString()}
                     </button>

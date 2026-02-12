@@ -34,7 +34,8 @@ type CachedEntry = {
 const CACHE_TTL_MS = 60 * 1000;
 const priceCache = new Map<string, CachedEntry>();
 
-const binance = new ccxt.binance({ enableRateLimit: true });
+const binance = new ccxt.binanceus({ enableRateLimit: true });
+const binanceGlobal = new ccxt.binance({ enableRateLimit: true });
 const coinbase = new ccxt.coinbase({ enableRateLimit: true });
 
 function normalizePair(pair: string): string {
@@ -100,11 +101,21 @@ function isTimeoutError(error: unknown): boolean {
 }
 
 async function fetchTickerWithFallback(pair: string): Promise<Ticker> {
+  // Try Binance.US first (works from US servers / Railway)
   try {
     return await binance.fetchTicker(pair);
   } catch (error) {
     if (!isSymbolError(error)) {
-      console.warn('Binance ticker fetch failed, trying Coinbase:', error);
+      console.warn('Binance.US ticker fetch failed, trying Binance global:', error);
+    }
+  }
+
+  // Try Binance global (works from non-US IPs)
+  try {
+    return await binanceGlobal.fetchTicker(pair);
+  } catch (error) {
+    if (!isSymbolError(error)) {
+      console.warn('Binance global ticker fetch failed, trying Coinbase:', error);
     }
   }
 
@@ -120,7 +131,15 @@ async function fetchOhlcvWithFallback(
     return await binance.fetchOHLCV(pair, timeframe, undefined, limit);
   } catch (error) {
     if (!isSymbolError(error)) {
-      console.warn('Binance OHLCV fetch failed, trying Coinbase:', error);
+      console.warn('Binance.US OHLCV fetch failed, trying Binance global:', error);
+    }
+  }
+
+  try {
+    return await binanceGlobal.fetchOHLCV(pair, timeframe, undefined, limit);
+  } catch (error) {
+    if (!isSymbolError(error)) {
+      console.warn('Binance global OHLCV fetch failed, trying Coinbase:', error);
     }
   }
 

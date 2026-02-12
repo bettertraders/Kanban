@@ -1232,6 +1232,24 @@ export default function TradingDashboardPage() {
               {engineOn ? '✨ Bot is Running — Tap to Pause' : (timeframeStartDate ? '▶ Resume Trading' : '▶ Start Trading')}
             </button>
           </div>
+          {/* TBO Toggle */}
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginTop: '12px' }}>
+            <button
+              onClick={() => setTboEnabled(prev => !prev)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '8px',
+                padding: '6px 14px', borderRadius: '999px',
+                background: tboEnabled ? 'rgba(74,222,128,0.08)' : 'rgba(123,125,255,0.08)',
+                border: `1px solid ${tboEnabled ? 'rgba(74,222,128,0.3)' : 'rgba(123,125,255,0.2)'}`,
+                fontSize: '12px', fontWeight: 600, color: tboEnabled ? '#4ade80' : 'var(--muted)',
+                cursor: 'pointer',
+              }}
+            >
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: tboEnabled ? '#4ade80' : 'var(--muted)' }} />
+              TBO PRO {tboEnabled ? 'ON' : 'OFF'}
+              <ToggleSwitch on={tboEnabled} onChange={() => setTboEnabled(prev => !prev)} />
+            </button>
+          </div>
           <div style={{ textAlign: 'center', fontSize: '11px', color: '#444', marginTop: '8px' }}>
             Powered by the TBO Trading Engine · A product of The Better Traders
           </div>

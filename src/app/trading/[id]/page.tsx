@@ -243,6 +243,14 @@ function formatPercent(value: number | null) {
   return `${value.toFixed(2)}%`;
 }
 
+function formatCompactNumber(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '—';
+  if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(1)}B`;
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
+  return `$${value.toFixed(2)}`;
+}
+
 function toNumber(value: unknown): number | null {
   if (value === null || value === undefined) return null;
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
@@ -337,7 +345,7 @@ export default function TradingBoardPage() {
   const [dragTradeId, setDragTradeId] = useState<number | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
-  const [priceMap, setPriceMap] = useState<Record<string, { price: number; volume24h: number; change24h: number }>>({});
+  const [priceMap, setPriceMap] = useState<Record<string, { price: number; volume24h: number; change24h: number; high24h?: number; low24h?: number }>>({});
   const [priceFlashMap, setPriceFlashMap] = useState<Record<string, { direction: 'up' | 'down'; token: number }>>({});
   const [exitPrompt, setExitPrompt] = useState<{ trade: Trade; target: string } | null>(null);
   const [stats, setStats] = useState<TradingStats | null>(null);
@@ -381,7 +389,7 @@ export default function TradingBoardPage() {
   const [paperLoading, setPaperLoading] = useState(false);
   const [watchlistCoins, setWatchlistCoins] = useState<Array<{ id: number; coin_pair: string; tbo_signal?: string | null }>>([]);
 
-  const priceMapRef = useRef<Record<string, { price: number; volume24h: number; change24h: number }>>({});
+  const priceMapRef = useRef<Record<string, { price: number; volume24h: number; change24h: number; high24h?: number; low24h?: number }>>({});
   const tradesRef = useRef<Trade[]>([]);
   const toastIdRef = useRef(1);
   const toastTimersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
@@ -606,7 +614,7 @@ export default function TradingBoardPage() {
         try {
           const payload = JSON.parse(event.data);
           if (payload?.prices) {
-            const nextPrices = payload.prices as Record<string, { price: number; volume24h: number; change24h: number }>;
+            const nextPrices = payload.prices as Record<string, { price: number; volume24h: number; change24h: number; high24h?: number; low24h?: number }>;
             const prevPrices = priceMapRef.current;
             priceMapRef.current = nextPrices;
             setPriceMap(nextPrices);
@@ -1618,28 +1626,58 @@ export default function TradingBoardPage() {
                             </div>
                           </div>
 
-                          {/* Row 2: Price + P&L */}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                            <div
-                              key={priceFlashMap[pair]?.token ?? 0}
-                              style={{
-                                fontSize: '13px', fontWeight: 600,
-                                animation: priceFlashMap[pair]?.direction === 'up' ? 'priceUp 0.6s ease' : priceFlashMap[pair]?.direction === 'down' ? 'priceDown 0.6s ease' : undefined,
-                              }}
-                            >
-                              {formatPrice(livePrice)}
-                            </div>
-                            <div style={{ fontSize: '12px', fontWeight: 700, color: pnlTone }}>
-                              {formatPercent(pnlPercent)}
-                            </div>
-                          </div>
-
-                          {/* SL/TP compact line for Active + Analyzing */}
-                          {(col.name === 'Active' || col.name === 'Analyzing') && (toNumber(trade.stop_loss) || toNumber(trade.take_profit)) && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--muted)', marginBottom: '2px' }}>
-                              {toNumber(trade.stop_loss) ? <span style={{ color: '#f05b6f' }}>SL {formatPrice(toNumber(trade.stop_loss))}</span> : <span />}
-                              {toNumber(trade.take_profit) ? <span style={{ color: '#4ade80' }}>TP {formatPrice(toNumber(trade.take_profit))}</span> : <span />}
-                            </div>
+                          {/* Row 2: Price + context */}
+                          {(trade.column_name === 'Watchlist' || trade.column_name === 'Analyzing') ? (
+                            <>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                <div
+                                  key={priceFlashMap[pair]?.token ?? 0}
+                                  style={{
+                                    fontSize: '13px', fontWeight: 600,
+                                    animation: priceFlashMap[pair]?.direction === 'up' ? 'priceUp 0.6s ease' : priceFlashMap[pair]?.direction === 'down' ? 'priceDown 0.6s ease' : undefined,
+                                  }}
+                                >
+                                  {priceMap[pair] ? formatPrice(livePrice) : <span style={{ color: 'var(--muted)', fontSize: '11px' }}>No price data</span>}
+                                </div>
+                                {priceMap[pair] ? (
+                                  <div style={{ fontSize: '12px', fontWeight: 700, color: (priceMap[pair]?.change24h ?? 0) >= 0 ? '#4ade80' : '#f05b6f' }}>
+                                    {(priceMap[pair]?.change24h ?? 0) >= 0 ? '+' : ''}{(priceMap[pair]?.change24h ?? 0).toFixed(2)}%
+                                  </div>
+                                ) : (
+                                  <div style={{ fontSize: '11px', color: 'var(--muted)' }}>—</div>
+                                )}
+                              </div>
+                              {priceMap[pair] && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--muted)', marginBottom: '2px' }}>
+                                  <span>Vol {formatCompactNumber(priceMap[pair]?.volume24h)}</span>
+                                  <span>H {priceMap[pair]?.high24h ? formatPrice(priceMap[pair].high24h!) : '—'}</span>
+                                  <span>L {priceMap[pair]?.low24h ? formatPrice(priceMap[pair].low24h!) : '—'}</span>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                <div
+                                  key={priceFlashMap[pair]?.token ?? 0}
+                                  style={{
+                                    fontSize: '13px', fontWeight: 600,
+                                    animation: priceFlashMap[pair]?.direction === 'up' ? 'priceUp 0.6s ease' : priceFlashMap[pair]?.direction === 'down' ? 'priceDown 0.6s ease' : undefined,
+                                  }}
+                                >
+                                  {formatPrice(livePrice)}
+                                </div>
+                                <div style={{ fontSize: '12px', fontWeight: 700, color: pnlTone }}>
+                                  {formatPercent(pnlPercent)}
+                                </div>
+                              </div>
+                              {(col.name === 'Active' || col.name === 'Analyzing') && (toNumber(trade.stop_loss) || toNumber(trade.take_profit)) && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--muted)', marginBottom: '2px' }}>
+                                  {toNumber(trade.stop_loss) ? <span style={{ color: '#f05b6f' }}>SL {formatPrice(toNumber(trade.stop_loss))}</span> : <span />}
+                                  {toNumber(trade.take_profit) ? <span style={{ color: '#4ade80' }}>TP {formatPrice(toNumber(trade.take_profit))}</span> : <span />}
+                                </div>
+                              )}
+                            </>
                           )}
 
                           {/* Confidence bar */}
@@ -1685,81 +1723,105 @@ export default function TradingBoardPage() {
                                 </div>
                               )}
 
-                              {/* Price + P&L */}
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
-                                <div>
-                                  <div style={{ fontSize: '11px', color: 'var(--muted)' }}>Current</div>
-                                  <div style={{ fontSize: '15px', fontWeight: 600 }}>{formatPrice(livePrice)}</div>
-                                </div>
-                                <div style={{ textAlign: 'right' }}>
-                                  <div style={{ fontSize: '11px', color: 'var(--muted)' }}>P&L</div>
-                                  <div style={{ fontSize: '14px', fontWeight: 700, color: pnlTone }}>{formatCurrency(pnlDollar)}</div>
-                                  <div style={{ fontSize: '11px', color: pnlTone }}>{formatPercent(pnlPercent)}</div>
-                                </div>
-                              </div>
+                              {/* Expanded content differs for Watchlist/Analyzing vs Active */}
+                              {(trade.column_name === 'Watchlist' || trade.column_name === 'Analyzing') ? (
+                                <>
+                                  {/* Full price details for watchlist/analyzing */}
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px', marginBottom: '10px' }}>
+                                    <div>
+                                      <div style={{ fontSize: '10px', color: 'var(--muted)' }}>24h Volume</div>
+                                      <div style={{ fontSize: '12px' }}>{formatCompactNumber(priceMap[pair]?.volume24h)}</div>
+                                    </div>
+                                    <div>
+                                      <div style={{ fontSize: '10px', color: 'var(--muted)' }}>24h Change</div>
+                                      <div style={{ fontSize: '12px', color: (priceMap[pair]?.change24h ?? 0) >= 0 ? '#4ade80' : '#f05b6f' }}>
+                                        {priceMap[pair] ? `${(priceMap[pair]?.change24h ?? 0) >= 0 ? '+' : ''}${(priceMap[pair]?.change24h ?? 0).toFixed(2)}%` : '—'}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div style={{ fontSize: '10px', color: 'var(--muted)' }}>24h High</div>
+                                      <div style={{ fontSize: '12px' }}>{priceMap[pair]?.high24h ? formatPrice(priceMap[pair].high24h!) : '—'}</div>
+                                    </div>
+                                    <div>
+                                      <div style={{ fontSize: '10px', color: 'var(--muted)' }}>24h Low</div>
+                                      <div style={{ fontSize: '12px' }}>{priceMap[pair]?.low24h ? formatPrice(priceMap[pair].low24h!) : '—'}</div>
+                                    </div>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  {/* Price + P&L */}
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
+                                    <div>
+                                      <div style={{ fontSize: '11px', color: 'var(--muted)' }}>Current</div>
+                                      <div style={{ fontSize: '15px', fontWeight: 600 }}>{formatPrice(livePrice)}</div>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                      <div style={{ fontSize: '11px', color: 'var(--muted)' }}>P&L</div>
+                                      <div style={{ fontSize: '14px', fontWeight: 700, color: pnlTone }}>{formatCurrency(pnlDollar)}</div>
+                                      <div style={{ fontSize: '11px', color: pnlTone }}>{formatPercent(pnlPercent)}</div>
+                                    </div>
+                                  </div>
 
-                              {/* Visual SL — Price — TP Range Bar */}
-                              {slPrice && tpPrice && (col.name === 'Active') && (
-                                <div style={{ marginBottom: '10px' }}>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--muted)', marginBottom: '2px' }}>
-                                    <span style={{ color: isShort ? '#4ade80' : '#f05b6f' }}>{isShort ? 'TP' : 'SL'} {formatPrice(Math.min(slPrice, tpPrice))}</span>
-                                    <span style={{ color: isShort ? '#f05b6f' : '#4ade80' }}>{isShort ? 'SL' : 'TP'} {formatPrice(Math.max(slPrice, tpPrice))}</span>
-                                  </div>
-                                  <div style={{ position: 'relative', height: '8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', overflow: 'visible' }}>
-                                    {/* Red zone (SL side) */}
-                                    <div style={{ position: 'absolute', left: isShort ? `${Math.max(slPrice, tpPrice) === rangeMax ? 100 - ((rangeMax - Math.max(slPrice, tpPrice)) / rangeSpan * 100) : 0}%` : '0%', width: isShort ? undefined : `${entryPos}%`, right: isShort ? '0%' : undefined, height: '100%', borderRadius: '4px 0 0 4px', background: 'rgba(240,91,111,0.2)' }} />
-                                    {/* Green zone (TP side) */}
-                                    <div style={{ position: 'absolute', left: isShort ? '0%' : `${entryPos}%`, right: isShort ? `${100 - entryPos}%` : '0%', height: '100%', borderRadius: '0 4px 4px 0', background: 'rgba(74,222,128,0.2)' }} />
-                                    {/* Entry marker */}
-                                    <div style={{ position: 'absolute', left: `${entryPos}%`, top: '-2px', width: '2px', height: '12px', background: 'var(--muted)', borderRadius: '1px', transform: 'translateX(-1px)' }} title={`Entry: ${formatPrice(entryPrice)}`} />
-                                    {/* Current price marker */}
-                                    <div style={{ position: 'absolute', left: `${pricePos}%`, top: '-3px', width: '6px', height: '14px', background: pnlTone, borderRadius: '3px', transform: 'translateX(-3px)', boxShadow: `0 0 6px ${pnlTone}80`, transition: 'left 0.5s ease' }} title={`Now: ${formatPrice(livePrice)}`} />
-                                    {/* Trailing stop marker */}
-                                    {trailingPos !== null && trailingStage > 0 && (
-                                      <div style={{ position: 'absolute', left: `${trailingPos}%`, top: '-2px', width: '0', height: '0', borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderTop: `6px solid ${stageColors[trailingStage] || '#facc15'}`, transform: 'translateX(-4px)' }} title={`Trailing SL: ${formatPrice(trailingPrice)}`} />
-                                    )}
-                                  </div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', marginTop: '2px' }}>
-                                    <span style={{ color: '#f05b6f' }}>-{slPct?.toFixed(1)}%</span>
-                                    <span style={{ fontSize: '8px', color: 'var(--muted)' }}>▲ entry</span>
-                                    <span style={{ color: '#4ade80' }}>+{tpPct?.toFixed(1)}%</span>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Trailing Stop Status */}
-                              {col.name === 'Active' && (
-                                <div style={{ marginBottom: '8px', padding: '4px 8px', borderRadius: '6px', background: trailingStage > 0 ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.03)', border: `1px solid ${trailingStage > 0 ? stageColors[trailingStage] + '33' : 'transparent'}`, fontSize: '10px' }}>
-                                  <div style={{ color: stageColors[trailingStage] || 'var(--muted)', fontWeight: 600, marginBottom: trailingStage > 0 ? '2px' : '0' }}>
-                                    {stageLabels[trailingStage] || stageLabels[0]}
-                                  </div>
-                                  {trailingStage > 0 && trailingPrice && (
-                                    <div style={{ color: 'var(--muted)' }}>
-                                      Trailing SL @ {formatPrice(trailingPrice)}
+                                  {/* Visual SL — Price — TP Range Bar */}
+                                  {slPrice && tpPrice && (col.name === 'Active') && (
+                                    <div style={{ marginBottom: '10px' }}>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--muted)', marginBottom: '2px' }}>
+                                        <span style={{ color: isShort ? '#4ade80' : '#f05b6f' }}>{isShort ? 'TP' : 'SL'} {formatPrice(Math.min(slPrice, tpPrice))}</span>
+                                        <span style={{ color: isShort ? '#f05b6f' : '#4ade80' }}>{isShort ? 'SL' : 'TP'} {formatPrice(Math.max(slPrice, tpPrice))}</span>
+                                      </div>
+                                      <div style={{ position: 'relative', height: '8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', overflow: 'visible' }}>
+                                        <div style={{ position: 'absolute', left: isShort ? `${Math.max(slPrice, tpPrice) === rangeMax ? 100 - ((rangeMax - Math.max(slPrice, tpPrice)) / rangeSpan * 100) : 0}%` : '0%', width: isShort ? undefined : `${entryPos}%`, right: isShort ? '0%' : undefined, height: '100%', borderRadius: '4px 0 0 4px', background: 'rgba(240,91,111,0.2)' }} />
+                                        <div style={{ position: 'absolute', left: isShort ? '0%' : `${entryPos}%`, right: isShort ? `${100 - entryPos}%` : '0%', height: '100%', borderRadius: '0 4px 4px 0', background: 'rgba(74,222,128,0.2)' }} />
+                                        <div style={{ position: 'absolute', left: `${entryPos}%`, top: '-2px', width: '2px', height: '12px', background: 'var(--muted)', borderRadius: '1px', transform: 'translateX(-1px)' }} title={`Entry: ${formatPrice(entryPrice)}`} />
+                                        <div style={{ position: 'absolute', left: `${pricePos}%`, top: '-3px', width: '6px', height: '14px', background: pnlTone, borderRadius: '3px', transform: 'translateX(-3px)', boxShadow: `0 0 6px ${pnlTone}80`, transition: 'left 0.5s ease' }} title={`Now: ${formatPrice(livePrice)}`} />
+                                        {trailingPos !== null && trailingStage > 0 && (
+                                          <div style={{ position: 'absolute', left: `${trailingPos}%`, top: '-2px', width: '0', height: '0', borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderTop: `6px solid ${stageColors[trailingStage] || '#facc15'}`, transform: 'translateX(-4px)' }} title={`Trailing SL: ${formatPrice(trailingPrice)}`} />
+                                        )}
+                                      </div>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', marginTop: '2px' }}>
+                                        <span style={{ color: '#f05b6f' }}>-{slPct?.toFixed(1)}%</span>
+                                        <span style={{ fontSize: '8px', color: 'var(--muted)' }}>▲ entry</span>
+                                        <span style={{ color: '#4ade80' }}>+{tpPct?.toFixed(1)}%</span>
+                                      </div>
                                     </div>
                                   )}
-                                </div>
-                              )}
 
-                              {/* Grid: Entry, Size, SL, TP */}
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px', marginBottom: '10px' }}>
-                                <div>
-                                  <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Entry</div>
-                                  <div style={{ fontSize: '12px' }}>{formatPrice(entryPrice)}</div>
-                                </div>
-                                <div>
-                                  <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Size</div>
-                                  <div style={{ fontSize: '12px' }}>${toNumber(trade.position_size)?.toFixed(0) ?? '—'}</div>
-                                </div>
-                                <div>
-                                  <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Stop Loss</div>
-                                  <div style={{ fontSize: '12px', color: '#f05b6f' }}>{formatPrice(slPrice)} <span style={{ fontSize: '9px' }}>({slPct?.toFixed(1)}%)</span></div>
-                                </div>
-                                <div>
-                                  <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Take Profit</div>
-                                  <div style={{ fontSize: '12px', color: '#4ade80' }}>{formatPrice(tpPrice)} <span style={{ fontSize: '9px' }}>({tpPct?.toFixed(1)}%)</span></div>
-                                </div>
-                              </div>
+                                  {/* Trailing Stop Status */}
+                                  {col.name === 'Active' && (
+                                    <div style={{ marginBottom: '8px', padding: '4px 8px', borderRadius: '6px', background: trailingStage > 0 ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.03)', border: `1px solid ${trailingStage > 0 ? stageColors[trailingStage] + '33' : 'transparent'}`, fontSize: '10px' }}>
+                                      <div style={{ color: stageColors[trailingStage] || 'var(--muted)', fontWeight: 600, marginBottom: trailingStage > 0 ? '2px' : '0' }}>
+                                        {stageLabels[trailingStage] || stageLabels[0]}
+                                      </div>
+                                      {trailingStage > 0 && trailingPrice && (
+                                        <div style={{ color: 'var(--muted)' }}>
+                                          Trailing SL @ {formatPrice(trailingPrice)}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Grid: Entry, Size, SL, TP */}
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px', marginBottom: '10px' }}>
+                                    <div>
+                                      <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Entry</div>
+                                      <div style={{ fontSize: '12px' }}>{formatPrice(entryPrice)}</div>
+                                    </div>
+                                    <div>
+                                      <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Size</div>
+                                      <div style={{ fontSize: '12px' }}>${toNumber(trade.position_size)?.toFixed(0) ?? '—'}</div>
+                                    </div>
+                                    <div>
+                                      <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Stop Loss</div>
+                                      <div style={{ fontSize: '12px', color: '#f05b6f' }}>{formatPrice(slPrice)} <span style={{ fontSize: '9px' }}>({slPct?.toFixed(1)}%)</span></div>
+                                    </div>
+                                    <div>
+                                      <div style={{ fontSize: '10px', color: 'var(--muted)' }}>Take Profit</div>
+                                      <div style={{ fontSize: '12px', color: '#4ade80' }}>{formatPrice(tpPrice)} <span style={{ fontSize: '9px' }}>({tpPct?.toFixed(1)}%)</span></div>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
 
                               {/* Why — Entry Reason */}
                               {meta.description && (

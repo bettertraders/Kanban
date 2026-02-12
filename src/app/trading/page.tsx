@@ -515,22 +515,21 @@ export default function TradingDashboardPage() {
         const j = await portfolioRes.value.json();
         setPortfolio(j || null);
       }
-      // ALWAYS use account created_at as challenge start date (resets when balance resets)
-      // This overrides localStorage to ensure day counter is correct after reset
+      // Use account created_at as challenge start date — but only if a challenge is active
+      // After reset, localStorage.timeframeStartDate is explicitly null → don't override
       try {
         const acctBoardId = 15;
-        const acctRes = await fetch(`/api/trading/account?boardId=${acctBoardId}`);
-        if (acctRes.ok) {
-          const acctData = await acctRes.json();
-          if (acctData?.account?.created_at) {
-            const acctDate = acctData.account.created_at;
-            setTimeframeStartDate(acctDate);
-            // Also update localStorage so it doesn't override on next load
-            try {
-              const ls = JSON.parse(localStorage.getItem('clawdesk-trading-setup') || '{}');
+        const ls = JSON.parse(localStorage.getItem('clawdesk-trading-setup') || '{}');
+        if (ls.timeframeStartDate !== null && ls.timeframeStartDate !== undefined) {
+          const acctRes = await fetch(`/api/trading/account?boardId=${acctBoardId}`);
+          if (acctRes.ok) {
+            const acctData = await acctRes.json();
+            if (acctData?.account?.created_at) {
+              const acctDate = acctData.account.created_at;
+              setTimeframeStartDate(acctDate);
               ls.timeframeStartDate = acctDate;
               localStorage.setItem('clawdesk-trading-setup', JSON.stringify(ls));
-            } catch {}
+            }
           }
         }
       } catch {}

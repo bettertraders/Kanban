@@ -229,3 +229,8 @@
 [2026-02-12T08:53:21.749Z] [Sentinel] 🚀 Owen Sentinel v2 starting — 10-second execution loop
 [2026-02-12T08:53:21.754Z] [Sentinel]    Board: 15 | Max positions: 5 | TP: 10% | SL: 5%
 [2026-02-12T08:53:22.360Z] [Sentinel] 📊 Cycle #1 | Active: 4 [PAXG(L-0.5%) S(S+5.9%) SOL(L+0.3%) ETH(L+0.0%)] | Analyzing: 54 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T08:54:21.899Z] [Sentinel] Shutting down...
+[2026-02-12T08:54:21.984Z] [Sentinel] 🚀 Owen Sentinel v2 starting — 10-second execution loop
+[2026-02-12T08:54:21.989Z] [Sentinel]    Board: 15 | Max positions: 5 | TP: 10% | SL: 5%
+[2026-02-12T08:54:22.575Z] [Sentinel] 📊 Cycle #1 | Active: 4 [PAXG(L-0.4%) S(S+5.9%) SOL(L+0.4%) ETH(L+0.1%)] | Analyzing: 54 | Exits: 0 | Entries: 0 | Partials: 0
+[2026-02-12T08:55:22.303Z] [Sentinel] 📊 Cycle #7 | Active: 4 [PAXG(L-0.4%) S(S+5.9%) SOL(L+0.4%) ETH(L+0.2%)] | Analyzing: 54 | Exits: 0 | Entries: 0 | Partials: 0

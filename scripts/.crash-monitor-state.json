@@ -4,7 +4,7 @@
       "breakout": 1770880382059,
       "_lastSeverity": 2,
       "_lastAlertTime": 1770885602581,
-      "_cleared": false,
+      "_cleared": true,
       "alert": 1770885122575,
       "crash": 1770885602581
     },

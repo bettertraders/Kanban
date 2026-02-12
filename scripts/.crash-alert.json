@@ -1,14 +1,11 @@
 {
-  "level": "crash",
-  "direction": "down",
-  "timestamp": 1770885602578,
+  "level": "all_clear",
+  "direction": "neutral",
+  "timestamp": 1770886562198,
   "coins": [
     {
-      "symbol": "TNSR/USDT",
-      "change5m": -2.07,
-      "change15m": -6.13,
-      "currentPrice": 0.0567
+      "symbol": "TNSR/USDT"
     }
   ],
-  "message": "TNSR -6.13% in 15m."
+  "message": "All clear: TNSR normalized."
 }

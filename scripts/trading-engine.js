@@ -1512,19 +1512,18 @@ async function main() {
         saveState(exitState);
         exitCount++;
 
-        // Re-queue coins to Analyzing for potential re-entry
-        // Core coins: immediately. Others: sentinel handles after 24h cooldown.
-        if (!decision.flip && CORE_COINS.includes(sym)) {
+        // Re-queue to Analyzing — market conditions determine re-entry, not cooldowns
+        if (!decision.flip) {
           try {
             await apiPost('/api/trading/trades', {
               board_id: BOARD_ID,
               coin_pair: sym,
               column_name: 'Analyzing',
               status: 'analyzing',
-              priority: 'high',
-              notes: `♻️ Core coin re-queued after ${decision.win ? 'win' : 'loss'} (${decision.reason}). Watching for new entry.`,
+              priority: CORE_COINS.includes(sym) ? 'high' : 'medium',
+              notes: `♻️ Re-queued after ${decision.win ? 'win' : 'loss'} (${decision.reason}). Watching for new entry.`,
             });
-            log(`  ♻️ ${sym} re-queued to Analyzing (core coin)`);
+            log(`  ♻️ ${sym} re-queued to Analyzing`);
           } catch (err) {
             log(`  ⚠ Re-queue failed for ${sym}: ${err.message}`);
           }

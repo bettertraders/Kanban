@@ -1343,29 +1343,118 @@ export default function TradingBoardPage() {
                   </button>
                 );
               })}
-              <div
+              <button
+                onClick={() => { const next = !tboEnabled; setTboEnabled(next); localStorage.setItem('clawdesk-tbo-enabled', JSON.stringify(next)); }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '10px',
                   padding: '6px 12px',
                   borderRadius: '999px',
-                  border: '1px solid rgba(148,163,184,0.4)',
-                  background: 'var(--panel-2)',
-                  color: 'var(--muted)',
+                  border: `1px solid ${tboEnabled ? '#7b7dff' : 'var(--border)'}`,
+                  background: tboEnabled ? 'rgba(123,125,255,0.16)' : 'var(--panel-2)',
+                  color: 'var(--text)',
+                  cursor: 'pointer',
                   fontSize: '12px',
                   fontWeight: 600,
-                  opacity: 0.6,
-                  cursor: 'not-allowed',
                 }}
-                title="Connect TBO to enable"
               >
-                <span>TBO Pro</span>
-                <span style={{ fontSize: '10px', color: 'var(--muted)' }}>Connect TBO</span>
-                <span style={{ fontSize: '11px', border: '1px solid rgba(148,163,184,0.35)', borderRadius: '999px', padding: '2px 6px' }}>Soon</span>
-              </div>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: tboSignal?.signal === 'open_long' ? '#4ade80' : tboSignal?.signal === 'open_short' || tboSignal?.signal === 'close_long' ? '#f05b6f' : '#888', boxShadow: tboEnabled ? `0 0 6px ${tboSignal?.signal === 'open_long' ? '#4ade80' : '#888'}` : 'none' }} />
+                <span>TBO PRO</span>
+                <span
+                  style={{
+                    position: 'relative',
+                    width: '34px',
+                    height: '18px',
+                    borderRadius: '999px',
+                    background: tboEnabled ? '#7b7dff' : 'rgba(255,255,255,0.12)',
+                    border: `1px solid ${tboEnabled ? '#7b7dff' : 'var(--border)'}`,
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: '2px',
+                      left: tboEnabled ? '18px' : '2px',
+                      width: '12px',
+                      height: '12px',
+                      borderRadius: '50%',
+                      background: '#0d0d1f',
+                      boxShadow: '0 0 4px rgba(0,0,0,0.5)',
+                      transition: 'all 0.2s ease',
+                    }}
+                  />
+                </span>
+              </button>
             </div>
-            <TradingChart pair={chartPair} boardId={Number(boardId)} indicators={activeIndicators} />
+            <TradingChart pair={chartPair} boardId={Number(boardId)} indicators={effectiveIndicators} />
+
+            {/* TBO PRO Signal Panel */}
+            {tboEnabled && chartPair && (() => {
+              const sig = tboSignal;
+              const symbol = chartPair.replace(/[/-]/g, '').toUpperCase();
+              const pairLabel = chartPair.replace('USDT', '/USDT');
+              const fmt = (v: number | null | undefined) => v != null ? `$${v.toLocaleString()}` : '—';
+              const signalLabel = sig?.signal === 'open_long' ? 'BUY' : sig?.signal === 'open_short' || sig?.signal === 'close_long' ? 'SELL' : 'NEUTRAL';
+              const signalColor = sig?.signal === 'open_long' ? '#4ade80' : sig?.signal === 'open_short' || sig?.signal === 'close_long' ? '#f05b6f' : '#888';
+              const strengthColor = (sig?.strength ?? 0) > 60 ? '#4ade80' : (sig?.strength ?? 0) >= 40 ? '#eab308' : '#f05b6f';
+              const trendArrow = (t: string | undefined) => t === 'bullish' ? <span style={{ color: '#4ade80' }}>▲</span> : <span style={{ color: '#f05b6f' }}>▼</span>;
+
+              if (tboLoading && !sig) return (
+                <div style={{ background: 'rgba(123,125,255,0.08)', border: '1px solid rgba(123,125,255,0.25)', borderRadius: 12, padding: '20px', marginTop: 12, textAlign: 'center', animation: 'pulse 2s infinite' }}>
+                  <span style={{ color: '#7b7dff' }}>Waiting for signal...</span>
+                </div>
+              );
+
+              if (!sig || (sig.strength === 0 && !sig.indicators)) return (
+                <div style={{ background: 'rgba(123,125,255,0.08)', border: '1px solid rgba(123,125,255,0.25)', borderRadius: 12, padding: '16px 20px', marginTop: 12, color: '#888', fontSize: 13 }}>
+                  TBO PRO not available for this pair
+                </div>
+              );
+
+              return (
+                <div style={{ background: 'rgba(123,125,255,0.08)', border: '1px solid rgba(123,125,255,0.25)', borderRadius: 12, padding: '16px 20px', marginTop: 12, animation: 'fadeIn 0.3s ease' }}>
+                  <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } } @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }`}</style>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#7b7dff' }}>TBO PRO</span>
+                    <span style={{ fontSize: 12, color: '#888' }}>·</span>
+                    <span style={{ fontSize: 13, color: 'var(--text)' }}>{pairLabel}</span>
+                    <span style={{ marginLeft: 'auto', padding: '4px 14px', borderRadius: 999, background: signalColor, color: '#000', fontWeight: 700, fontSize: 13 }}>{signalLabel}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                    <span style={{ fontSize: 12, color: '#888' }}>Strength:</span>
+                    <div style={{ flex: 1, maxWidth: 160, height: 8, borderRadius: 4, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                      <div style={{ width: `${sig.strength}%`, height: '100%', borderRadius: 4, background: strengthColor, transition: 'width 0.5s ease' }} />
+                    </div>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: strengthColor }}>{sig.strength}%</span>
+                  </div>
+                  {sig.trend && (
+                    <div style={{ display: 'flex', gap: 16, marginBottom: 10, fontSize: 12 }}>
+                      <span style={{ color: '#888' }}>Trends:</span>
+                      <span>Fast {trendArrow(sig.trend.fast)}</span>
+                      <span>Mid {trendArrow(sig.trend.mid)}</span>
+                      <span>Slow {trendArrow(sig.trend.slow)}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 8, fontSize: 12 }}>
+                    <span><span style={{ color: '#888' }}>TP: </span><span style={{ color: '#4ade80' }}>{fmt(sig.tp)}</span></span>
+                    <span><span style={{ color: '#888' }}>SL: </span><span style={{ color: '#f05b6f' }}>{fmt(sig.sl)}</span></span>
+                    <span><span style={{ color: '#888' }}>Support: </span>{fmt(sig.support)}</span>
+                    <span><span style={{ color: '#888' }}>Resistance: </span>{fmt(sig.resistance)}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12, color: '#888' }}>
+                    <span>⚡ Squeeze: <span style={{ color: sig.squeeze ? '#4ade80' : '#555', fontWeight: 600 }}>{sig.squeeze ? 'Yes' : 'No'}</span></span>
+                    <span>📊 Vol Spike: <span style={{ color: sig.volumeSpike ? '#4ade80' : '#555', fontWeight: 600 }}>{sig.volumeSpike ? 'Yes' : 'No'}</span></span>
+                    {sig.indicators && <>
+                      <span>RSI: <span style={{ color: 'var(--text)' }}>{sig.indicators.rsi14}</span></span>
+                      <span>EMA20: <span style={{ color: 'var(--text)' }}>{fmt(sig.indicators.ema20)}</span></span>
+                      <span>SMA50: <span style={{ color: 'var(--text)' }}>{fmt(sig.indicators.sma50)}</span></span>
+                    </>}
+                  </div>
+                </div>
+              );
+            })()}
           </>
         )}
       </section>

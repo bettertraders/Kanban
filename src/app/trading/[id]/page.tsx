@@ -404,7 +404,7 @@ export default function TradingBoardPage() {
   const [autoTradeSubstyle, setAutoTradeSubstyle] = useState('Momentum');
   const [autoTradeBalance, setAutoTradeBalance] = useState(100);
   const [autoTradeCreating, setAutoTradeCreating] = useState(false);
-  const [queueSidebarOpen, setQueueSidebarOpen] = useState(false);
+  const [queueSidebarOpen, setQueueSidebarOpen] = useState(true);
   const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>({});
   // Start a Trade removed — trades configured from dashboard
   const [alertsOpen, setAlertsOpen] = useState(false);
@@ -1458,54 +1458,9 @@ export default function TradingBoardPage() {
       </section>
 
       <div style={{ display: 'flex', gap: '16px', alignItems: 'start', paddingBottom: '16px' }}>
-        {/* Collapsible Queue Sidebar */}
-        {!queueSidebarOpen ? (
+        {/* Queue Sidebar (always open) */}
+        <div style={{ flex: '0 0 260px', minHeight: '420px' }}>
           <div
-            onClick={() => setQueueSidebarOpen(true)}
-            style={{
-              flexShrink: 0,
-              width: '44px',
-              minHeight: '60vh',
-              background: 'var(--panel)',
-              border: '1px solid var(--border)',
-              borderRadius: '16px',
-              padding: '16px 0',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '10px',
-              transition: 'all 0.3s ease',
-            }}
-          >
-            <span style={{
-              writingMode: 'vertical-rl',
-              textOrientation: 'mixed',
-              fontSize: '12px',
-              fontWeight: 600,
-              letterSpacing: '0.16em',
-              textTransform: 'uppercase',
-              color: 'var(--muted)',
-              transition: 'color 0.3s ease',
-            }}>
-              QUEUE
-            </span>
-            <span style={{
-              background: 'var(--panel-3)',
-              border: '1px solid var(--border)',
-              borderRadius: '999px',
-              padding: '3px 7px',
-              fontSize: '11px',
-              color: 'var(--text)',
-              fontWeight: 600,
-            }}>
-              {trades.filter(t => t.column_name === 'Queued').length}
-            </span>
-          </div>
-        ) : (
-        <div style={{ flex: '0 0 260px', transition: 'flex 0.2s ease', minHeight: '420px' }}>
-          <button
-            onClick={() => setQueueSidebarOpen(false)}
             style={{
               background: 'var(--panel)',
               border: '1px solid var(--border)',
@@ -1515,16 +1470,13 @@ export default function TradingBoardPage() {
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              cursor: 'pointer',
               color: '#8aa5ff',
               fontWeight: 600,
               fontSize: '14px',
             }}
           >
-            <span style={{ transform: 'rotate(90deg)', transition: 'transform 0.2s', display: 'inline-block' }}>▶</span>
             📋 Queue <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '999px', background: 'var(--panel-2)', border: '1px solid var(--border)', color: 'var(--muted)', fontWeight: 400 }}>{trades.filter(t => t.column_name === 'Queued').length}</span>
-          </button>
-          {queueSidebarOpen && (
+          </div>
             <div
               onDragOver={(e) => handleDragOver(e, 'Queued')}
               onDragLeave={handleDragLeave}
@@ -1594,9 +1546,7 @@ export default function TradingBoardPage() {
                 });
               })()}
             </div>
-          )}
         </div>
-        )}
 
         {/* Main Kanban Columns (excluding Queued) */}
         <div className="trading-columns" style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(4, minmax(200px, 1fr))', gap: '16px', alignItems: 'start', overflowX: 'auto' }}>

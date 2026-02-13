@@ -1160,7 +1160,7 @@ export default function TradingDashboardPage() {
                   return { name: label, icon: coin.icon, iconBg: coin.iconBg, iconColor: coin.iconColor, value: h.position_size, change: effectiveChange, rawChange: change, isShort, pct, color: pieColors[i % pieColors.length] };
                 });
                 const cashPct = total > 0 ? (cash / total) * 100 : 100;
-                rows.push({ name: 'Cash', icon: '$', iconBg: '#f5b54422', iconColor: '#f5b544', value: cash, change: 0, rawChange: 0, isShort: false, pct: cashPct, color: '#f5b544' });
+                rows.push({ name: 'Cash', icon: '$', iconBg: '#4ade8022', iconColor: '#4ade80', value: cash, change: 0, rawChange: 0, isShort: false, pct: cashPct, color: '#4ade80' });
 
                 // Build pie chart
                 let offset = 25;
@@ -1189,8 +1189,8 @@ export default function TradingDashboardPage() {
                               <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text)' }}>{row.name}</span>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{ fontSize: '12px', color: row.name === 'Cash' ? '#888' : row.change >= 0 ? '#00e676' : '#ff5252' }}>
-                                {row.name === 'Cash' ? 'safe' : `${row.change >= 0 ? '▲' : '▼'}${Math.abs(row.change).toFixed(1)}%${(row as any).isShort ? '' : ''}`}
+                              <span style={{ fontSize: '12px', color: row.name === 'Cash' ? '#4ade80' : row.change >= 0 ? '#00e676' : '#ff5252' }}>
+                                {row.name === 'Cash' ? '✓ safe' : `${row.change >= 0 ? '▲' : '▼'}${Math.abs(row.change).toFixed(1)}%${(row as any).isShort ? '' : ''}`}
                               </span>
                               <span style={{ fontSize: '12px', color: '#888', minWidth: '32px', textAlign: 'right' }}>{row.pct.toFixed(0)}%</span>
                             </div>

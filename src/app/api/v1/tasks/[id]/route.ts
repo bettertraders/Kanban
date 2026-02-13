@@ -88,6 +88,7 @@ export async function PATCH(
     if (newAssignedTo && newAssignedTo !== oldAssignedTo && newAssignedTo !== user.id) {
       notifyAssignment({
         taskTitle: updates.title as string || task.title,
+        boardId: board.id,
         boardName: board.name,
         assignedByName: user.name || user.email,
       });

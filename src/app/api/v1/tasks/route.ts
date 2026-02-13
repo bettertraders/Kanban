@@ -79,8 +79,9 @@ export async function POST(request: NextRequest) {
     if (assignedTo && assignedTo !== user.id) {
       notifyAssignment({
         taskTitle: title,
+        boardId: board.id,
         boardName: board.name,
-        assignedBy: user.name || user.email,
+        assignedByName: user.name || user.email,
       });
     }
     

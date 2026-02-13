@@ -2698,7 +2698,7 @@ export async function getPortfolioStats(userId: number) {
       SELECT t.coin_pair, COALESCE(t.position_size, 0) as position_size, t.entry_price, t.direction
       FROM trades t
       JOIN accessible_boards ab ON t.board_id = ab.id
-      WHERE t.column_name = 'Active' OR t.status = 'active'
+      WHERE t.column_name = 'Active' AND (t.status IS NULL OR t.status = 'active')
       ORDER BY t.position_size DESC NULLS LAST
     `,
     [userId]

@@ -1,14 +1,11 @@
 {
-  "level": "crash",
-  "direction": "down",
-  "timestamp": 1770893943046,
+  "level": "all_clear",
+  "direction": "neutral",
+  "timestamp": 1771017303285,
   "coins": [
     {
-      "symbol": "MOVE/USDT",
-      "change5m": -1.08,
-      "change15m": -8.97,
-      "currentPrice": 0.0274
+      "symbol": "COMP/USDT"
     }
   ],
-  "message": "MOVE -8.97% in 15m."
+  "message": "All clear: COMP normalized."
 }

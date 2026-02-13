@@ -1,20 +1,20 @@
 {
   "lastAlerts": {
     "TNSR/USDT": {
-      "breakout": 1770880382059,
-      "_lastSeverity": 2,
-      "_lastAlertTime": 1770885602581,
+      "breakout": 1770928322843,
+      "_lastSeverity": 1,
+      "_lastAlertTime": 1770979582912,
       "_cleared": true,
-      "alert": 1770885122575,
-      "crash": 1770885602581
+      "alert": 1770979582912,
+      "crash": 1770934922381
     },
     "BERA/USDT": {
-      "breakout": 1770870542951,
-      "_lastSeverity": 1,
-      "_lastAlertTime": 1770891482842,
+      "breakout": 1770897302366,
+      "_lastSeverity": 2,
+      "_lastAlertTime": 1770901956279,
       "_cleared": true,
-      "alert": 1770891482842,
-      "crash": 1770884282018
+      "alert": 1770901224831,
+      "crash": 1770901956279
     },
     "MANTA/USDT": {
       "alert": 1770848642319,
@@ -32,9 +32,9 @@
       "crash": 1770857702525
     },
     "DYM/USDT": {
-      "alert": 1770857102840,
-      "_lastSeverity": 2,
-      "_lastAlertTime": 1770859561939,
+      "alert": 1770914223293,
+      "_lastSeverity": 1,
+      "_lastAlertTime": 1770914223293,
       "_cleared": true,
       "crash": 1770857702525,
       "breakout": 1770859561939
@@ -46,27 +46,27 @@
       "_cleared": true
     },
     "ME/USDT": {
-      "breakout": 1770891182242,
+      "breakout": 1770927362242,
       "_lastSeverity": 1,
-      "_lastAlertTime": 1770893881861,
-      "_cleared": false,
-      "alert": 1770893881861,
-      "crash": 1770892562523
+      "_lastAlertTime": 1770941602446,
+      "_cleared": true,
+      "alert": 1770941602446,
+      "crash": 1770927783149
     },
     "0G/USDT": {
-      "alert": 1770885842575,
-      "_lastSeverity": 2,
-      "_lastAlertTime": 1770886682850,
+      "alert": 1770928682578,
+      "_lastSeverity": 1,
+      "_lastAlertTime": 1770928682578,
       "_cleared": true,
       "breakout": 1770880082312,
       "crash": 1770886682850
     },
     "MOVE/USDT": {
-      "alert": 1770893282634,
+      "alert": 1770897122024,
       "_lastSeverity": 2,
-      "_lastAlertTime": 1770893943050,
-      "_cleared": false,
-      "crash": 1770893943050,
+      "_lastAlertTime": 1770897302366,
+      "_cleared": true,
+      "crash": 1770897302366,
       "breakout": 1770893103762
     },
     "MAGIC/USDT": {
@@ -82,15 +82,134 @@
       "_cleared": true
     },
     "ASTER/USDT": {
-      "alert": 1770888842904,
+      "alert": 1770897302366,
       "_lastSeverity": 1,
-      "_lastAlertTime": 1770888842904,
+      "_lastAlertTime": 1770897302366,
       "_cleared": true
     },
     "RONIN/USDT": {
       "alert": 1770889082052,
       "_lastSeverity": 1,
       "_lastAlertTime": 1770889082052,
+      "_cleared": true
+    },
+    "ZRO/USDT": {
+      "alert": 1770904108105,
+      "_lastSeverity": 1,
+      "_lastAlertTime": 1770904108105,
+      "_cleared": true,
+      "crash": 1770901956279
+    },
+    "SKL/USDT": {
+      "alert": 1770901956279,
+      "_lastSeverity": 1,
+      "_lastAlertTime": 1770901956279,
+      "_cleared": true
+    },
+    "CITY/USDT": {
+      "alert": 1770935282117,
+      "_lastSeverity": 1,
+      "_lastAlertTime": 1770935282117,
+      "_cleared": true
+    },
+    "ATM/USDT": {
+      "alert": 1770977282711,
+      "_lastSeverity": 1,
+      "_lastAlertTime": 1770977282711,
+      "_cleared": true,
+      "crash": 1770974582192
+    },
+    "SAPIEN/USDT": {
+      "alert": 1770950770729,
+      "_lastSeverity": 1,
+      "_lastAlertTime": 1770950770729,
+      "_cleared": true
+    },
+    "LPT/USDT": {
+      "alert": 1770955982719,
+      "_lastSeverity": 2,
+      "_lastAlertTime": 1770956063705,
+      "_cleared": true,
+      "crash": 1770956063705
+    },
+    "ZKC/USDT": {
+      "alert": 1770978302942,
+      "_lastSeverity": 1,
+      "_lastAlertTime": 1770978302942,
+      "_cleared": true,
+      "breakout": 1770966482553,
+      "crash": 1770965103384
+    },
+    "AUCTION/USDT": {
+      "alert": 1770964322404,
+      "_lastSeverity": 2,
+      "_lastAlertTime": 1770965162516,
+      "_cleared": true,
+      "crash": 1770965162516
+    },
+    "LRC/USDT": {
+      "alert": 1770964382476,
+      "_lastSeverity": 1,
+      "_lastAlertTime": 1770964382476,
+      "_cleared": true
+    },
+    "RAD/USDT": {
+      "alert": 1770964922037,
+      "_lastSeverity": 2,
+      "_lastAlertTime": 1770966182885,
+      "_cleared": true,
+      "crash": 1770966182885
+    },
+    "SOMI/USDT": {
+      "alert": 1770967262410,
+      "_lastSeverity": 1,
+      "_lastAlertTime": 1770967262410,
+      "_cleared": true
+    },
+    "KITE/USDT": {
+      "alert": 1770990723744,
+      "_lastSeverity": 1,
+      "_lastAlertTime": 1770990723744,
+      "_cleared": true
+    },
+    "OM/USDT": {
+      "alert": 1770994443214,
+      "_lastSeverity": 2,
+      "_lastAlertTime": 1770995882509,
+      "_cleared": true,
+      "crash": 1770994922987,
+      "breakout": 1770995882509
+    },
+    "BANK/USDT": {
+      "alert": 1770990723744,
+      "_lastSeverity": 1,
+      "_lastAlertTime": 1770990723744,
+      "_cleared": true
+    },
+    "LAYER/USDT": {
+      "crash": 1770988023368,
+      "_lastSeverity": 2,
+      "_lastAlertTime": 1770988023368,
+      "_cleared": true
+    },
+    "COMP/USDT": {
+      "alert": 1771015803206,
+      "_lastSeverity": 1,
+      "_lastAlertTime": 1771015803206,
+      "_cleared": true,
+      "breakout": 1771014663847
+    },
+    "ZEC/USDT": {
+      "alert": 1771006922309,
+      "_lastSeverity": 2,
+      "_lastAlertTime": 1771006981987,
+      "_cleared": true,
+      "breakout": 1771006981987
+    },
+    "EUL/USDT": {
+      "alert": 1771010583043,
+      "_lastSeverity": 1,
+      "_lastAlertTime": 1771010583043,
       "_cleared": true
     }
   }

@@ -1,46 +1,46 @@
 {
-  "timestamp": 1770894000913,
+  "timestamp": 1771020921685,
   "alerts": [
     {
       "type": "news_keyword",
-      "message": "[CoinDesk] \"Solana leans into tokenization and payments at Hong Kong’s Accelerate APAC event\" (keyword: RATE)"
+      "message": "[CoinDesk] \"Trump-linked Truth Social seeks SEC approval for two crypto ETFs\" (keyword: SEC)"
     },
     {
       "type": "news_keyword",
-      "message": "[CoinTelegraph] \"Bankers push OCC to slow crypto trust charters until GENIUS rules clarified\" (keyword: BAN)"
+      "message": "[CoinTelegraph] \"White House crypto adviser says banks shouldn't fear stablecoin yield\" (keyword: BAN)"
     }
   ],
   "fearGreed": {
-    "value": 5,
+    "value": 9,
     "label": "Extreme Fear",
-    "change24h": -6
+    "change24h": 4
   },
   "btcDominance": {
-    "current": 56.64,
+    "current": 56.63,
     "trend": "stable"
   },
   "totalMarketCap": {
-    "usd": 2396445653888,
-    "change24h": 2.19
+    "usd": 2431859787335,
+    "change24h": 3.66
   },
   "gold": {
-    "paxgPrice": 5072.43,
-    "change1h": -0.24,
-    "change4h": 0.1,
-    "btcCorrelation": "neutral"
+    "paxgPrice": 5044.74,
+    "change1h": 0.15,
+    "change4h": 0.24,
+    "btcCorrelation": "correlated"
   },
   "newsFlags": [
     {
       "source": "CoinDesk",
-      "title": "Solana leans into tokenization and payments at Hong Kong’s Accelerate APAC event",
-      "keyword": "RATE",
-      "url": "https://www.coindesk.com/tech/2026/02/12/solana-leans-into-tokenization-and-payments-at-hong-kong-s-accelerate-apac-event"
+      "title": "Trump-linked Truth Social seeks SEC approval for two crypto ETFs",
+      "keyword": "SEC",
+      "url": "https://www.coindesk.com/markets/2026/02/13/trump-linked-truth-social-seeks-sec-approval-for-two-crypto-etfs"
     },
     {
       "source": "CoinTelegraph",
-      "title": "Bankers push OCC to slow crypto trust charters until GENIUS rules clarified",
+      "title": "White House crypto adviser says banks shouldn't fear stablecoin yield",
       "keyword": "BAN",
-      "url": "https://cointelegraph.com/news/bankers-push-occ-slow-crypto-trust-bank-charters?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound"
+      "url": "https://cointelegraph.com/news/white-house-banks-shouldnt-fear-stablecoin-yield?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound"
     }
   ]
 }

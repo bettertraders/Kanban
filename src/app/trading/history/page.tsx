@@ -480,9 +480,9 @@ export default function TradeHistoryPage() {
     void load();
   }, []);
 
-  // Closed trades (Wins + Losses + Parked) — no Analyzing, Watchlist, Active
+  // Closed trades (Closed + Parked) — no Queued, Active
   const closed = useMemo(() =>
-    trades.filter(t => t.column_name === 'Closed' || t.column_name === 'Wins' || t.column_name === 'Losses' || t.column_name === 'Parked')
+    trades.filter(t => t.column_name === 'Closed' || t.column_name === 'Parked')
       .sort((a, b) => new Date(b.exited_at || b.created_at).getTime() - new Date(a.exited_at || a.created_at).getTime()),
     [trades]
   );

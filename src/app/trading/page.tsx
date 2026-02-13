@@ -768,7 +768,7 @@ export default function TradingDashboardPage() {
   }, [riskValue]);
 
   const activeBots = bots.filter(b => b.status === 'running');
-  // Count coins on the trading board (Analyzing + Active columns)
+  // Count coins on the trading board (Queued + Active columns)
   const boardCoinCount = activeBots.length > 0 ? activeBots.length : pulse.length > 5 ? 5 : pulse.length;
   const engineStatusText = engineOn
     ? `Active — watching ${boardCoinCount} coins, ${activePositions} active trades`

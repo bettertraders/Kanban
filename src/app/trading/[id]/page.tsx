@@ -139,8 +139,7 @@ interface TeamMember {
 }
 
 const columns = [
-  { name: 'Watchlist', color: '#6f7db8' },
-  { name: 'Analyzing', color: '#8aa5ff' },
+  { name: 'Queued', color: '#8aa5ff' },
   { name: 'Active', color: '#4ade80' },
   { name: 'Parked', color: '#9ca3af' },
   { name: 'Closed', color: '#7b7dff' },
@@ -405,7 +404,7 @@ export default function TradingBoardPage() {
   const [autoTradeSubstyle, setAutoTradeSubstyle] = useState('Momentum');
   const [autoTradeBalance, setAutoTradeBalance] = useState(100);
   const [autoTradeCreating, setAutoTradeCreating] = useState(false);
-  const [watchlistSidebarOpen, setWatchlistSidebarOpen] = useState(false);
+  const [queueSidebarOpen, setQueueSidebarOpen] = useState(false);
   const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>({});
   // Start a Trade removed — trades configured from dashboard
   const [alertsOpen, setAlertsOpen] = useState(false);
@@ -416,7 +415,7 @@ export default function TradingBoardPage() {
   const [showBoardSettings, setShowBoardSettings] = useState(false);
   const [paperAccount, setPaperAccount] = useState<{ starting_balance: number; current_balance: number } | null>(null);
   const [paperLoading, setPaperLoading] = useState(false);
-  const [watchlistCoins, setWatchlistCoins] = useState<Array<{ id: number; coin_pair: string; tbo_signal?: string | null }>>([]);
+  const [queuedCoins, setQueuedCoins] = useState<Array<{ id: number; coin_pair: string; tbo_signal?: string | null }>>([]);
 
   const priceMapRef = useRef<Record<string, { price: number; volume24h: number; change24h: number; high24h?: number; low24h?: number }>>({});
   const tradesRef = useRef<Trade[]>([]);
@@ -529,8 +528,8 @@ export default function TradingBoardPage() {
   }, []);
 
   useEffect(() => {
-    const wl = trades.filter(t => t.column_name === 'Watchlist');
-    setWatchlistCoins(wl.map(t => ({ id: t.id, coin_pair: t.coin_pair, tbo_signal: t.tbo_signal })));
+    const wl = trades.filter(t => t.column_name === 'Queued');
+    setQueuedCoins(wl.map(t => ({ id: t.id, coin_pair: t.coin_pair, tbo_signal: t.tbo_signal })));
   }, [trades]);
 
   useEffect(() => {
@@ -725,7 +724,7 @@ export default function TradingBoardPage() {
               } else {
                 const botName = getBotDisplayName(trade.created_by_name);
                 if (botName) {
-                  pushToast(`🤖 ${botName} added ${normalizePair(trade.coin_pair)} to ${trade.column_name || 'Watchlist'}`, 'success');
+                  pushToast(`🤖 ${botName} added ${normalizePair(trade.coin_pair)} to ${trade.column_name || 'Queued'}`, 'success');
                   botUpdate = true;
                 } else {
                   pushToast(`New trade: ${normalizePair(trade.coin_pair)}`, 'success');
@@ -981,7 +980,7 @@ export default function TradingBoardPage() {
   const bestWorstTrades = useMemo(() => {
     const closedTrades = trades.filter((trade) => {
       const status = String(trade.status || '').toLowerCase();
-      return trade.column_name === 'Closed' || trade.column_name === 'Wins' || trade.column_name === 'Losses' || ['closed', 'won', 'lost'].includes(status);
+      return trade.column_name === 'Closed' || ['closed', 'won', 'lost'].includes(status);
     });
 
     const withPnl = closedTrades.map((trade) => {
@@ -1129,10 +1128,10 @@ export default function TradingBoardPage() {
             </div>
             <div style={{ fontSize: '17px', lineHeight: 1.6, color: 'var(--text)', fontWeight: 500 }}>
               {(() => {
-                const analyzing = trades.filter(t => t.column_name === 'Analyzing');
+                const queued = trades.filter(t => t.column_name === 'Queued');
                 const active = trades.filter(t => t.column_name === 'Active');
-                const wins = trades.filter(t => (t.column_name === 'Closed' || t.column_name === 'Wins') && Number(t.pnl_dollar) > 0);
-                const losses = trades.filter(t => (t.column_name === 'Closed' || t.column_name === 'Losses') && Number(t.pnl_dollar) <= 0);
+                const wins = trades.filter(t => t.column_name === 'Closed' && Number(t.pnl_dollar) > 0);
+                const losses = trades.filter(t => t.column_name === 'Closed' && Number(t.pnl_dollar) <= 0);
 
                 const quotes = [
                   { text: 'The stock market is a device for transferring money from the impatient to the patient.', author: 'Warren Buffett' },
@@ -1150,9 +1149,9 @@ export default function TradingBoardPage() {
                 if (active.length > 0) {
                   const pairs = active.map(t => normalizePair(t.coin_pair).split('/')[0]).join(', ');
                   update = `Currently in ${active.length} active trade${active.length > 1 ? 's' : ''}: ${pairs}. Watching exit signals closely — RSI overbought or hitting our take profit targets. `;
-                } else if (analyzing.length > 0) {
-                  const pairs = analyzing.map(t => normalizePair(t.coin_pair).split('/')[0]).join(', ');
-                  update = `Watching ${analyzing.length} coin${analyzing.length > 1 ? 's' : ''} in the Analyzing zone: ${pairs}. Waiting for RSI to dip below 35 with volume confirmation before entering. No rush — the setup needs to come to us. `;
+                } else if (queued.length > 0) {
+                  const pairs = queued.map(t => normalizePair(t.coin_pair).split('/')[0]).join(', ');
+                  update = `Watching ${queued.length} coin${queued.length > 1 ? 's' : ''} in the queue: ${pairs}. Waiting for RSI to dip below 35 with volume confirmation before entering. No rush — the setup needs to come to us. `;
                 } else {
                   update = 'All quiet on the trading front. Scanning the market for setups but nothing meets our entry criteria yet. ';
                 }
@@ -1180,7 +1179,7 @@ export default function TradingBoardPage() {
       {/* Board action bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <div style={{ color: 'var(--muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.18em' }}>
-          {board.team_name || 'Personal Board'} · {trades.filter(t => ['Closed','Wins','Losses','Parked'].includes(t.column_name)).length} closed trades · {trades.filter(t => t.column_name === 'Active').length} active
+          {board.team_name || 'Personal Board'} · {trades.filter(t => ['Closed','Parked'].includes(t.column_name)).length} closed trades · {trades.filter(t => t.column_name === 'Active').length} active
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '999px', background: 'var(--panel-2)', border: '1px solid var(--border)', fontSize: '12px', color: 'var(--muted)' }}>
@@ -1248,7 +1247,7 @@ export default function TradingBoardPage() {
             onClick={() => setNewTradeOpen(true)}
             style={{ ...primaryBtnStyle, padding: '8px 14px', fontSize: '12px' }}
           >
-            + Add to Watchlist
+            + Add to Queue
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', borderRadius: '999px', background: 'var(--panel-2)', border: '1px solid var(--border)', fontSize: '12px', color: 'var(--muted)' }}>
             Live prices via SSE · Press ? for shortcuts
@@ -1459,10 +1458,10 @@ export default function TradingBoardPage() {
       </section>
 
       <div style={{ display: 'flex', gap: '16px', alignItems: 'start', paddingBottom: '16px' }}>
-        {/* Collapsible Watchlist Sidebar */}
-        {!watchlistSidebarOpen ? (
+        {/* Collapsible Queue Sidebar */}
+        {!queueSidebarOpen ? (
           <div
-            onClick={() => setWatchlistSidebarOpen(true)}
+            onClick={() => setQueueSidebarOpen(true)}
             style={{
               flexShrink: 0,
               width: '44px',
@@ -1489,7 +1488,7 @@ export default function TradingBoardPage() {
               color: 'var(--muted)',
               transition: 'color 0.3s ease',
             }}>
-              WATCHLIST
+              QUEUE
             </span>
             <span style={{
               background: 'var(--panel-3)',
@@ -1500,13 +1499,13 @@ export default function TradingBoardPage() {
               color: 'var(--text)',
               fontWeight: 600,
             }}>
-              {trades.filter(t => t.column_name === 'Watchlist').length}
+              {trades.filter(t => t.column_name === 'Queued').length}
             </span>
           </div>
         ) : (
         <div style={{ flex: '0 0 260px', transition: 'flex 0.2s ease', minHeight: '420px' }}>
           <button
-            onClick={() => setWatchlistSidebarOpen(false)}
+            onClick={() => setQueueSidebarOpen(false)}
             style={{
               background: 'var(--panel)',
               border: '1px solid var(--border)',
@@ -1517,19 +1516,19 @@ export default function TradingBoardPage() {
               alignItems: 'center',
               gap: '8px',
               cursor: 'pointer',
-              color: '#6f7db8',
+              color: '#8aa5ff',
               fontWeight: 600,
               fontSize: '14px',
             }}
           >
             <span style={{ transform: 'rotate(90deg)', transition: 'transform 0.2s', display: 'inline-block' }}>▶</span>
-            ⭐ Watchlist <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '999px', background: 'var(--panel-2)', border: '1px solid var(--border)', color: 'var(--muted)', fontWeight: 400 }}>{trades.filter(t => t.column_name === 'Watchlist').length}</span>
+            📋 Queue <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '999px', background: 'var(--panel-2)', border: '1px solid var(--border)', color: 'var(--muted)', fontWeight: 400 }}>{trades.filter(t => t.column_name === 'Queued').length}</span>
           </button>
-          {watchlistSidebarOpen && (
+          {queueSidebarOpen && (
             <div
-              onDragOver={(e) => handleDragOver(e, 'Watchlist')}
+              onDragOver={(e) => handleDragOver(e, 'Queued')}
               onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, 'Watchlist')}
+              onDrop={(e) => handleDrop(e, 'Queued')}
               style={{
                 background: 'var(--panel)',
                 border: '1px solid var(--border)',
@@ -1542,10 +1541,10 @@ export default function TradingBoardPage() {
               }}
             >
               {(() => {
-                const colTrades = trades.filter(t => t.column_name === 'Watchlist');
+                const colTrades = trades.filter(t => t.column_name === 'Queued');
                 return colTrades.length === 0 ? (
                   <div style={{ fontSize: '12px', color: 'var(--muted)', padding: '6px 4px', textAlign: 'center' }}>
-                    No coins on watchlist yet. Click &apos;Add to Watchlist&apos; to add one.
+                    No coins in queue yet. Click &apos;Add to Queue&apos; to add one.
                   </div>
                 ) : colTrades.map((trade) => {
                   const pair = normalizePair(trade.coin_pair);
@@ -1599,9 +1598,9 @@ export default function TradingBoardPage() {
         </div>
         )}
 
-        {/* Main Kanban Columns (excluding Watchlist) */}
+        {/* Main Kanban Columns (excluding Queued) */}
         <div className="trading-columns" style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(4, minmax(200px, 1fr))', gap: '16px', alignItems: 'start', overflowX: 'auto' }}>
-        {columns.filter(col => col.name !== 'Watchlist').map((col) => {
+        {columns.filter(col => col.name !== 'Queued').map((col) => {
           let colTrades = trades.filter(t => t.column_name === col.name)
             .sort((a, b) => {
               const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
@@ -1610,9 +1609,9 @@ export default function TradingBoardPage() {
               if (pa !== pb) return pa - pb;
               return new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime();
             });
-          // Closed column: also include legacy Wins/Losses, show last 10 only
+          // Closed column: show last 10 only
           if (col.name === 'Closed') {
-            colTrades = trades.filter(t => t.column_name === 'Closed' || t.column_name === 'Wins' || t.column_name === 'Losses')
+            colTrades = trades.filter(t => t.column_name === 'Closed')
               .sort((a, b) => {
                 // High priority (core coins) always first
                 const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
@@ -1744,7 +1743,7 @@ export default function TradingBoardPage() {
                           </div>
 
                           {/* Row 2: Price + context */}
-                          {(trade.column_name === 'Watchlist' || trade.column_name === 'Analyzing') ? (
+                          {(trade.column_name === 'Queued') ? (
                             <>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                                 <div
@@ -1788,7 +1787,7 @@ export default function TradingBoardPage() {
                                   {formatPercent(pnlPercent)}
                                 </div>
                               </div>
-                              {(col.name === 'Active' || col.name === 'Analyzing') && (toNumber(trade.stop_loss) || toNumber(trade.take_profit)) && (
+                              {(col.name === 'Active') && (toNumber(trade.stop_loss) || toNumber(trade.take_profit)) && (
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--muted)', marginBottom: '2px' }}>
                                   {toNumber(trade.stop_loss) ? <span style={{ color: '#f05b6f' }}>SL {formatPrice(toNumber(trade.stop_loss))}</span> : <span />}
                                   {toNumber(trade.take_profit) ? <span style={{ color: '#4ade80' }}>TP {formatPrice(toNumber(trade.take_profit))}</span> : <span />}
@@ -1840,8 +1839,8 @@ export default function TradingBoardPage() {
                                 </div>
                               )}
 
-                              {/* Expanded content differs for Watchlist/Analyzing vs Active */}
-                              {(trade.column_name === 'Watchlist' || trade.column_name === 'Analyzing') ? (
+                              {/* Expanded content differs for Queued vs Active */}
+                              {(trade.column_name === 'Queued') ? (
                                 <>
                                   {/* Full price details for watchlist/analyzing */}
                                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px', marginBottom: '10px' }}>
@@ -2035,7 +2034,7 @@ export default function TradingBoardPage() {
             ))}
           </div>
           <div style={{ display: 'grid', gap: '6px' }}>
-            {['Watchlist', 'Analyzing'].includes(actionMenu.trade.column_name) && (
+            {['Queued'].includes(actionMenu.trade.column_name) && (
               <button
                 type="button"
                 onClick={() => {
@@ -2706,7 +2705,7 @@ function TradeDetailModal({ trade, boardId, livePrice, onClose, onSaved }: { tra
           </div>
         ) : (
           <div style={{ display: 'grid', gap: '16px' }}>
-            {(trade.status === 'lost' || trade.column_name === 'Losses') && trade.lesson_tag && (
+            {(trade.status === 'lost' || trade.column_name === 'Closed') && trade.lesson_tag && (
               <div style={{ background: 'rgba(240, 91, 111, 0.16)', border: '1px solid rgba(240, 91, 111, 0.4)', borderRadius: '14px', padding: '14px' }}>
                 <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.18em', color: '#f05b6f', marginBottom: '6px' }}>Lesson Tag</div>
                 <div style={{ fontSize: '14px', fontWeight: 600 }}>{trade.lesson_tag}</div>
@@ -2868,7 +2867,7 @@ function NewTradeModal({
           coin_pair: normalized,
           direction,
           notes,
-          column_name: 'Watchlist',
+          column_name: 'Queued',
           status: 'watching',
         }),
       });
@@ -2893,7 +2892,7 @@ function NewTradeModal({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
           <div>
             <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.18em', color: 'var(--muted)' }}>New Trade</div>
-            <div style={{ fontSize: '20px', fontWeight: 700 }}>Add to Watchlist</div>
+            <div style={{ fontSize: '20px', fontWeight: 700 }}>Add to Queue</div>
           </div>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', fontSize: '18px', cursor: 'pointer' }}>×</button>
         </div>

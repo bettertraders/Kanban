@@ -141,7 +141,7 @@ interface TeamMember {
 const columns = [
   { name: 'Watchlist', color: '#6f7db8' },
   { name: 'Analyzing', color: '#8aa5ff' },
-  { name: 'Active', color: '#f5b544' },
+  { name: 'Active', color: '#4ade80' },
   { name: 'Parked', color: '#9ca3af' },
   { name: 'Closed', color: '#7b7dff' },
 ];

@@ -1253,7 +1253,6 @@ export default function TradingBoardPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', borderRadius: '999px', background: 'var(--panel-2)', border: '1px solid var(--border)', fontSize: '12px', color: 'var(--muted)' }}>
             Live prices via SSE · Press ? for shortcuts
           </div>
-          <UserMenu />
         </div>
       </div>
 

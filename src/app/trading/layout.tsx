@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { TradingNav } from '@/components/TradingNav';
 import PriceTicker from '@/components/PriceTicker';
+import { UserMenu } from '@/components/UserMenu';
 
 type PageMeta = {
   title: string;
@@ -31,14 +32,17 @@ export default function TradingLayout({ children }: { children: React.ReactNode 
         margin: '0 auto',
       }}>
         <header style={{ marginBottom: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <img src="/icons/clawdesk-mark.png" alt="" style={{ width: '48px', height: '48px', borderRadius: '10px' }} />
-            <div>
-              <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4vw, 36px)' }}>{title}</h1>
-              <div style={{ color: 'var(--muted)', fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
-                {subtitle}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <img src="/icons/clawdesk-mark.png" alt="" style={{ width: '48px', height: '48px', borderRadius: '10px' }} />
+              <div>
+                <h1 style={{ margin: 0, fontSize: 'clamp(26px, 4vw, 36px)' }}>{title}</h1>
+                <div style={{ color: 'var(--muted)', fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
+                  {subtitle}
+                </div>
               </div>
             </div>
+            <UserMenu />
           </div>
         </header>
         <TradingNav activeTab={activeTab} />

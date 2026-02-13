@@ -141,7 +141,7 @@ interface TeamMember {
 const columns = [
   { name: 'Queued', color: '#8aa5ff' },
   { name: 'Active', color: '#4ade80' },
-  { name: 'Parked', color: '#9ca3af' },
+  { name: 'Inactive', color: '#ef4444' },
   { name: 'Closed', color: '#7b7dff' },
 ];
 
@@ -1179,7 +1179,7 @@ export default function TradingBoardPage() {
       {/* Board action bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <div style={{ color: 'var(--muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.18em' }}>
-          {board.team_name || 'Personal Board'} · {trades.filter(t => ['Closed','Parked'].includes(t.column_name)).length} closed trades · {trades.filter(t => t.column_name === 'Active').length} active
+          {board.team_name || 'Personal Board'} · {trades.filter(t => ['Closed','Inactive'].includes(t.column_name)).length} closed trades · {trades.filter(t => t.column_name === 'Active').length} active
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '999px', background: 'var(--panel-2)', border: '1px solid var(--border)', fontSize: '12px', color: 'var(--muted)' }}>

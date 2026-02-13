@@ -391,6 +391,7 @@ export default function TradingDashboardPage() {
   const [tboEnabled, setTboEnabled] = useState(true);
   const [engineOn, setEngineOn] = useState(false);
   const [scanningStatus, setScanningStatus] = useState<string | null>(null);
+  const [activeStrategy, setActiveStrategy] = useState<string>('contrarian');
 
   // Strategy & allocation state
   const [strategies, setStrategies] = useState<StrategyData[]>([]);
@@ -546,6 +547,19 @@ export default function TradingDashboardPage() {
   }, []);
 
   useEffect(() => { void loadDashboard(); }, [loadDashboard]);
+
+  // Fetch active strategy from scan-status
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/trading/scan-status');
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.activeStrategy) setActiveStrategy(data.activeStrategy);
+        }
+      } catch {}
+    })();
+  }, []);
 
   // Fetch market sentiment
   useEffect(() => {
@@ -893,6 +907,9 @@ export default function TradingDashboardPage() {
               const scanData = await scanRes.json();
               if (scanData?.message) {
                 setScanningStatus(scanData.message);
+              }
+              if (scanData?.activeStrategy) {
+                setActiveStrategy(scanData.activeStrategy);
               }
             }
           } catch {}
@@ -1376,7 +1393,7 @@ export default function TradingDashboardPage() {
           padding: '6px 14px', fontSize: '11px', color: 'var(--muted)', marginBottom: '8px',
         }}>
           <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#00e676', flexShrink: 0 }} />
-          Binance · Crypto / USDT Pairs · {pulse.length} coins tracked · TBO Trading Engine v1.0 · Contrarian Swing Strategy v1.0
+          Binance · Crypto / USDT Pairs · {pulse.length} coins tracked · TBO Trading Engine v1.0 · {({ contrarian: '🔪 Contrarian Swing v1.0', momentum: '🚀 Momentum Swing v1.0', range: '📊 Range Scalp v1.0' } as Record<string, string>)[activeStrategy] || '🔪 Contrarian Swing v1.0'}
         </div>
 
         {/* 1. Market Summary (compact one-liner) */}

@@ -89,7 +89,7 @@ export async function PATCH(
       notifyAssignment({
         taskTitle: updates.title as string || task.title,
         boardName: board.name,
-        assignedBy: user.name || user.email,
+        assignedByName: user.name || user.email,
       });
     }
     

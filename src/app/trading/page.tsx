@@ -1482,7 +1482,7 @@ export default function TradingDashboardPage() {
                   ? defaultAllocation
                   : (allocations && allocations.length > 0)
                     ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#2dd4bf', '#a78bfa', '#f05b6f', '#f5b544'][i % 6] }))
-                    : [{ label: 'Cash', pct: 100, color: '#f5b544' }];
+                    : [{ label: 'Cash', pct: 100, color: '#4ade80' }];
                 let offset = 25;
                 return (
                   <svg viewBox="0 0 36 36" style={{ width: '240px', height: '240px' }}>
@@ -1508,7 +1508,7 @@ export default function TradingDashboardPage() {
                   ? defaultAllocation
                   : (allocations && allocations.length > 0)
                     ? allocations.map((a, i) => ({ label: a.coin, pct: a.pct, color: ['#7b7dff', '#4ade80', '#2dd4bf', '#a78bfa', '#f05b6f', '#f5b544'][i % 6] }))
-                    : [{ label: 'Cash', pct: 100, color: '#f5b544' }];
+                    : [{ label: 'Cash', pct: 100, color: '#4ade80' }];
                 return displayAlloc.map((seg) => (
                   <div key={seg.label} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
                     <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: seg.color, flexShrink: 0 }} />

@@ -73,7 +73,7 @@ type Timeframe = '10' | '30' | '60' | '90' | 'unlimited';
 const RISK_LEVELS: Record<RiskLevel, { label: string; icon: string; description: string }> = {
   safe: { label: 'Safe', icon: '🛡️', description: 'Investment-heavy. BTC & ETH core holdings.' },
   balanced: { label: 'Balanced', icon: '⚖️', description: 'Top 20 mix. Investment + active trading.' },
-  bold: { label: 'Bold', icon: '🔥', description: 'Active trading. Momentum plays, shorts enabled.' },
+  bold: { label: 'Aggressive', icon: '🔥', description: 'Active trading. Momentum plays, shorts enabled.' },
 };
 
 const RISK_DESCRIPTIONS: Record<RiskLevel, string> = {
@@ -1545,7 +1545,7 @@ export default function TradingDashboardPage() {
               const RISK_LABELS = [
                 { key: 'safe' as RiskLevel, label: 'Safe', desc: 'BTC & ETH heavy', pos: 0, color: '#6366f1' },
                 { key: 'balanced' as RiskLevel, label: 'Balanced', desc: 'Top 20 mix', pos: 50, color: '#7b7dff' },
-                { key: 'bold' as RiskLevel, label: 'Bold', desc: 'Momentum plays', pos: 100, color: '#a855f7' },
+                { key: 'bold' as RiskLevel, label: 'Aggressive', desc: 'Momentum plays', pos: 100, color: '#a855f7' },
               ];
               // Interpolate color based on riskValue
               const lerpColor = (a: string, b: string, t: number) => {

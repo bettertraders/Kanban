@@ -3032,7 +3032,7 @@ function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
         onClick={async () => {
           const amt = settings.tradingAmount || 1000;
           const confirmed = window.confirm(
-            `Reset challenge? This will close all positions, clear trade history, and start fresh with $${amt.toLocaleString()} balance. This cannot be undone.`
+            `Stop all trades? This will close all positions, clear trade history, and reset to $${amt.toLocaleString()} balance. This cannot be undone.`
           );
           if (!confirmed) return;
           try {
@@ -3053,9 +3053,9 @@ function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
             alert('Failed to reset challenge. Check console for details.');
           }
         }}
-        style={{ background: 'none', border: 'none', color: '#f05b6f88', fontSize: '11px', cursor: 'pointer', padding: '0 4px' }}
+        style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '11px', cursor: 'pointer', padding: '0 4px', fontWeight: 600 }}
       >
-        🔄 Reset
+        🛑 Stop All Trades
       </button>
     </div>
   );

@@ -1262,7 +1262,7 @@ export default function TradingDashboardPage() {
           </div>
           {/* TBO status removed from here — shown in status bar instead */}
           <div style={{ textAlign: 'center', fontSize: '11px', color: '#444', marginTop: '8px' }}>
-            Powered by the TBO Trading Engine · A product of The Better Traders
+            Powered by the Contrarian Swing Engine · A product of The Better Traders
           </div>
           {scanningStatus && (
             <div style={{
@@ -1376,7 +1376,7 @@ export default function TradingDashboardPage() {
           padding: '6px 14px', fontSize: '11px', color: 'var(--muted)', marginBottom: '8px',
         }}>
           <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#00e676', flexShrink: 0 }} />
-          Binance · Crypto / USDT Pairs · {pulse.length} coins tracked · TBO Trading Engine v1.0
+          Binance · Crypto / USDT Pairs · {pulse.length} coins tracked · Contrarian Swing Engine v1.0
         </div>
 
         {/* 1. Market Summary (compact one-liner) */}
@@ -1793,9 +1793,9 @@ export default function TradingDashboardPage() {
             {engineOn
               ? boardId
                 ? <Link href={`/trading/${boardId}`} style={{ color: 'var(--accent)', textDecoration: 'none' }}>Watch your trades on the Board →</Link>
-                : 'TBO Trading Engine is managing your portfolio'
+                : 'Contrarian Swing Engine is managing your portfolio'
               : setupReady
-                ? 'TBO Trading Engine handles everything. You can pause anytime.'
+                ? 'Contrarian Swing Engine handles everything. You can pause anytime.'
                 : 'Choose a risk level and amount to get started'}
           </div>
           {!engineOn && (

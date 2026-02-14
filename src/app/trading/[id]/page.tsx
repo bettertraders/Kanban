@@ -1475,7 +1475,10 @@ export default function TradingBoardPage() {
               fontSize: '14px',
             }}
           >
-            📋 Queue <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '999px', background: 'var(--panel-2)', border: '1px solid var(--border)', color: 'var(--muted)', fontWeight: 400 }}>{trades.filter(t => t.column_name === 'Queued').length}</span>
+            <div>
+              <div style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 400, marginBottom: '2px' }}>Watching for setup</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>📋 Queue <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '999px', background: 'var(--panel-2)', border: '1px solid var(--border)', color: 'var(--muted)', fontWeight: 400 }}>{trades.filter(t => t.column_name === 'Queued').length}</span></div>
+            </div>
           </div>
             <div
               onDragOver={(e) => handleDragOver(e, 'Queued')}
@@ -1593,7 +1596,12 @@ export default function TradingBoardPage() {
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', gap: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: col.color }}>{col.name}</div>
+                  <div>
+                    <div style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 400, marginBottom: '2px' }}>
+                      {col.name === 'Active' ? 'Position open' : col.name === 'Inactive' ? 'Trading paused' : col.name === 'Closed' ? 'Exited trade' : ''}
+                    </div>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: col.color }}>{col.name}</div>
+                  </div>
                   <div style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '999px', background: 'var(--panel-2)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
                     {totals.count}
                   </div>

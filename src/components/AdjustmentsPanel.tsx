@@ -90,7 +90,9 @@ export function AdjustmentsPanel({ boardId }: { boardId: number }) {
 
   if (loading) return null;
 
-  const hasChanges = adjustments.some(a => a.type !== 'scan_complete');
+  // Filter out "scan_complete" (no changes) entries — only show actual adjustments
+  const realAdjustments = adjustments.filter(a => a.type !== 'scan_complete');
+  const hasChanges = realAdjustments.length > 0;
   const latest = adjustments[0];
 
   return (
@@ -129,7 +131,7 @@ export function AdjustmentsPanel({ boardId }: { boardId: number }) {
               color: '#f05b6f',
               fontWeight: 600,
             }}>
-              CHANGES MADE
+              {realAdjustments.length} CHANGE{realAdjustments.length > 1 ? 'S' : ''}
             </span>
           )}
           {!hasChanges && latest && (
@@ -137,11 +139,11 @@ export function AdjustmentsPanel({ boardId }: { boardId: number }) {
               fontSize: '10px',
               padding: '2px 6px',
               borderRadius: '999px',
-              background: 'rgba(74, 222, 128, 0.15)',
-              color: '#4ade80',
+              background: 'rgba(255,255,255,0.06)',
+              color: 'var(--muted)',
               fontWeight: 600,
             }}>
-              OPTIMAL
+              NO CHANGES
             </span>
           )}
           {latest && (
@@ -160,13 +162,13 @@ export function AdjustmentsPanel({ boardId }: { boardId: number }) {
 
       {expanded && (
         <div style={{ marginTop: '12px' }}>
-          {adjustments.length === 0 ? (
+          {realAdjustments.length === 0 ? (
             <div style={{ fontSize: '12px', color: 'var(--muted)', textAlign: 'center', padding: '12px' }}>
-              No backtest adjustments yet. First scan runs every 6 hours.
+              No strategy changes yet. Penny and Owen review every hour — changes will appear here.
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {adjustments.map((adj) => (
+              {realAdjustments.map((adj) => (
                 <div
                   key={adj.id}
                   style={{

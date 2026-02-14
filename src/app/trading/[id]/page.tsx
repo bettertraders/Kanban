@@ -6,6 +6,7 @@ import { UserMenu } from '@/components/UserMenu';
 import TradingChart from '@/components/TradingChart';
 import { ToastStack, type ToastItem } from '@/components/ToastStack';
 import { AlertsPanel } from '@/components/AlertsPanel';
+import { AdjustmentsPanel } from '@/components/AdjustmentsPanel';
 import { TboToggle } from '@/components/TboToggle';
 
 interface Trade {
@@ -1456,6 +1457,8 @@ export default function TradingBoardPage() {
           </>
         )}
       </section>
+
+      <AdjustmentsPanel boardId={Number(boardId)} />
 
       <div style={{ display: 'flex', gap: '16px', alignItems: 'start', paddingBottom: '16px' }}>
         {/* Queue Sidebar (always open) */}

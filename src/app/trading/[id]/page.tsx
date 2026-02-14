@@ -1468,9 +1468,9 @@ export default function TradingBoardPage() {
       />
       <AdjustmentsPanel boardId={Number(boardId)} />
 
-      <div style={{ display: 'flex', gap: '16px', alignItems: 'start', paddingBottom: '16px' }}>
-        {/* Queue Sidebar (always open) */}
-        <div style={{ flex: '0 0 260px', minHeight: '420px' }}>
+      <div className="trading-board-layout" style={{ display: 'grid', gridTemplateColumns: `repeat(${columns.length}, minmax(240px, 1fr))`, gap: '16px', alignItems: 'start', paddingBottom: '16px', overflowX: 'auto' }}>
+        {/* Queue Column */}
+        <div style={{ minHeight: '420px' }}>
           <div
             style={{
               background: 'var(--panel)',
@@ -1563,7 +1563,6 @@ export default function TradingBoardPage() {
         </div>
 
         {/* Main Kanban Columns (excluding Queued) */}
-        <div className="trading-columns" style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(4, minmax(200px, 1fr))', gap: '16px', alignItems: 'start', overflowX: 'auto' }}>
         {columns.filter(col => col.name !== 'Queued').map((col) => {
           let colTrades = trades.filter(t => t.column_name === col.name)
             .sort((a, b) => {
@@ -1969,7 +1968,6 @@ export default function TradingBoardPage() {
             </section>
           );
         })}
-        </div>
       </div>
 
       {actionMenu && (
@@ -2186,7 +2184,7 @@ export default function TradingBoardPage() {
           color: #eef0ff;
         }
         @media (max-width: 768px) {
-          .trading-columns {
+          .trading-board-layout {
             grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
           }
           .trade-card {

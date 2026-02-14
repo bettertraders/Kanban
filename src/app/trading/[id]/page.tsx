@@ -7,6 +7,7 @@ import TradingChart from '@/components/TradingChart';
 import { ToastStack, type ToastItem } from '@/components/ToastStack';
 import { AlertsPanel } from '@/components/AlertsPanel';
 import { AdjustmentsPanel } from '@/components/AdjustmentsPanel';
+import { ChallengeTracker } from '@/components/ChallengeTracker';
 import { TboToggle } from '@/components/TboToggle';
 
 interface Trade {
@@ -1458,6 +1459,13 @@ export default function TradingBoardPage() {
         )}
       </section>
 
+      <ChallengeTracker
+        boardId={Number(boardId)}
+        liveWinRate={stats?.win_rate ?? 0}
+        liveTrades={stats?.total_closed ?? stats?.total_trades ?? 0}
+        liveBalance={parseFloat(String(paperAccount?.current_balance ?? 1000))}
+        realizedPnl={stats?.realized_pnl ?? 0}
+      />
       <AdjustmentsPanel boardId={Number(boardId)} />
 
       <div style={{ display: 'flex', gap: '16px', alignItems: 'start', paddingBottom: '16px' }}>

@@ -303,7 +303,7 @@ function TradeDetail({ trade }: { trade: Trade }) {
   const pnl = n(trade.pnl_dollar);
   const pnlPct = n(trade.pnl_percent);
   const isWin = n(trade.pnl_dollar) > 0;
-  const isParked = trade.column_name === 'Parked';
+  const isParked = trade.column_name === 'Parked' || trade.column_name === 'Inactive';
   const isLoss = n(trade.pnl_dollar) <= 0;
   const entryPrice = n(trade.entry_price);
   const exitPrice = n(trade.exit_price);
@@ -482,7 +482,7 @@ export default function TradeHistoryPage() {
 
   // Closed trades (Closed + Parked) — no Queued, Active
   const closed = useMemo(() =>
-    trades.filter(t => t.column_name === 'Closed' || t.column_name === 'Parked')
+    trades.filter(t => t.column_name === 'Closed' || t.column_name === 'Parked' || t.column_name === 'Inactive')
       .sort((a, b) => new Date(b.exited_at || b.created_at).getTime() - new Date(a.exited_at || a.created_at).getTime()),
     [trades]
   );
@@ -610,7 +610,7 @@ export default function TradeHistoryPage() {
                 const pnl = n(trade.pnl_dollar);
                 const pnlPct = n(trade.pnl_percent);
                 const isWin = n(trade.pnl_dollar) > 0;
-                const isParked = trade.column_name === 'Parked';
+                const isParked = trade.column_name === 'Parked' || trade.column_name === 'Inactive';
                 const isExpanded = expandedId === trade.id;
                 const coin = coinBase(trade.coin_pair);
                 const resultColor = isParked ? (pnl >= 0 ? 'var(--green)' : 'var(--red)') : isWin ? 'var(--green)' : 'var(--red)';

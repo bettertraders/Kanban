@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     if (!board) return NextResponse.json({ error: 'Board not found' }, { status: 404 });
 
     const allTrades = await getTradesForBoard(boardId);
-    const closed = allTrades.filter(t => t.status === 'closed' || t.column_name === 'Closed' || t.column_name === 'Wins' || t.column_name === 'Losses' || t.column_name === 'Parked');
+    const closed = allTrades.filter(t => t.status === 'closed' || t.column_name === 'Closed' || t.column_name === 'Wins' || t.column_name === 'Losses' || t.column_name === 'Parked' || t.column_name === 'Inactive');
     const open = allTrades.filter(t => t.status === 'active' || t.column_name === 'Active');
 
     const wins = closed.filter(t => Number(t.pnl_dollar) > 0);

@@ -1147,8 +1147,8 @@ export default function TradingDashboardPage() {
                 {winRate.toFixed(0)}%
                 <span style={{ fontSize: '12px', fontWeight: 400, color: '#666', marginLeft: '4px' }}>/ 82%</span>
               </div>
-              <div style={{ fontSize: '10px', color: winRate >= 72 ? '#4ade80' : winRate >= 62 ? '#f5b544' : '#f05b6f', marginTop: '2px' }}>
-                {winRate >= 72 ? '✅ on track' : winRate >= 62 ? '⚠️ drifting' : totalTrades < 5 ? 'collecting data' : '🚨 off target'}
+              <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '2px' }}>
+                {totalTrades < 5 ? 'collecting data' : winRate >= 72 ? 'on track' : winRate >= 62 ? 'drifting' : 'off target'}
               </div>
             </div>
             <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>

@@ -1141,7 +1141,7 @@ export default function TradingDashboardPage() {
               <div style={{ fontSize: '22px', fontWeight: 700, color: '#00e676' }}>{dailyPnl > 0 ? `+${formatCurrency(dailyPnl)}` : '—'}</div>
               <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>today</div>
             </div>
-            <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
+            <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center', minWidth: '130px' }}>
               <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Win Rate</div>
               <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>
                 {winRate.toFixed(0)}%

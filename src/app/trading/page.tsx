@@ -1143,8 +1143,13 @@ export default function TradingDashboardPage() {
             </div>
             <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
               <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Win Rate</div>
-              <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>{winRate.toFixed(0)}%</div>
-              <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>more wins than losses</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>
+                {winRate.toFixed(0)}%
+                <span style={{ fontSize: '12px', fontWeight: 400, color: '#666', marginLeft: '4px' }}>/ 82%</span>
+              </div>
+              <div style={{ fontSize: '10px', color: winRate >= 72 ? '#4ade80' : winRate >= 62 ? '#f5b544' : '#f05b6f', marginTop: '2px' }}>
+                {winRate >= 72 ? '✅ on track' : winRate >= 62 ? '⚠️ drifting' : totalTrades < 5 ? 'collecting data' : '🚨 off target'}
+              </div>
             </div>
             <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
               <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Days Active</div>
@@ -1429,7 +1434,7 @@ export default function TradingDashboardPage() {
               { label: 'Balance', value: formatCurrency(displayBalance), color: displayBalance >= startingBalance ? '#4ade80' : '#f05b6f' },
               { label: 'Trading With', value: formatCurrencyShort(tradingAmount || startingBalance), color: '#7b7dff' },
               { label: "Today's P&L", value: `${dailyPnl >= 0 ? '+' : ''}${formatCurrency(dailyPnl)} (${dailyPnlPct >= 0 ? '+' : ''}${dailyPnlPct.toFixed(1)}%)`, color: dailyPnl >= 0 ? '#4ade80' : '#f05b6f' },
-              { label: 'Win Rate', value: `${winRate.toFixed(0)}%`, color: winRate >= 50 ? '#4ade80' : winRate > 0 ? '#f05b6f' : undefined },
+              { label: 'Win Rate', value: `${winRate.toFixed(0)}% / 82%`, color: winRate >= 72 ? '#4ade80' : winRate >= 62 ? '#f5b544' : winRate > 0 ? '#f05b6f' : undefined },
               { label: 'Active Positions', value: String(activePositions), subtitle: (() => { const h = portfolio?.activeHoldings || []; const longs = h.filter(p => (p.direction || 'long') === 'long').length; const shorts = h.filter(p => p.direction === 'short').length; return longs > 0 || shorts > 0 ? `${longs}L / ${shorts}S` : undefined; })() },
               { label: 'Closed Trades', value: String(closedTrades) },
               {

@@ -1722,12 +1722,14 @@ export default function TradingBoardPage() {
                                     animation: priceFlashMap[pair]?.direction === 'up' ? 'priceUp 0.6s ease' : priceFlashMap[pair]?.direction === 'down' ? 'priceDown 0.6s ease' : undefined,
                                   }}
                                 >
-                                  {priceMap[pair] ? formatPrice(livePrice) : <span style={{ color: 'var(--muted)', fontSize: '11px' }}>No price data</span>}
+                                  {Number.isFinite(livePrice) && livePrice > 0 ? formatPrice(livePrice) : <span style={{ color: 'var(--muted)', fontSize: '11px' }}>No price data</span>}
                                 </div>
                                 {priceMap[pair] ? (
                                   <div style={{ fontSize: '12px', fontWeight: 700, color: (priceMap[pair]?.change24h ?? 0) >= 0 ? '#4ade80' : '#f05b6f' }}>
                                     {(priceMap[pair]?.change24h ?? 0) >= 0 ? '+' : ''}{(priceMap[pair]?.change24h ?? 0).toFixed(2)}%
                                   </div>
+                                ) : Number.isFinite(livePrice) && livePrice > 0 ? (
+                                  <div style={{ fontSize: '11px', color: 'var(--muted)' }}>via DB</div>
                                 ) : (
                                   <div style={{ fontSize: '11px', color: 'var(--muted)' }}>—</div>
                                 )}

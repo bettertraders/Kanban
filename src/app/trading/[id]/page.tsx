@@ -1176,7 +1176,7 @@ export default function TradingBoardPage() {
       </section>
 
       {/* Dashboard settings status bar */}
-      <DashboardStatusBar livePnl={null} />
+      <DashboardStatusBar livePnl={(stats?.total_pnl ?? 0) + (columnTotals['Active']?.pnl ?? 0)} />
 
       {/* Board action bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
@@ -3020,11 +3020,13 @@ function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
   const engineLabel = settings.engineOn ? 'Engine Active' : 'Engine Off';
   const engineColor = settings.engineOn ? '#4ade80' : 'var(--muted)';
 
+  // If livePnl provided (from live SSE prices), use it and override stale portfolio data
   const displayPnl = livePnl ?? pnl;
+  const displayBalance = livePnl !== null && livePnl !== undefined ? startBal + livePnl : balance;
   const pnlColor = displayPnl === null ? 'var(--muted)' : displayPnl >= 0 ? '#4ade80' : '#f05b6f';
   const pnlLabel = displayPnl === null ? '' : `${displayPnl >= 0 ? '+' : ''}$${displayPnl.toFixed(2)}`;
-  const balanceLabel = balance !== null ? `$${balance >= 1000 ? balance.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : balance.toFixed(2)}` : '';
-  const balanceColor = balance !== null && balance >= startBal ? '#4ade80' : '#f05b6f';
+  const balanceLabel = displayBalance !== null ? `$${displayBalance >= 1000 ? displayBalance.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : displayBalance.toFixed(2)}` : '';
+  const balanceColor = displayBalance !== null && displayBalance >= startBal ? '#4ade80' : '#f05b6f';
 
   return (
     <div style={{

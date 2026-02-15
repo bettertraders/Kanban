@@ -482,7 +482,7 @@ export default function TradeHistoryPage() {
 
   // Closed trades (Closed + Parked) — no Queued, Active
   const closed = useMemo(() =>
-    trades.filter(t => t.column_name === 'Closed' || t.column_name === 'Parked' || t.column_name === 'Inactive')
+    trades.filter(t => ['Closed', 'Won', 'Lost', 'Wins', 'Losses', 'Parked', 'Inactive'].includes(t.column_name))
       .sort((a, b) => new Date(b.exited_at || b.created_at).getTime() - new Date(a.exited_at || a.created_at).getTime()),
     [trades]
   );

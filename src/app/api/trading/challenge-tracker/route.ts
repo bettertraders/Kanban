@@ -37,8 +37,8 @@ function readTracker(): TrackerData {
     return JSON.parse(fs.readFileSync(TRACKER_FILE, 'utf8'));
   } catch {
     return {
-      challengeStart: '2026-02-13',
-      challengeEnd: '2026-02-23',
+      challengeStart: '2026-02-14',
+      challengeEnd: '2026-02-24',
       startingBalance: 1000,
       backtestWinRate: 82.1,
       backtestPnl: 33.9,
@@ -146,5 +146,18 @@ export async function POST(request: NextRequest) {
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Unknown error';
     return NextResponse.json({ error: msg }, { status: 400 });
+  }
+}
+
+// DELETE — reset tracker to defaults (fresh start)
+export async function DELETE() {
+  try {
+    if (fs.existsSync(TRACKER_FILE)) {
+      fs.unlinkSync(TRACKER_FILE);
+    }
+    return NextResponse.json({ success: true, message: 'Challenge tracker reset' });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Unknown error';
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

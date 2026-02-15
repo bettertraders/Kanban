@@ -377,6 +377,7 @@ export default function TradingDashboardPage() {
   const [pulse, setPulse] = useState<CoinPulse[]>([]);
   const [bots, setBots] = useState<Bot[]>([]);
   const [portfolio, setPortfolio] = useState<PortfolioStats | null>(null);
+  const [bestDayPnl, setBestDayPnl] = useState<number>(0);
   const [boardId, setBoardId] = useState<number | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [sentiment, setSentiment] = useState<MarketSentiment | null>(null);
@@ -499,11 +500,12 @@ export default function TradingDashboardPage() {
 
   const loadDashboard = useCallback(async () => {
     try {
-      const [coinsRes, botsRes, portfolioRes, boardsRes] = await Promise.allSettled([
+      const [coinsRes, botsRes, portfolioRes, boardsRes, boardStatsRes] = await Promise.allSettled([
         fetch('/api/v1/prices?top=25'),
         fetch('/api/v1/bots'),
         fetch('/api/v1/portfolio'),
         fetch('/api/v1/boards'),
+        fetch('/api/v1/boards/15/stats'),
       ]);
 
       if (coinsRes.status === 'fulfilled' && coinsRes.value.ok) {
@@ -517,6 +519,12 @@ export default function TradingDashboardPage() {
       if (portfolioRes.status === 'fulfilled' && portfolioRes.value.ok) {
         const j = await portfolioRes.value.json();
         setPortfolio(j || null);
+      }
+      if (boardStatsRes.status === 'fulfilled' && boardStatsRes.value.ok) {
+        const j = await boardStatsRes.value.json();
+        const days = j?.stats?.pnl_by_day || [];
+        const best = days.reduce((max: number, d: { pnl: number }) => Math.max(max, d.pnl || 0), 0);
+        setBestDayPnl(best);
       }
       // Always use account created_at as the canonical challenge start date
       try {
@@ -1110,7 +1118,7 @@ export default function TradingDashboardPage() {
               <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>Your Balance</div>
               <div style={{ fontSize: '42px', fontWeight: 800, letterSpacing: '-1px', color: (displayBalance) >= startingBalance ? '#4ade80' : 'var(--text)' }}>{formatCurrency(displayBalance)}</div>
               <div style={{ fontSize: '16px', marginTop: '6px', fontWeight: 600, color: totalPnl >= 0 ? '#00e676' : '#ff5252' }}>
-                {totalPnl >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(totalPnl))} today
+                {totalPnl >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(totalPnl))} total P&L
               </div>
               {dayProgress && (
                 <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
@@ -1138,8 +1146,8 @@ export default function TradingDashboardPage() {
             </div>
             <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
               <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Best Day</div>
-              <div style={{ fontSize: '22px', fontWeight: 700, color: '#00e676' }}>{totalPnl > 0 ? `+${formatCurrency(totalPnl)}` : '—'}</div>
-              <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>today</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: '#00e676' }}>{bestDayPnl > 0 ? `+${formatCurrency(bestDayPnl)}` : '—'}</div>
+              <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>realized</div>
             </div>
             <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center', minWidth: '130px' }}>
               <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Win Rate</div>

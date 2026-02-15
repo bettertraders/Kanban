@@ -41,10 +41,18 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Reset ALL accounts on this board (not just current user's)
-    await pool.query(
-      `UPDATE paper_accounts SET starting_balance = $1, current_balance = $1, created_at = NOW(), updated_at = NOW() WHERE board_id = $2`,
-      [balance, boardId]
-    );
+    const startDate = body.created_at || body.start_date;
+    if (startDate) {
+      await pool.query(
+        `UPDATE paper_accounts SET starting_balance = $1, current_balance = $1, created_at = $3, updated_at = NOW() WHERE board_id = $2`,
+        [balance, boardId, new Date(startDate)]
+      );
+    } else {
+      await pool.query(
+        `UPDATE paper_accounts SET starting_balance = $1, current_balance = $1, created_at = NOW(), updated_at = NOW() WHERE board_id = $2`,
+        [balance, boardId]
+      );
+    }
 
     const result = await pool.query(
       `SELECT * FROM paper_accounts WHERE board_id = $1 AND user_id = $2`,

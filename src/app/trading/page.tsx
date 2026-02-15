@@ -1443,7 +1443,7 @@ export default function TradingDashboardPage() {
               { label: 'Bot Status', value: engineOn ? '● Active' : '● Paused', color: engineOn ? '#22c55e' : '#ef4444' },
               { label: 'Balance', value: formatCurrency(displayBalance), color: displayBalance >= startingBalance ? '#4ade80' : '#f05b6f' },
               { label: 'Trading With', value: formatCurrencyShort(tradingAmount || startingBalance), color: '#7b7dff' },
-              { label: "Today's P&L", value: `${dailyPnl >= 0 ? '+' : ''}${formatCurrency(dailyPnl)} (${dailyPnlPct >= 0 ? '+' : ''}${dailyPnlPct.toFixed(1)}%)`, color: dailyPnl >= 0 ? '#4ade80' : '#f05b6f' },
+              { label: 'Total P&L', value: `${totalPnl >= 0 ? '+' : ''}${formatCurrency(totalPnl)} (${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(1)}%)`, color: totalPnl >= 0 ? '#4ade80' : '#f05b6f' },
               { label: 'Win Rate', value: `${winRate.toFixed(0)}% / 82%`, color: winRate >= 72 ? '#4ade80' : winRate >= 62 ? '#f5b544' : winRate > 0 ? '#f05b6f' : undefined },
               { label: 'Active Positions', value: String(activePositions), subtitle: (() => { const h = portfolio?.activeHoldings || []; const longs = h.filter(p => (p.direction || 'long') === 'long').length; const shorts = h.filter(p => p.direction === 'short').length; return longs > 0 || shorts > 0 ? `${longs}L / ${shorts}S` : undefined; })() },
               { label: 'Closed Trades', value: String(closedTrades) },
@@ -1457,7 +1457,7 @@ export default function TradingDashboardPage() {
                 color: dayProgress?.total && dayProgress.day >= dayProgress.total ? '#f5b544' : undefined,
               },
             ].map((stat: { label: string; value: string; color?: string; subtitle?: string }) => {
-              const wide = stat.label === "Today's P&L" || stat.label === 'Progress';
+              const wide = stat.label === 'Total P&L' || stat.label === 'Progress';
               return (
                 <div key={stat.label} style={{ flex: wide ? '1.6 1 0' : '1 1 0', minWidth: 0, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '14px 12px' }}>
                   <div style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stat.label}</div>

@@ -544,7 +544,7 @@ export default function TradeHistoryPage() {
           sub={`${wins.length}W / ${losses.length}L`}
           color="var(--green)"
         />
-        <StatCard label="Total P&L" value={fmt$(totalPnl)} color={totalPnl >= 0 ? 'var(--green)' : 'var(--red)'} />
+        <StatCard label="Total Realized P&L" value={fmt$(totalPnl)} color={totalPnl >= 0 ? 'var(--green)' : 'var(--red)'} />
         <StatCard
           label="Best Trade"
           value={fmt$(bestTrade)}

@@ -2695,10 +2695,10 @@ export async function getPortfolioStats(userId: number) {
           AND b.board_type = 'trading'
           AND (b.visibility IS NULL OR b.visibility <> 'admin_only' OR tm.role IN ('admin', 'owner') OR b.owner_id = $1)
       )
-      SELECT t.coin_pair, COALESCE(t.position_size, 0) as position_size, t.entry_price, t.direction
+      SELECT t.coin_pair, COALESCE(t.position_size, 0) as position_size, t.entry_price, t.direction, t.current_price
       FROM trades t
       JOIN accessible_boards ab ON t.board_id = ab.id
-      WHERE t.column_name = 'Active' AND (t.status IS NULL OR t.status = 'active')
+      WHERE t.column_name = 'Active'
       ORDER BY t.position_size DESC NULLS LAST
     `,
     [userId]
@@ -2708,6 +2708,7 @@ export async function getPortfolioStats(userId: number) {
     coin_pair: row.coin_pair,
     position_size: parseNumeric(row.position_size) || 0,
     entry_price: parseNumeric(row.entry_price) || 0,
+    current_price: parseNumeric(row.current_price) || 0,
     direction: (row.direction || 'long').toLowerCase(),
   }));
 

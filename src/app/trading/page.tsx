@@ -40,7 +40,7 @@ type PortfolioStats = {
     closed_trades?: number;
   };
   byCoin?: Array<{ coin_pair: string; total_pnl: number; total_trades?: number; allocation_pct?: number }>;
-  activeHoldings?: Array<{ coin_pair: string; position_size: number; entry_price: number; direction?: string }>;
+  activeHoldings?: Array<{ coin_pair: string; position_size: number; entry_price: number; current_price?: number; direction?: string }>;
 };
 
 type Board = {
@@ -636,10 +636,13 @@ export default function TradingDashboardPage() {
         for (const h of holdings) {
           if (!h.entry_price || h.entry_price === 0) continue;
           const norm = h.coin_pair.replace(/\//g, '').toUpperCase();
-          const live = prices[norm]?.price || prices[h.coin_pair]?.price;
+          // Use live price from API, or fall back to current_price from DB
+          const live = prices[norm]?.price || prices[h.coin_pair]?.price || h.current_price;
           if (!live) continue;
           const qty = h.position_size / h.entry_price;
-          total += (live - h.entry_price) * qty;
+          const isShort = h.direction === 'short';
+          const priceDiff = isShort ? (h.entry_price - live) : (live - h.entry_price);
+          total += priceDiff * qty;
         }
         setLivePnl(total);
       })
@@ -1173,7 +1176,12 @@ export default function TradingDashboardPage() {
                   const sym = h.coin_pair.replace(/\/?(USDT?)$/i, '');
                   const coin = getCoinDisplay(sym);
                   const pulseCoin = pulse.find(c => c.pair?.includes(sym));
-                  const change = pulseCoin?.change24h ?? 0;
+                  // Use 24h change from pulse, or calculate from entry/current if no pulse data
+                  let change = pulseCoin?.change24h ?? 0;
+                  if (!pulseCoin && h.entry_price && h.current_price) {
+                    // Calculate percentage change from entry to current (fallback from DB)
+                    change = ((h.current_price - h.entry_price) / h.entry_price) * 100;
+                  }
                   const isShort = h.direction === 'short';
                   // For shorts, a negative price change = profit
                   const effectiveChange = isShort ? -change : change;

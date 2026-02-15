@@ -1117,12 +1117,9 @@ export default function TradingDashboardPage() {
             <div style={{ background: 'linear-gradient(135deg, #1a1a3e 0%, #141428 100%)', borderRadius: '16px', padding: '28px 24px', position: 'relative', overflow: 'hidden' }}>
               <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>Your Balance</div>
               <div style={{ fontSize: '42px', fontWeight: 800, letterSpacing: '-1px', color: (displayBalance) >= startingBalance ? '#4ade80' : 'var(--text)' }}>{formatCurrency(displayBalance)}</div>
-              <div style={{ fontSize: '16px', marginTop: '6px', fontWeight: 600, color: totalPnl >= 0 ? '#00e676' : '#ff5252' }}>
-                {totalPnl >= 0 ? '▲' : '▼'} {formatCurrency(Math.abs(totalPnl))} total P&L
-              </div>
               {dayProgress && (
-                <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
-                  Started {dayProgress.day} day{dayProgress.day !== 1 ? 's' : ''} ago with {formatCurrencyShort(tradingAmount || startingBalance)}
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '6px' }}>
+                  Day {dayProgress.day}{dayProgress.total ? ` of ${dayProgress.total}` : ''} · Started with {formatCurrencyShort(tradingAmount || startingBalance)}
                 </div>
               )}
             </div>

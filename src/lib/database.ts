@@ -2306,14 +2306,14 @@ export async function getBoardTradingStats(boardId: number) {
 
   const pnlByWeekdayResult = await pool.query(
     `
-      SELECT EXTRACT(DOW FROM exited_at)::int as dow,
+      SELECT EXTRACT(DOW FROM exited_at AT TIME ZONE 'America/Toronto')::int as dow,
              COALESCE(SUM(COALESCE(pnl_dollar, 0)), 0) as total_pnl,
              COUNT(*)::int as total_trades
       FROM trades
       WHERE board_id = $1
         AND exited_at IS NOT NULL
         AND (column_name IN ('Closed', 'Wins', 'Won', 'Losses', 'Lost', 'Parked') OR status IN ('closed', 'won', 'lost'))
-      GROUP BY EXTRACT(DOW FROM exited_at)
+      GROUP BY EXTRACT(DOW FROM exited_at AT TIME ZONE 'America/Toronto')
       ORDER BY dow ASC
     `,
     [boardId]
@@ -2321,13 +2321,13 @@ export async function getBoardTradingStats(boardId: number) {
 
   const pnlByDayResult = await pool.query(
     `
-      SELECT DATE(exited_at) as day,
+      SELECT DATE(exited_at AT TIME ZONE 'America/Toronto') as day,
              COALESCE(SUM(COALESCE(pnl_dollar, 0)), 0) as total_pnl
       FROM trades
       WHERE board_id = $1
         AND exited_at IS NOT NULL
         AND (column_name IN ('Closed', 'Wins', 'Won', 'Losses', 'Lost', 'Parked') OR status IN ('closed', 'won', 'lost'))
-      GROUP BY DATE(exited_at)
+      GROUP BY DATE(exited_at AT TIME ZONE 'America/Toronto')
       ORDER BY day ASC
     `,
     [boardId]

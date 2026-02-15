@@ -174,16 +174,16 @@ export default function LeaderboardPage() {
           {
             rank: 2, trader_id: -1, trader_name: 'TBO Scalper Bot', board_name: 'Scalper Arena',
             board_id: 0, total_trades: 22, wins: 15, losses: 7, open_trades: 3,
-            win_rate: 68.2, total_pnl: 142.80, total_volume: 4000, avg_trade: 6.49,
+            win_rate: 68.2, total_pnl: 142.80, total_volume: 2200, avg_trade: 6.49,
             best_trade: 28.60, worst_trade: -12.40, avg_hold_seconds: 5040,
-            last_trade_at: new Date().toISOString(), return_pct: 3.57, avatar: '🤖',
+            last_trade_at: new Date().toISOString(), return_pct: 14.28, avatar: '🤖',
           },
           {
             rank: 3, trader_id: -2, trader_name: 'Swing Sentinel', board_name: 'Swing Strategies',
             board_id: 0, total_trades: 7, wins: 4, losses: 3, open_trades: 2,
             win_rate: 57.1, total_pnl: 86.30, total_volume: 1400, avg_trade: 12.33,
             best_trade: 31.80, worst_trade: -22.10, avg_hold_seconds: 66240,
-            last_trade_at: new Date().toISOString(), return_pct: 6.16, avatar: '⚔️',
+            last_trade_at: new Date().toISOString(), return_pct: 8.63, avatar: '⚔️',
           },
         ];
 

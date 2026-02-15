@@ -182,7 +182,7 @@ export function AdjustmentsPanel({ boardId }: { boardId: number }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ fontSize: '14px' }}>{typeIcon(adj.type)}</span>
-                      <span style={{ fontSize: '12px', fontWeight: 600 }}>{adj.strategy}</span>
+                      <span style={{ fontSize: '12px', fontWeight: 600 }}>{adj.strategy === 'unknown' ? 'Strategy Review' : adj.strategy}</span>
                       {adj.type !== 'scan_complete' && (
                         <span style={{
                           fontSize: '9px',

@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
         body.agent || 'backtester',
         body.type || 'param_tune',
         body.severity || 'minor',
-        body.strategy || 'unknown',
+        body.strategy || 'Strategy Review',
         JSON.stringify(body.changes || []),
         body.reason || '',
         JSON.stringify(body.marketContext || body.market_context || {}),

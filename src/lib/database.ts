@@ -2560,7 +2560,7 @@ export async function getPortfolioStats(userId: number) {
   const summaryRow = summaryResult.rows[0] || {};
   const wins = Number(summaryRow.wins || 0);
   const losses = Number(summaryRow.losses || 0);
-  const closedTrades = Number(summaryRow.closed_trades || 0) || (wins + losses);
+  const closedTrades = wins + losses;
   const winRate = closedTrades > 0 ? (wins / closedTrades) * 100 : 0;
 
   const byCoinResult = await pool.query(

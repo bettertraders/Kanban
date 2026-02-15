@@ -541,6 +541,8 @@ export default function TradingBoardPage() {
     fetchBotActivity();
     fetchBoardBots();
     refreshAlertCount();
+    const iv = setInterval(() => { fetchTrades(); fetchStats(); }, 30000);
+    return () => clearInterval(iv);
   }, [fetchBoard, fetchBotActivity, fetchBoardBots, fetchStats, fetchTrades, refreshAlertCount]);
 
   useEffect(() => {

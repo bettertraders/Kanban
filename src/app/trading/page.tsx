@@ -551,7 +551,11 @@ export default function TradingDashboardPage() {
     } catch {}
   }, []);
 
-  useEffect(() => { void loadDashboard(); }, [loadDashboard]);
+  useEffect(() => {
+    void loadDashboard();
+    const iv = setInterval(() => { void loadDashboard(); }, 30000);
+    return () => clearInterval(iv);
+  }, [loadDashboard]);
 
   // Fetch active strategy from scan-status
   useEffect(() => {

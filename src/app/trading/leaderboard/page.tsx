@@ -203,6 +203,8 @@ export default function LeaderboardPage() {
       finally { setLoading(false); }
     };
     void load();
+    const iv = setInterval(() => { void load(); }, 30000);
+    return () => clearInterval(iv);
   }, []);
 
   const top3 = traders.slice(0, 3);

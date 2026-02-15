@@ -478,6 +478,8 @@ export default function TradeHistoryPage() {
       finally { setLoading(false); }
     };
     void load();
+    const iv = setInterval(() => { void load(); }, 30000);
+    return () => clearInterval(iv);
   }, []);
 
   // Closed trades (Closed + Parked) — no Queued, Active

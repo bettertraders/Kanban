@@ -1187,9 +1187,9 @@ export default function TradingDashboardPage() {
               </div>
             </div>
             <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
-              <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Days Active</div>
-              <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>{Math.max(dayProgress?.day ?? 1, 1)}</div>
-              <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>{`of ${dayProgress?.total ?? (timeframe && timeframe !== 'unlimited' ? parseInt(timeframe) : 10)} day run`}</div>
+              <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Sprint</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>Day {Math.max(dayProgress?.day ?? 1, 1)}</div>
+              <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>{`of ${dayProgress?.total ?? (timeframe && timeframe !== 'unlimited' ? parseInt(timeframe) : 10)} day sprint`}</div>
             </div>
           </div>
 

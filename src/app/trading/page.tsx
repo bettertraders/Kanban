@@ -1131,10 +1131,10 @@ export default function TradingDashboardPage() {
                 display: 'inline-flex', alignItems: 'center', gap: '6px',
                 background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
               }}
-              title="Auto-harvest profits at target thresholds"
+              title="Auto-compounds profits at target thresholds"
             >
-              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: harvestEnabled ? '#a78bfa' : '#555', boxShadow: harvestEnabled ? '0 0 6px #a78bfa' : 'none' }} />
-              <span style={{ fontSize: '12px', fontWeight: 600, color: harvestEnabled ? '#a78bfa' : '#666' }}>Harvest</span>
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: harvestEnabled ? '#4ade80' : '#555', boxShadow: harvestEnabled ? '0 0 6px #4ade80' : 'none' }} />
+              <span style={{ fontSize: '12px', fontWeight: 600, color: harvestEnabled ? '#4ade80' : '#666' }}>Compounding</span>
             </button>
           </div>
 
@@ -1189,8 +1189,8 @@ export default function TradingDashboardPage() {
               </div>
             </div>
             <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
-              <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Harvest Cycles</div>
-              <div style={{ fontSize: '22px', fontWeight: 700, color: harvestCycles > 0 ? '#a78bfa' : 'var(--text)' }}>{harvestCycles}</div>
+              <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Compound Cycles</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: harvestCycles > 0 ? '#4ade80' : 'var(--text)' }}>{harvestCycles}</div>
               <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>{harvestCycles === 0 ? 'waiting for first' : 'profits banked'}</div>
             </div>
             <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
@@ -1894,14 +1894,14 @@ export default function TradingDashboardPage() {
           {advancedOpen && (
             <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderTop: 'none', borderRadius: '0 0 14px 14px', padding: '16px', display: 'grid', gap: '16px' }}>
               {/* V2 Harvest Engine Section */}
-              <div style={{ background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: '12px', padding: '14px' }}>
+              <div style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', borderRadius: '12px', padding: '14px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                   <div>
-                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      🌾 Harvest Mode
-                      <span style={{ fontSize: '10px', fontWeight: 500, padding: '2px 8px', borderRadius: '999px', background: 'rgba(167,139,250,0.2)', color: '#a78bfa' }}>V2</span>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#4ade80', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      🔄 Compounding Mode
+                      <span style={{ fontSize: '10px', fontWeight: 500, padding: '2px 8px', borderRadius: '999px', background: 'rgba(74,222,128,0.2)', color: '#4ade80' }}>V2</span>
                     </div>
-                    <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>Auto-harvests profits at target thresholds per regime</div>
+                    <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>Auto-compounds profits at target thresholds per regime</div>
                   </div>
                   <ToggleSwitch on={harvestEnabled} onChange={() => setHarvestEnabled(prev => !prev)} />
                 </div>
@@ -1914,7 +1914,7 @@ export default function TradingDashboardPage() {
                   </div>
                   <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '10px' }}>
                     <div style={{ color: 'var(--muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Preset</div>
-                    <div style={{ fontWeight: 600, color: '#a78bfa' }}>🔥 Aggressive</div>
+                    <div style={{ fontWeight: 600, color: '#4ade80' }}>🔥 Aggressive</div>
                   </div>
                 </div>
                 <div style={{ marginTop: '10px', fontSize: '11px', color: 'var(--muted)', lineHeight: 1.5 }}>

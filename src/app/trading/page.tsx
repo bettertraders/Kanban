@@ -633,6 +633,7 @@ export default function TradingDashboardPage() {
   const realizedPnl = Number(portfolio?.summary?.total_realized_pnl ?? 0);
   // Fetch live P&L from the same price source as the board (CCXT/Binance)
   const [livePnl, setLivePnl] = useState<number | null>(null);
+  const [livePrices, setLivePrices] = useState<Record<string, number>>({});
   useEffect(() => {
     const holdings = portfolio?.activeHoldings;
     if (!holdings || holdings.length === 0) return;
@@ -642,18 +643,21 @@ export default function TradingDashboardPage() {
       .then(data => {
         const prices = data?.prices || {};
         let total = 0;
+        const priceMap: Record<string, number> = {};
         for (const h of holdings) {
           if (!h.entry_price || h.entry_price === 0) continue;
           const norm = h.coin_pair.replace(/\//g, '').toUpperCase();
           // Use live price from API, or fall back to current_price from DB
           const live = prices[norm]?.price || prices[h.coin_pair]?.price || h.current_price;
           if (!live) continue;
+          priceMap[norm] = live;
           const qty = h.position_size / h.entry_price;
           const isShort = h.direction === 'short';
           const priceDiff = isShort ? (h.entry_price - live) : (live - h.entry_price);
           total += priceDiff * qty;
         }
         setLivePnl(total);
+        setLivePrices(priceMap);
       })
       .catch(() => {});
   }, [portfolio]);
@@ -1181,12 +1185,12 @@ export default function TradingDashboardPage() {
                 const rows = holdings.map((h, i) => {
                   const sym = h.coin_pair.replace(/\/?(USDT?)$/i, '');
                   const coin = getCoinDisplay(sym);
-                  const pulseCoin = pulse.find(c => c.pair?.includes(sym));
-                  // Use 24h change from pulse, or calculate from entry/current if no pulse data
-                  let change = pulseCoin?.change24h ?? 0;
-                  if (!pulseCoin && h.entry_price && h.current_price) {
-                    // Calculate percentage change from entry to current (fallback from DB)
-                    change = ((h.current_price - h.entry_price) / h.entry_price) * 100;
+                  const norm = h.coin_pair.replace(/\//g, '').toUpperCase();
+                  const livePrice = livePrices[norm] || h.current_price;
+                  // Always show P&L from entry price (matches trades board)
+                  let change = 0;
+                  if (h.entry_price && h.entry_price > 0 && livePrice) {
+                    change = ((livePrice - h.entry_price) / h.entry_price) * 100;
                   }
                   const isShort = h.direction === 'short';
                   // For shorts, a negative price change = profit

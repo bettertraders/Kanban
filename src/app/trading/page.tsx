@@ -673,6 +673,7 @@ export default function TradingDashboardPage() {
   const totalPnlPct = startingBalance > 0 ? (totalPnl / startingBalance) * 100 : 0;
   const dailyPnlPct = startingBalance > 0 ? (dailyPnl / startingBalance) * 100 : 0;
   const winRate = Number(portfolio?.summary?.win_rate ?? 0);
+  const sprintNumber = Number(portfolio?.summary?.sprint_number ?? 1);
   const activePositions = Number(portfolio?.summary?.active_positions ?? 0);
   const totalTrades = Number(portfolio?.summary?.total_trades ?? bots.reduce((sum, b) => sum + (b.total_trades ?? b.performance?.total_trades ?? 0), 0));
   const closedTrades = Number(portfolio?.summary?.closed_trades ?? 0);
@@ -1187,7 +1188,7 @@ export default function TradingDashboardPage() {
               </div>
             </div>
             <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
-              <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Sprint</div>
+              <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Sprint {sprintNumber}</div>
               <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>Day {Math.max(dayProgress?.day ?? 1, 1)}</div>
               <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>{`of ${dayProgress?.total ?? (timeframe && timeframe !== 'unlimited' ? parseInt(timeframe) : 10)} day sprint`}</div>
             </div>

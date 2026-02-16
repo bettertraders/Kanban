@@ -237,10 +237,14 @@ export async function initializeDatabase() {
         user_id INTEGER REFERENCES users(id),
         starting_balance DECIMAL(20,2) DEFAULT 10000,
         current_balance DECIMAL(20,2) DEFAULT 10000,
+        sprint_number INTEGER DEFAULT 1,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW(),
         UNIQUE(board_id, user_id)
       );
+
+      -- Migration: add sprint_number if missing
+      ALTER TABLE paper_accounts ADD COLUMN IF NOT EXISTS sprint_number INTEGER DEFAULT 1;
 
       -- Trading bots
       CREATE TABLE IF NOT EXISTS trading_bots (
@@ -2511,9 +2515,13 @@ export async function updatePaperBalance(
 }
 
 export async function resetPaperBalance(boardId: number, userId: number) {
+  // Ensure sprint_number column exists (safe migration)
+  await pool.query(`ALTER TABLE paper_accounts ADD COLUMN IF NOT EXISTS sprint_number INTEGER DEFAULT 1`).catch(() => {});
+  
   const result = await pool.query(
     `UPDATE paper_accounts
-     SET current_balance = starting_balance, updated_at = NOW()
+     SET current_balance = starting_balance, updated_at = NOW(), created_at = NOW(),
+         sprint_number = COALESCE(sprint_number, 0) + 1
      WHERE board_id = $1 AND user_id = $2
      RETURNING *`,
     [boardId, userId]
@@ -2674,7 +2682,8 @@ export async function getPortfolioStats(userId: number) {
   // Fetch paper balance from paper_accounts
   const paperResult = await pool.query(
     `SELECT COALESCE(SUM(current_balance), 0) as paper_balance,
-            COALESCE(SUM(starting_balance), 0) as starting_balance
+            COALESCE(SUM(starting_balance), 0) as starting_balance,
+            MAX(COALESCE(sprint_number, 1)) as sprint_number
      FROM paper_accounts pa
      JOIN boards b ON pa.board_id = b.id
      WHERE pa.user_id = $1
@@ -2683,6 +2692,7 @@ export async function getPortfolioStats(userId: number) {
   );
   const paperBalance = parseNumeric(paperResult.rows[0]?.paper_balance) || 0;
   const startingBalance = parseNumeric(paperResult.rows[0]?.starting_balance) || 0;
+  const sprintNumber = Number(paperResult.rows[0]?.sprint_number) || 1;
 
   // Active holdings: only coins currently held (Active column)
   const activeHoldingsResult = await pool.query(
@@ -2719,6 +2729,7 @@ export async function getPortfolioStats(userId: number) {
       total_unrealized_pnl: parseNumeric(summaryRow.total_unrealized_pnl) || 0,
       paper_balance: paperBalance,
       starting_balance: startingBalance,
+      sprint_number: sprintNumber,
       win_rate: Math.round(winRate * 100) / 100,
       active_positions: Number(summaryRow.active_positions || 0),
       total_trades: Number(summaryRow.total_trades || 0),

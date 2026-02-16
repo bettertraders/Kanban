@@ -677,6 +677,7 @@ export default function TradingDashboardPage() {
   const activePositions = Number(portfolio?.summary?.active_positions ?? 0);
   const totalTrades = Number(portfolio?.summary?.total_trades ?? bots.reduce((sum, b) => sum + (b.total_trades ?? b.performance?.total_trades ?? 0), 0));
   const closedTrades = Number(portfolio?.summary?.closed_trades ?? 0);
+  const harvestCycles = Number(portfolio?.summary?.harvest_cycles ?? 0);
 
   const botQuote = useMemo(() => getBotQuote(dailyPnlPct, winRate, activePositions, engineOn, totalTrades), [dailyPnlPct, winRate, activePositions, engineOn, totalTrades]);
 
@@ -1166,7 +1167,7 @@ export default function TradingDashboardPage() {
           </div>
 
           {/* Four-column stats row */}
-          <div className="simple-stats-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
+          <div className="simple-stats-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '20px' }}>
             <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
               <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Trades</div>
               <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>{closedTrades} <span style={{ fontSize: '13px', fontWeight: 500, color: '#888' }}>closed</span></div>
@@ -1177,7 +1178,7 @@ export default function TradingDashboardPage() {
               <div style={{ fontSize: '22px', fontWeight: 700, color: '#00e676' }}>{bestDayPnl > 0 ? `+${formatCurrency(bestDayPnl)}` : '—'}</div>
               <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>realized</div>
             </div>
-            <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center', minWidth: '130px' }}>
+            <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
               <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Win Rate</div>
               <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>
                 {winRate.toFixed(0)}%
@@ -1186,6 +1187,11 @@ export default function TradingDashboardPage() {
               <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '2px' }}>
                 {totalTrades < 5 ? 'collecting data' : winRate >= 72 ? 'on track' : winRate >= 62 ? 'drifting' : 'off target'}
               </div>
+            </div>
+            <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Harvest Cycles</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: harvestCycles > 0 ? '#a78bfa' : 'var(--text)' }}>{harvestCycles}</div>
+              <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>{harvestCycles === 0 ? 'waiting for first' : 'profits banked'}</div>
             </div>
             <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
               <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Sprint {sprintNumber}</div>

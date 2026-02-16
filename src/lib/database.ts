@@ -2558,7 +2558,8 @@ export async function getPortfolioStats(userId: number) {
         COUNT(*)::int as total_trades,
         COUNT(*) FILTER (WHERE (t.column_name IN ('Wins', 'Won', 'Closed')) AND COALESCE(t.pnl_dollar, 0) > 0)::int as wins,
         COUNT(*) FILTER (WHERE (t.column_name IN ('Losses', 'Lost', 'Closed')) AND COALESCE(t.pnl_dollar, 0) <= 0)::int as losses,
-        COUNT(*) FILTER (WHERE t.column_name IN ('Closed', 'Wins', 'Won', 'Losses', 'Lost', 'Parked') OR t.status IN ('closed', 'won', 'lost'))::int as closed_trades
+        COUNT(*) FILTER (WHERE t.column_name IN ('Closed', 'Wins', 'Won', 'Losses', 'Lost', 'Parked') OR t.status IN ('closed', 'won', 'lost'))::int as closed_trades,
+        COUNT(*) FILTER (WHERE t.notes LIKE '%harvest_profit%' OR t.notes LIKE '%harvest_trail%')::int as harvest_cycles
       FROM trades t
       JOIN accessible_boards ab ON t.board_id = ab.id
     `,
@@ -2734,6 +2735,7 @@ export async function getPortfolioStats(userId: number) {
       active_positions: Number(summaryRow.active_positions || 0),
       total_trades: Number(summaryRow.total_trades || 0),
       closed_trades: closedTrades,
+      harvest_cycles: Number(summaryRow.harvest_cycles || 0),
       board_count: Number(summaryRow.board_count || 0)
     },
     byCoin,

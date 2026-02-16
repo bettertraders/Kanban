@@ -390,9 +390,11 @@ export default function TradingDashboardPage() {
   const [timeframe, setTimeframe] = useState<Timeframe | null>('10');
   const [timeframeStartDate, setTimeframeStartDate] = useState<string | null>(null);
   const [tboEnabled, setTboEnabled] = useState(true);
+  const [harvestEnabled, setHarvestEnabled] = useState(true); // V2 Harvest Engine
   const [engineOn, setEngineOn] = useState(false);
   const [scanningStatus, setScanningStatus] = useState<string | null>(null);
   const [activeStrategy, setActiveStrategy] = useState<string>('contrarian');
+  const [currentRegime, setCurrentRegime] = useState<string>('neutral'); // Market regime from Owen
 
   // Strategy & allocation state
   const [strategies, setStrategies] = useState<StrategyData[]>([]);
@@ -448,6 +450,7 @@ export default function TradingDashboardPage() {
       if (saved.timeframe) setTimeframe(saved.timeframe);
       // timeframeStartDate is now controlled by account.created_at — don't load from localStorage
       if (saved.tboEnabled !== undefined) setTboEnabled(saved.tboEnabled);
+      if (saved.harvestEnabled !== undefined) setHarvestEnabled(saved.harvestEnabled);
       if (saved.engineOn !== undefined) setEngineOn(saved.engineOn);
     } catch {}
 
@@ -466,6 +469,7 @@ export default function TradingDashboardPage() {
             if (saved.timeframe) setTimeframe(saved.timeframe);
             // timeframeStartDate is now controlled by account.created_at — don't override from settings
             if (saved.tboEnabled !== undefined) setTboEnabled(saved.tboEnabled);
+            if (saved.harvestEnabled !== undefined) setHarvestEnabled(saved.harvestEnabled);
             if (saved.engineOn !== undefined) setEngineOn(saved.engineOn);
             // Also save to localStorage so it's cached
             localStorage.setItem('clawdesk-trading-setup', JSON.stringify(saved));
@@ -480,14 +484,14 @@ export default function TradingDashboardPage() {
     if (typeof window === 'undefined') return;
     // Skip saving if all values are still defaults (initial render before load)
     if (riskLevel === null && tradingAmount === null && !engineOn) return;
-    const data = { riskLevel, riskValue, tradingAmount, timeframe, timeframeStartDate, tboEnabled, engineOn };
+    const data = { riskLevel, riskValue, tradingAmount, timeframe, timeframeStartDate, tboEnabled, harvestEnabled, engineOn };
     localStorage.setItem('clawdesk-trading-setup', JSON.stringify(data));
     fetch('/api/trading/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ boardId: 15, settings: data }),
     }).catch(() => {});
-  }, [riskLevel, riskValue, tradingAmount, timeframe, timeframeStartDate, tboEnabled, engineOn]);
+  }, [riskLevel, riskValue, tradingAmount, timeframe, timeframeStartDate, tboEnabled, harvestEnabled, engineOn]);
 
   const pushToast = useCallback((message: string, type: ToastItem['type'] = 'info') => {
     const id = toastIdRef.current++;
@@ -557,7 +561,7 @@ export default function TradingDashboardPage() {
     return () => clearInterval(iv);
   }, [loadDashboard]);
 
-  // Fetch active strategy from scan-status
+  // Fetch active strategy and regime from scan-status
   useEffect(() => {
     (async () => {
       try {
@@ -565,6 +569,7 @@ export default function TradingDashboardPage() {
         if (res.ok) {
           const data = await res.json();
           if (data?.activeStrategy) setActiveStrategy(data.activeStrategy);
+          if (data?.regime) setCurrentRegime(data.regime);
         }
       } catch {}
     })();
@@ -1117,6 +1122,18 @@ export default function TradingDashboardPage() {
               <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: tboEnabled ? '#4ade80' : '#555', boxShadow: tboEnabled ? '0 0 6px #4ade80' : 'none' }} />
               TBO PRO
             </span>
+            <div style={{ width: '1px', height: '20px', background: '#2a2a4e' }} />
+            <button
+              onClick={() => setHarvestEnabled(prev => !prev)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+              }}
+              title="Auto-harvest profits at target thresholds"
+            >
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: harvestEnabled ? '#a78bfa' : '#555', boxShadow: harvestEnabled ? '0 0 6px #a78bfa' : 'none' }} />
+              <span style={{ fontSize: '12px', fontWeight: 600, color: harvestEnabled ? '#a78bfa' : '#666' }}>Harvest</span>
+            </button>
           </div>
 
           {/* Two-column: Balance + Penny */}
@@ -1869,6 +1886,37 @@ export default function TradingDashboardPage() {
           </button>
           {advancedOpen && (
             <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderTop: 'none', borderRadius: '0 0 14px 14px', padding: '16px', display: 'grid', gap: '16px' }}>
+              {/* V2 Harvest Engine Section */}
+              <div style={{ background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: '12px', padding: '14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      🌾 Harvest Mode
+                      <span style={{ fontSize: '10px', fontWeight: 500, padding: '2px 8px', borderRadius: '999px', background: 'rgba(167,139,250,0.2)', color: '#a78bfa' }}>V2</span>
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>Auto-harvests profits at target thresholds per regime</div>
+                  </div>
+                  <ToggleSwitch on={harvestEnabled} onChange={() => setHarvestEnabled(prev => !prev)} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '12px' }}>
+                  <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '10px' }}>
+                    <div style={{ color: 'var(--muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Current Regime</div>
+                    <div style={{ fontWeight: 600, color: currentRegime === 'trending' ? '#4ade80' : currentRegime === 'volatile' ? '#f5b544' : '#9ca3af' }}>
+                      {currentRegime === 'trending' ? '🐂 BULL' : currentRegime === 'ranging' ? '📊 NEUTRAL' : currentRegime === 'volatile' ? '🌊 WHISPER' : '📊 NEUTRAL'}
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '10px' }}>
+                    <div style={{ color: 'var(--muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Preset</div>
+                    <div style={{ fontWeight: 600, color: '#a78bfa' }}>🔥 Aggressive</div>
+                  </div>
+                </div>
+                <div style={{ marginTop: '10px', fontSize: '11px', color: 'var(--muted)', lineHeight: 1.5 }}>
+                  {currentRegime === 'trending' ? 'Bull: Floor 6-12%, trailing stops active, 4% stop loss' :
+                   currentRegime === 'volatile' ? 'Whisper: Floor 2-4%, hard harvest at floor, 1.5% tight stop' :
+                   'Neutral: Floor 4-7%, hard harvest at floor, 2.5% stop loss'}
+                </div>
+              </div>
+              
               <AdvancedRow label="Manual Trade" description="Pick a specific coin and enter a trade manually" />
               <AdvancedRow label="Strategy Override" description="Choose a specific strategy instead of auto" />
               <AdvancedRow label="Stop Loss / Take Profit" description="Customize SL/TP for all new trades" />

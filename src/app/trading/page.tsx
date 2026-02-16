@@ -1125,8 +1125,13 @@ export default function TradingDashboardPage() {
             <div style={{ background: 'linear-gradient(135deg, #1a1a3e 0%, #141428 100%)', borderRadius: '16px', padding: '28px 24px', position: 'relative', overflow: 'hidden' }}>
               <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>Your Balance</div>
               <div style={{ fontSize: '42px', fontWeight: 800, letterSpacing: '-1px', color: (displayBalance) >= startingBalance ? '#4ade80' : 'var(--text)' }}>{formatCurrency(displayBalance)}</div>
+              {(realizedPnl !== 0 || dailyPnl !== 0) && (
+                <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                  {formatCurrency(realizedPnl)} realized{dailyPnl !== 0 ? ` · ${dailyPnl >= 0 ? '+' : ''}${formatCurrency(dailyPnl)} unrealized` : ''}
+                </div>
+              )}
               {dayProgress && (
-                <div style={{ fontSize: '12px', color: '#666', marginTop: '6px' }}>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
                   Day {dayProgress.day}{dayProgress.total ? ` of ${dayProgress.total}` : ''} · Started with {formatCurrencyShort(tradingAmount || startingBalance)}
                 </div>
               )}

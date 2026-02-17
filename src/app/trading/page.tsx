@@ -1925,6 +1925,18 @@ export default function TradingDashboardPage() {
                    currentRegime === 'volatile' ? 'Whisper: Floor 2-4%, hard harvest at floor, 1.5% tight stop' :
                    'Neutral: Floor 4-7%, hard harvest at floor, 2.5% stop loss'}
                 </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
+                  <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
+                    <div style={{ color: 'var(--muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Compound Cycles</div>
+                    <div style={{ fontSize: '20px', fontWeight: 700, color: harvestCycles > 0 ? '#4ade80' : 'var(--text)' }}>{harvestCycles}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '2px' }}>{harvestCycles === 0 ? 'waiting for first' : 'profits banked'}</div>
+                  </div>
+                  <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
+                    <div style={{ color: 'var(--muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Sprint {sprintNumber}</div>
+                    <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text)' }}>{dayProgress?.day ?? 1}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '2px' }}>{`of ${dayProgress?.total ?? (timeframe && timeframe !== 'unlimited' ? parseInt(timeframe) : 10)} day sprint`}</div>
+                  </div>
+                </div>
               </div>
               
               <AdvancedRow label="Manual Trade" description="Pick a specific coin and enter a trade manually" />
@@ -1936,7 +1948,7 @@ export default function TradingDashboardPage() {
                   <div style={{ fontSize: '13px', fontWeight: 600 }}>Compounding</div>
                   <div style={{ fontSize: '11px', color: 'var(--muted)' }}>Reinvest profits into new trades</div>
                 </div>
-                <ToggleSwitch on={true} onChange={() => {}} />
+                <ToggleSwitch on={harvestEnabled} onChange={() => setHarvestEnabled(prev => !prev)} />
               </div>
             </div>
           )}</section>

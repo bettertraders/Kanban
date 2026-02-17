@@ -2530,6 +2530,9 @@ export async function resetPaperBalance(boardId: number, userId: number) {
 }
 
 export async function getPortfolioStats(userId: number) {
+  // Ensure sprint_number column exists (safe migration)
+  await pool.query(`ALTER TABLE paper_accounts ADD COLUMN IF NOT EXISTS sprint_number INTEGER DEFAULT 1`).catch(() => {});
+  
   const summaryResult = await pool.query(
     `
       WITH accessible_boards AS (

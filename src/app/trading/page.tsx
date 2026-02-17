@@ -1182,31 +1182,87 @@ export default function TradingDashboardPage() {
     );
     if (!confirmed) return;
     try {
+      // 0. Stop all running bots FIRST to prevent new trades
+      for (const bot of bots) {
+        if (bot.status === 'running') {
+          try {
+            await fetch(`/api/v1/bots/${bot.id}/stop`, { method: 'POST' });
+          } catch (e) {
+            console.warn(`Failed to stop bot ${bot.id}:`, e);
+          }
+        }
+      }
+
       // 1. Delete paper account so setup screen shows fresh
       await fetch('/api/trading/account?boardId=15', { method: 'DELETE' });
-      // 2. Fetch all trades
+
+      // 2. Fetch ALL trades (no column filter to catch everything)
       const tradesRes = await fetch('/api/v1/trades?boardId=15');
       const tradesData = await tradesRes.json();
       const trades = tradesData.trades || tradesData || [];
-      // 3. Delete each trade
-      await Promise.all(trades.map((t: { id: number }) =>
-        fetch(`/api/v1/trades/${t.id}`, { method: 'DELETE' })
-      ));
-      // 4. Reset timeframe + engine off — write directly to localStorage before reload
+      console.log(`[Reset] Found ${trades.length} trades to delete`);
+
+      // 3. Delete each trade with error tracking
+      let deleted = 0;
+      let failed = 0;
+      for (const t of trades) {
+        try {
+          const res = await fetch(`/api/v1/trades/${t.id}`, { method: 'DELETE' });
+          if (res.ok) {
+            deleted++;
+          } else {
+            failed++;
+            console.warn(`[Reset] Failed to delete trade ${t.id}: ${res.status}`);
+          }
+        } catch (e) {
+          failed++;
+          console.warn(`[Reset] Error deleting trade ${t.id}:`, e);
+        }
+      }
+      console.log(`[Reset] Deleted ${deleted} trades, ${failed} failed`);
+
+      // 4. Verify all trades are deleted
+      const verifyRes = await fetch('/api/v1/trades?boardId=15');
+      const verifyData = await verifyRes.json();
+      const remaining = verifyData.trades || verifyData || [];
+      if (remaining.length > 0) {
+        console.warn(`[Reset] Warning: ${remaining.length} trades still remain after deletion`);
+        // Try one more time to delete remaining trades
+        for (const t of remaining) {
+          try {
+            await fetch(`/api/v1/trades/${t.id}`, { method: 'DELETE' });
+          } catch {}
+        }
+      }
+
+      // 5. Clear all dashboard-related state before reload
+      // Clear local state immediately
+      setPortfolio(null);
+      setBots([]);
+      setTimeframeStartDate(null);
+      setEngineOn(false);
+
+      // 6. Reset localStorage settings
       const saved = JSON.parse(localStorage.getItem('clawdesk-trading-setup') || '{}');
       saved.timeframeStartDate = null;
       saved.engineOn = false;
       saved.resetPending = true; // Flag to prevent auto-sync from account.created_at
       localStorage.setItem('clawdesk-trading-setup', JSON.stringify(saved));
-      setTimeframeStartDate(null);
-      setEngineOn(false);
-      // 5. Reload
+
+      // 7. Notify Owen to clear trade executor state (fire and forget)
+      try {
+        await fetch('/api/trading/reset-executor', { method: 'POST' });
+      } catch {
+        // Owen reset is best-effort
+      }
+
+      // 8. Reload to get fresh state
       window.location.reload();
     } catch (err) {
       console.error('Reset challenge failed:', err);
       alert('Failed to reset challenge. Check console for details.');
     }
-  }, [tradingAmount, setTimeframeStartDate, setEngineOn]);
+  }, [tradingAmount, bots, setTimeframeStartDate, setEngineOn]);
 
   // Simple mode handle start trading
   const handleSimpleStartTrading = useCallback(() => {

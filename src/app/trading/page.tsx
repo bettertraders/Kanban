@@ -1578,6 +1578,30 @@ export default function TradingDashboardPage() {
                 </div>
               )}
 
+              {/* Compounding badge */}
+              <button
+                onClick={() => setHarvestEnabled(prev => !prev)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '8px',
+                  padding: '4px 10px', borderRadius: '999px', alignSelf: 'flex-start', marginTop: '4px',
+                  background: harvestEnabled ? 'rgba(74,222,128,0.06)' : 'rgba(123,125,255,0.08)',
+                  border: `1px solid ${harvestEnabled ? 'rgba(74,222,128,0.3)' : 'rgba(123,125,255,0.2)'}`,
+                  fontSize: '10px', color: harvestEnabled ? '#4ade80' : 'var(--muted)',
+                  cursor: 'pointer',
+                }}
+              >
+                <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: harvestEnabled ? '#4ade80' : 'var(--muted)' }} />
+                Compounding
+                <ToggleSwitch on={harvestEnabled} onChange={() => setHarvestEnabled(prev => !prev)} />
+              </button>
+
+              {/* Compound Cycles */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', fontSize: '11px' }}>
+                <span style={{ color: 'var(--muted)' }}>Cycles:</span>
+                <span style={{ fontWeight: 700, color: harvestCycles > 0 ? '#4ade80' : 'var(--text)' }}>{harvestCycles}</span>
+                <span style={{ color: 'var(--muted)', fontSize: '10px' }}>{harvestCycles === 0 ? '(waiting for first)' : 'profits banked'}</span>
+              </div>
+
               {/* TBO badge */}
               <button
                 onClick={() => setTboEnabled(prev => !prev)}

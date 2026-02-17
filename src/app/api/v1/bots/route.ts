@@ -71,7 +71,8 @@ export async function POST(request: NextRequest) {
       rebalancer_config: body?.rebalancer_config ?? {}
     });
 
-    await getPaperAccount(boardId, user.id, 10000);
+    // Ensure paper account exists (uses DO NOTHING on conflict, won't override user's balance)
+    await getPaperAccount(boardId, user.id);
 
     return NextResponse.json({ bot }, { status: 201 });
   } catch (error) {

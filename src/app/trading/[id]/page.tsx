@@ -969,13 +969,22 @@ export default function TradingBoardPage() {
     const totals: Record<string, { count: number; pnl: number }> = {};
     columns.forEach((col) => { totals[col.name] = { count: 0, pnl: 0 }; });
     trades.forEach((trade) => {
-      const live = priceMap[normalizePair(trade.coin_pair)]?.price ?? null;
-      const computed = computePnl(trade, live);
-      const pnl = toNumber(trade.pnl_dollar) ?? computed?.pnlDollar ?? 0;
       if (!totals[trade.column_name]) {
         totals[trade.column_name] = { count: 0, pnl: 0 };
       }
       totals[trade.column_name].count += 1;
+      
+      // Only calculate P&L for trades with entry_price (Active/Closed trades)
+      // Queued/Watching/Analyzing trades don't have positions yet
+      const entryPrice = toNumber(trade.entry_price);
+      if (entryPrice === null || entryPrice === 0) {
+        // No entry price = no position = no P&L
+        return;
+      }
+      
+      const live = priceMap[normalizePair(trade.coin_pair)]?.price ?? null;
+      const computed = computePnl(trade, live);
+      const pnl = toNumber(trade.pnl_dollar) ?? computed?.pnlDollar ?? 0;
       totals[trade.column_name].pnl += pnl || 0;
     });
     return totals;
@@ -3060,17 +3069,44 @@ function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
           );
           if (!confirmed) return;
           try {
+            // 1. Stop all running bots FIRST
+            const botsRes = await fetch('/api/v1/bots');
+            const botsData = await botsRes.json();
+            const bots = botsData.bots || [];
+            for (const bot of bots) {
+              if (bot.status === 'running') {
+                await fetch(`/api/v1/bots/${bot.id}/stop`, { method: 'POST' }).catch(() => {});
+              }
+            }
+            
+            // 2. Wait for bots to fully stop
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // 3. Notify Owen to clear executor state
+            await fetch('/api/trading/reset-executor', { method: 'POST' }).catch(() => {});
+            
+            // 4. Reset paper account balance
             await fetch('/api/trading/account', {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ boardId: 15, balance: amt }),
             });
+            
+            // 5. Delete all trades
             const tradesRes = await fetch('/api/v1/trades?boardId=15');
             const tradesData = await tradesRes.json();
             const trades = tradesData.trades || tradesData || [];
-            await Promise.all(trades.map((t: { id: number }) =>
-              fetch(`/api/v1/trades/${t.id}`, { method: 'DELETE' })
-            ));
+            for (const t of trades) {
+              await fetch(`/api/v1/trades/${t.id}`, { method: 'DELETE' }).catch(() => {});
+            }
+            
+            // 6. Clear localStorage settings
+            const saved = JSON.parse(localStorage.getItem('clawdesk-trading-setup') || '{}');
+            saved.timeframeStartDate = null;
+            saved.engineOn = false;
+            saved.resetPending = true;
+            localStorage.setItem('clawdesk-trading-setup', JSON.stringify(saved));
+            
             window.location.reload();
           } catch (err) {
             console.error('Reset challenge failed:', err);

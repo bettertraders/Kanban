@@ -139,6 +139,7 @@ export async function DELETE(request: NextRequest) {
 }
 
 // POST /api/trading/account — create paper account with initial balance
+// This is called when user clicks "Start Trading" — it MUST set the balance
 export async function POST(request: NextRequest) {
   try {
     const user = await getAuthenticatedUser(request);
@@ -152,8 +153,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'boardId required' }, { status: 400 });
     }
 
-    const account = await getPaperAccount(boardId, user.id, initialBalance);
-    return NextResponse.json({ account });
+    // Use UPSERT that ALWAYS updates the balance when called
+    // This is different from getPaperAccount which uses DO NOTHING
+    // because POST is explicitly setting the user's chosen amount
+    await pool.query(
+      `INSERT INTO paper_accounts (board_id, user_id, starting_balance, current_balance)
+       VALUES ($1, $2, $3, $3)
+       ON CONFLICT (board_id, user_id) DO UPDATE SET 
+         starting_balance = $3,
+         current_balance = $3,
+         created_at = NOW(),
+         updated_at = NOW()`,
+      [boardId, user.id, initialBalance]
+    );
+
+    const result = await pool.query(
+      `SELECT * FROM paper_accounts WHERE board_id = $1 AND user_id = $2`,
+      [boardId, user.id]
+    );
+
+    return NextResponse.json({ account: result.rows[0] });
   } catch (error) {
     console.error('POST /api/trading/account error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

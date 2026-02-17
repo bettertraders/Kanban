@@ -1183,26 +1183,40 @@ export default function TradingDashboardPage() {
     if (!confirmed) return;
     try {
       // 0. Stop all running bots FIRST to prevent new trades
+      console.log('[Reset] Stopping all bots...');
+      const stopPromises = [];
       for (const bot of bots) {
         if (bot.status === 'running') {
-          try {
-            await fetch(`/api/v1/bots/${bot.id}/stop`, { method: 'POST' });
-          } catch (e) {
-            console.warn(`Failed to stop bot ${bot.id}:`, e);
-          }
+          stopPromises.push(
+            fetch(`/api/v1/bots/${bot.id}/stop`, { method: 'POST' })
+              .catch(e => console.warn(`Failed to stop bot ${bot.id}:`, e))
+          );
         }
       }
+      await Promise.all(stopPromises);
+      
+      // 1. Wait for bots to fully stop (Owen checks every 5s, give it 3s buffer)
+      console.log('[Reset] Waiting for bots to fully stop...');
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // 2. Notify Owen to clear trade executor state BEFORE deleting trades
+      // This prevents Owen from creating new watchlist trades during reset
+      try {
+        await fetch('/api/trading/reset-executor', { method: 'POST' });
+      } catch {
+        // Owen reset is best-effort
+      }
 
-      // 1. Delete paper account so setup screen shows fresh
+      // 3. Delete paper account so setup screen shows fresh
       await fetch('/api/trading/account?boardId=15', { method: 'DELETE' });
 
-      // 2. Fetch ALL trades (no column filter to catch everything)
+      // 4. Fetch ALL trades (no column filter to catch everything)
       const tradesRes = await fetch('/api/v1/trades?boardId=15');
       const tradesData = await tradesRes.json();
       const trades = tradesData.trades || tradesData || [];
       console.log(`[Reset] Found ${trades.length} trades to delete`);
 
-      // 3. Delete each trade with error tracking
+      // 5. Delete each trade with error tracking
       let deleted = 0;
       let failed = 0;
       for (const t of trades) {
@@ -1221,7 +1235,7 @@ export default function TradingDashboardPage() {
       }
       console.log(`[Reset] Deleted ${deleted} trades, ${failed} failed`);
 
-      // 4. Verify all trades are deleted
+      // 6. Verify all trades are deleted, retry if needed
       const verifyRes = await fetch('/api/v1/trades?boardId=15');
       const verifyData = await verifyRes.json();
       const remaining = verifyData.trades || verifyData || [];
@@ -1235,28 +1249,21 @@ export default function TradingDashboardPage() {
         }
       }
 
-      // 5. Clear all dashboard-related state before reload
+      // 7. Clear all dashboard-related state before reload
       // Clear local state immediately
       setPortfolio(null);
       setBots([]);
       setTimeframeStartDate(null);
       setEngineOn(false);
 
-      // 6. Reset localStorage settings
+      // 8. Reset localStorage settings
       const saved = JSON.parse(localStorage.getItem('clawdesk-trading-setup') || '{}');
       saved.timeframeStartDate = null;
       saved.engineOn = false;
       saved.resetPending = true; // Flag to prevent auto-sync from account.created_at
       localStorage.setItem('clawdesk-trading-setup', JSON.stringify(saved));
 
-      // 7. Notify Owen to clear trade executor state (fire and forget)
-      try {
-        await fetch('/api/trading/reset-executor', { method: 'POST' });
-      } catch {
-        // Owen reset is best-effort
-      }
-
-      // 8. Reload to get fresh state
+      // 9. Reload to get fresh state
       window.location.reload();
     } catch (err) {
       console.error('Reset challenge failed:', err);

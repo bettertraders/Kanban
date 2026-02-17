@@ -2455,16 +2455,14 @@ export async function getPaperAccount(boardId: number, userId: number, startingB
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    // Create if doesn't exist, or update both starting_balance and current_balance
-    // When user starts trading with a new amount, we reset the balance to match
+    // Create if doesn't exist — DO NOT update if already exists
+    // This ensures user's chosen balance persists and isn't reset on every call
+    // The balance is only reset explicitly via PATCH /api/trading/account
     await client.query(
       `
         INSERT INTO paper_accounts (board_id, user_id, starting_balance, current_balance)
         VALUES ($1, $2, $3, $3)
-        ON CONFLICT (board_id, user_id) DO UPDATE SET 
-          starting_balance = EXCLUDED.starting_balance,
-          current_balance = EXCLUDED.starting_balance,
-          updated_at = NOW()
+        ON CONFLICT (board_id, user_id) DO NOTHING
       `,
       [boardId, userId, startingBalance]
     );

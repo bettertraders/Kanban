@@ -397,6 +397,7 @@ export default function TradingDashboardPage() {
   const [harvestEnabled, setHarvestEnabled] = useState(true); // V2 Harvest Engine
   const [engineOn, setEngineOn] = useState(false);
   const [scanningStatus, setScanningStatus] = useState<string | null>(null);
+  const [liveStatusMessage, setLiveStatusMessage] = useState<string | null>(null);
   const [activeStrategy, setActiveStrategy] = useState<string>('contrarian');
   const [currentRegime, setCurrentRegime] = useState<string>('neutral'); // Market regime from Owen
 
@@ -715,6 +716,83 @@ export default function TradingDashboardPage() {
 
   const botQuote = useMemo(() => getBotQuote(dailyPnlPct, winRate, activePositions, engineOn, totalTrades), [dailyPnlPct, winRate, activePositions, engineOn, totalTrades]);
 
+  // Live status message cycling — shows what Owen/Penny are doing
+  useEffect(() => {
+    if (!engineOn) {
+      setLiveStatusMessage(null);
+      return;
+    }
+
+    // Build contextual messages based on current state
+    const getContextualMessages = () => {
+      const messages: string[] = [];
+      
+      // If scanning is active (from scan-status API)
+      if (scanningStatus && scanningStatus !== 'scanning') {
+        return [scanningStatus]; // Use the actual scan status message
+      }
+      
+      // Active positions messages
+      if (activePositions > 0) {
+        messages.push(
+          `👀 Monitoring ${activePositions} active position${activePositions > 1 ? 's' : ''}...`,
+          `📊 Watching price action on ${activePositions} trade${activePositions > 1 ? 's' : ''}...`,
+          `🎯 Tracking targets and stops on ${activePositions} position${activePositions > 1 ? 's' : ''}...`
+        );
+      }
+      
+      // Strategy-specific messages
+      const strategyMessages: Record<string, string[]> = {
+        contrarian: [
+          '🔪 Owen is scanning for contrarian setups...',
+          '📉 Looking for oversold reversals...',
+          '🔄 Analyzing fear/greed extremes for entries...'
+        ],
+        momentum: [
+          '🚀 Owen is scanning for momentum breakouts...',
+          '📈 Looking for strong trending pairs...',
+          '💨 Analyzing volume surges and breakouts...'
+        ],
+        range: [
+          '📊 Owen is mapping support/resistance zones...',
+          '↔️ Looking for range-bound scalp setups...',
+          '🎯 Analyzing mean reversion opportunities...'
+        ]
+      };
+      messages.push(...(strategyMessages[activeStrategy] || strategyMessages.contrarian));
+      
+      // General monitoring messages
+      messages.push(
+        '🧠 Penny is analyzing market conditions...',
+        '🔍 Owen is scanning 500+ pairs for opportunities...',
+        '📡 Monitoring real-time price feeds...',
+        '⚡ Running risk checks on all positions...',
+        '🌡️ Checking Fear & Greed Index...',
+        '📊 Analyzing volume patterns and momentum...',
+        '🔄 Reviewing trade strategy performance...',
+        '👁️ Watching for volatility spikes...',
+        '📈 Scanning for entry signals...',
+        '🎯 Calibrating position sizing...'
+      );
+      
+      return messages;
+    };
+
+    const messages = getContextualMessages();
+    let index = 0;
+    
+    // Set initial message
+    setLiveStatusMessage(messages[index]);
+    
+    // Cycle through messages every 15-20 seconds (randomized)
+    const interval = setInterval(() => {
+      index = (index + 1) % messages.length;
+      setLiveStatusMessage(messages[index]);
+    }, 15000 + Math.random() * 5000);
+    
+    return () => clearInterval(interval);
+  }, [engineOn, scanningStatus, activePositions, activeStrategy]);
+
   // Day X of Y calculation
   const dayProgress = useMemo(() => {
     if (!timeframeStartDate || !timeframe) return null;
@@ -730,9 +808,11 @@ export default function TradingDashboardPage() {
   const setupReady = riskLevel !== null && tradingAmount !== null;
   const allConfigured = setupReady && tboEnabled && engineOn;
   // When not in active challenge, show tradingAmount as balance (live update on amount change)
-  // Always show real portfolio value when we have data; fall back to tradingAmount only during setup
-  const displayBalance = (portfolio?.summary?.live_balance != null) ? paperBalance : 
-    ((!engineOn && !timeframeStartDate && tradingAmount) ? tradingAmount : paperBalance);
+  // Priority: if engine is OFF and no challenge started yet, ALWAYS show tradingAmount
+  // This ensures the selected amount displays immediately before clicking Start
+  const displayBalance = (!engineOn && !timeframeStartDate && tradingAmount) 
+    ? tradingAmount 
+    : ((portfolio?.summary?.live_balance != null) ? paperBalance : (tradingAmount || paperBalance));
 
   const AMOUNT_PRESETS = [100, 500, 1000, 5000];
 
@@ -997,7 +1077,7 @@ export default function TradingDashboardPage() {
             const activeTrades = Array.isArray(tradesData) ? tradesData : (tradesData.trades || []);
             if (activeTrades.length > 0) {
               const pairs = activeTrades.map((t: { coin_pair?: string }) => t.coin_pair?.replace('/', '') || '').filter(Boolean).join(',');
-              let prices: Record<string, number> = {};
+              const prices: Record<string, number> = {};
               try {
                 const priceRes = await fetch(`/api/v1/prices?pairs=${encodeURIComponent(pairs)}`);
                 if (priceRes.ok) {
@@ -1368,15 +1448,15 @@ export default function TradingDashboardPage() {
           <div style={{ textAlign: 'center', fontSize: '11px', color: '#444', marginTop: '8px' }}>
             Powered by the TBO Trading Engine · A product of The Better Traders
           </div>
-          {scanningStatus && (
+          {(engineOn && liveStatusMessage) && (
             <div style={{
               textAlign: 'center', marginTop: '10px', padding: '10px 16px',
               background: 'rgba(123,125,255,0.08)', border: '1px solid rgba(123,125,255,0.2)',
               borderRadius: '10px', fontSize: '13px', color: '#7b7dff', fontWeight: 500,
-              animation: 'pulse-glow-dot 2s infinite',
+              transition: 'opacity 0.3s ease',
             }}>
               <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#7b7dff', marginRight: '8px', animation: 'pulse-glow-dot 1.5s infinite' }} />
-              {scanningStatus === 'scanning' ? '🔍 Scanning watchlist for opportunities...' : scanningStatus}
+              {liveStatusMessage}
             </div>
           )}
           {!engineOn && (
@@ -1902,14 +1982,15 @@ export default function TradingDashboardPage() {
               {engineOn ? '✨ Bot is Running — Tap to Pause' : (timeframeStartDate ? '▶ Resume Trading' : '▶ Start Trading')}
             </button>
           </div>
-          {scanningStatus && (
+          {(engineOn && liveStatusMessage) && (
             <div style={{
               textAlign: 'center', marginTop: '10px', padding: '10px 16px',
               background: 'rgba(123,125,255,0.08)', border: '1px solid rgba(123,125,255,0.2)',
               borderRadius: '10px', fontSize: '13px', color: '#7b7dff', fontWeight: 500,
+              transition: 'opacity 0.3s ease',
             }}>
               <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#7b7dff', marginRight: '8px', animation: 'pulse-glow-dot 1.5s infinite' }} />
-              {scanningStatus === 'scanning' ? '🔍 Scanning watchlist for opportunities...' : scanningStatus}
+              {liveStatusMessage}
             </div>
           )}
           <div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--muted)' }}>

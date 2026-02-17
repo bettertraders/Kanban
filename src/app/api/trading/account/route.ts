@@ -48,17 +48,17 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'boardId and balance required' }, { status: 400 });
     }
 
-    // Reset ALL accounts on this board (not just current user's)
+    // Update balance — only reset created_at if explicitly provided
     const startDate = body.created_at || body.start_date;
     if (startDate) {
       await pool.query(
-        `UPDATE paper_accounts SET starting_balance = $1, current_balance = $1, created_at = $3, updated_at = NOW() WHERE board_id = $2`,
-        [balance, boardId, new Date(startDate)]
+        `UPDATE paper_accounts SET starting_balance = $1, current_balance = $1, created_at = $3, updated_at = NOW() WHERE board_id = $2 AND user_id = $4`,
+        [balance, boardId, new Date(startDate), user.id]
       );
     } else {
       await pool.query(
-        `UPDATE paper_accounts SET starting_balance = $1, current_balance = $1, created_at = NOW(), updated_at = NOW() WHERE board_id = $2`,
-        [balance, boardId]
+        `UPDATE paper_accounts SET starting_balance = $1, current_balance = $1, updated_at = NOW() WHERE board_id = $2 AND user_id = $3`,
+        [balance, boardId, user.id]
       );
     }
 

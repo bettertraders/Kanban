@@ -541,6 +541,11 @@ export default function TradingBoardPage() {
     fetchBotActivity();
     fetchBoardBots();
     refreshAlertCount();
+    // Fetch paper account for starting balance
+    fetch(`/api/trading/account?boardId=${boardId}&check=1`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.account) setPaperAccount({ starting_balance: Number(data.account.starting_balance), current_balance: Number(data.account.current_balance) }); })
+      .catch(() => {});
     const iv = setInterval(() => { fetchTrades(); fetchStats(); }, 30000);
     return () => clearInterval(iv);
   }, [fetchBoard, fetchBotActivity, fetchBoardBots, fetchStats, fetchTrades, refreshAlertCount]);
@@ -1474,7 +1479,7 @@ export default function TradingBoardPage() {
         boardId={Number(boardId)}
         liveWinRate={stats?.win_rate ?? 0}
         liveTrades={stats?.total_trades ?? 0}
-        liveBalance={1000 + (stats?.total_pnl ?? 0) + (columnTotals['Active']?.pnl ?? 0)}
+        liveBalance={(paperAccount?.starting_balance ?? 1000) + (stats?.total_pnl ?? 0) + (columnTotals['Active']?.pnl ?? 0)}
         realizedPnl={stats?.total_pnl ?? 0}
       />
       <AdjustmentsPanel boardId={Number(boardId)} />

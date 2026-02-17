@@ -853,13 +853,9 @@ export default function TradingDashboardPage() {
     }
   }, [engineOn, timeframeStartDate, boardId, loadDashboard, dbStartingBalance]);
 
-  // Auto-sync paper account when tradingAmount differs from DB (on page load or portfolio refresh)
-  useEffect(() => {
-    if (boardId && tradingAmount && dbStartingBalance > 0 && dbStartingBalance !== tradingAmount && !timeframeStartDate) {
-      // Paper account exists with different balance than user's selection - sync it
-      syncPaperBalance(tradingAmount);
-    }
-  }, [boardId, tradingAmount, dbStartingBalance, timeframeStartDate, syncPaperBalance]);
+  // DO NOT auto-sync paper balance on tradingAmount change — the DB is only updated
+  // when the user clicks "Start Trading" (via POST). Syncing here causes circular effects
+  // and overwrites the balance with stale/wrong values.
 
   // When paused mid-challenge, can only increase amount (not decrease)
   const isMidChallenge = !engineOn && !!timeframeStartDate;

@@ -4,11 +4,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 type TradingNavProps = {
-  activeTab: 'dashboard' | 'board' | 'bots' | 'leaderboard' | 'journal' | 'market';
+  activeTab: 'dashboard' | 'board' | 'bots' | 'leaderboard' | 'journal' | 'market' | 'ask-penny';
 };
 
 const tabs = [
   { key: 'dashboard', label: 'Dashboard', href: '/trading' },
+  { key: 'ask-penny', label: 'Ask Penny', href: '/trading/ask-penny' },
   { key: 'market', label: 'Market', href: '/trading/market' },
   { key: 'board', label: 'Trades', href: '/trading/trades' },
   // { key: 'bots', label: 'Active Bots', href: '/bots' },  // hidden for v1

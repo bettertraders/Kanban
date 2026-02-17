@@ -8,10 +8,11 @@ import { UserMenu } from '@/components/UserMenu';
 type PageMeta = {
   title: string;
   subtitle: string;
-  activeTab: 'dashboard' | 'board' | 'bots' | 'leaderboard' | 'journal' | 'market';
+  activeTab: 'dashboard' | 'board' | 'bots' | 'leaderboard' | 'journal' | 'market' | 'ask-penny';
 };
 
 function getPageMeta(pathname: string): PageMeta {
+  if (pathname === '/trading/ask-penny') return { title: 'Ask Penny', subtitle: 'AI Portfolio Assistant', activeTab: 'ask-penny' };
   if (pathname === '/trading/market') return { title: 'Market Overview', subtitle: 'Live Data & Sentiment', activeTab: 'market' };
   if (pathname === '/trading/history') return { title: 'Trade History', subtitle: 'Past Trades & Notes', activeTab: 'journal' };
   if (pathname === '/trading/leaderboard') return { title: 'Leaderboard', subtitle: 'Performance Overview', activeTab: 'leaderboard' };

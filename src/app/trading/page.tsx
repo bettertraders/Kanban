@@ -1189,6 +1189,9 @@ export default function TradingDashboardPage() {
                 <span style={{ fontSize: '14px', color: '#7b7dff', fontWeight: 600 }}>Penny</span>
               </div>
               <div style={{ fontSize: '15px', lineHeight: 1.6, color: '#ddd' }}>{pennyUpdate}</div>
+              <Link href="/trading/ask-penny" style={{ marginTop: '12px', fontSize: '13px', color: '#7b7dff', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                💬 Ask Penny a question →
+              </Link>
             </div>
           </div>
 

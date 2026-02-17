@@ -2993,11 +2993,12 @@ function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
           fetch(`/api/v1/portfolio`)
             .then(r => r.json())
             .then(portfolio => {
-              const realized = Number(portfolio?.summary?.total_realized_pnl ?? 0);
+              const cash = Number(portfolio?.summary?.paper_balance ?? starting);
+              const deployed = Number(portfolio?.summary?.total_portfolio_value ?? 0);
               const unrealized = Number(portfolio?.summary?.total_unrealized_pnl ?? 0);
-              const totalPnl = realized + unrealized;
-              setPnl(totalPnl);
-              setBalance(starting + totalPnl);
+              const liveBalance = cash + deployed + unrealized;
+              setPnl(liveBalance - starting);
+              setBalance(liveBalance);
             })
             .catch(() => {});
         }

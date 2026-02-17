@@ -1101,7 +1101,6 @@ export default function TradingDashboardPage() {
               <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)', margin: 0 }}>Your Trading Co-Pilot, Penny</h1>
               <div style={{ fontSize: '13px', color: '#666' }}>It watches the market so you don&apos;t have to.</div>
             </div>
-            <button onClick={() => toggleDashboardMode('advanced')} style={{ background: '#1a1a2e', border: '1px solid #2a2a4e', color: '#666', padding: '6px 12px', borderRadius: '16px', fontSize: '11px', cursor: 'pointer' }}>⚙️ Advanced Mode</button>
           </div>
 
           {/* Status Bar */}
@@ -1145,7 +1144,13 @@ export default function TradingDashboardPage() {
           <div className="simple-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
             {/* Money Card */}
             <div style={{ background: 'linear-gradient(135deg, #1a1a3e 0%, #141428 100%)', borderRadius: '16px', padding: '28px 24px', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>Your Balance</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <span style={{ fontSize: '12px', color: '#888' }}>Your Balance</span>
+                <button onClick={() => toggleDashboardMode('advanced')} style={{ background: 'transparent', border: 'none', color: '#555', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                  Settings
+                </button>
+              </div>
               <div style={{ fontSize: '42px', fontWeight: 800, letterSpacing: '-1px', color: (displayBalance) >= startingBalance ? '#4ade80' : 'var(--text)' }}>{formatCurrency(displayBalance)}</div>
               {(realizedPnl !== 0 || dailyPnl !== 0) && (
                 <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>

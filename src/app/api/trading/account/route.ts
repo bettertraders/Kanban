@@ -13,10 +13,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'boardId required' }, { status: 400 });
     }
 
-    // One-time fix: reset any board-15 accounts still at 10000 default
-    await pool.query(`UPDATE paper_accounts SET starting_balance = 1000, current_balance = 1000 WHERE board_id = 15 AND starting_balance = 10000`).catch(() => {});
-
-    const account = await getPaperAccount(boardId, user.id);
+    // If check=1, just look up without auto-creating
+    const checkOnly = request.nextUrl.searchParams.get('check') === '1';
+    let account;
+    if (checkOnly) {
+      const result = await pool.query(
+        `SELECT * FROM paper_accounts WHERE board_id = $1 AND user_id = $2`,
+        [boardId, user.id]
+      );
+      account = result.rows[0] || null;
+    } else {
+      account = await getPaperAccount(boardId, user.id);
+    }
     const stats = await getPortfolioStats(user.id);
 
     return NextResponse.json({ account, stats });
@@ -87,6 +95,45 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ account: result.rows[0] });
   } catch (error) {
     console.error('PATCH /api/trading/account error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// DELETE /api/trading/account?boardId=X — delete paper account (used by reset)
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await getAuthenticatedUser(request);
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const boardId = Number(request.nextUrl.searchParams.get('boardId'));
+    if (!Number.isFinite(boardId)) {
+      return NextResponse.json({ error: 'boardId required' }, { status: 400 });
+    }
+
+    await pool.query(
+      `DELETE FROM paper_accounts WHERE board_id = $1 AND user_id = $2`,
+      [boardId, user.id]
+    );
+
+    // Also clear timeframeStartDate from trading_settings
+    try {
+      const existing = await pool.query(
+        `SELECT settings FROM trading_settings WHERE user_id = $1 AND board_id = $2`,
+        [user.id, boardId]
+      );
+      if (existing.rows.length > 0) {
+        const settings = existing.rows[0].settings || {};
+        delete settings.timeframeStartDate;
+        await pool.query(
+          `UPDATE trading_settings SET settings = $1, updated_at = NOW() WHERE user_id = $2 AND board_id = $3`,
+          [JSON.stringify(settings), user.id, boardId]
+        );
+      }
+    } catch {}
+
+    return NextResponse.json({ deleted: true });
+  } catch (error) {
+    console.error('DELETE /api/trading/account error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -393,7 +393,6 @@ export default function TradingDashboardPage() {
   const [tradingAmount, setTradingAmount] = useState<number | null>(null);
   const [timeframe, setTimeframe] = useState<Timeframe | null>('10');
   const [timeframeStartDate, setTimeframeStartDate] = useState<string | null>(null);
-  const skipAccountSyncRef = useRef(false);
   const [tboEnabled, setTboEnabled] = useState(true);
   const [harvestEnabled, setHarvestEnabled] = useState(true); // V2 Harvest Engine
   const [engineOn, setEngineOn] = useState(false);
@@ -542,9 +541,9 @@ export default function TradingDashboardPage() {
           ls.timeframeStartDate = null;
           localStorage.setItem('clawdesk-trading-setup', JSON.stringify(ls));
           setTimeframeStartDate(null);
-          skipAccountSyncRef.current = true; // Skip account sync until user starts a new challenge
-        } else if (!skipAccountSyncRef.current) {
-          const acctRes = await fetch(`/api/trading/account?boardId=${acctBoardId}`);
+        } else {
+          // Check if paper account exists WITHOUT auto-creating one
+          const acctRes = await fetch(`/api/trading/account?boardId=${acctBoardId}&check=1`);
           if (acctRes.ok) {
             const acctData = await acctRes.json();
             if (acctData?.account?.created_at) {
@@ -922,7 +921,6 @@ export default function TradingDashboardPage() {
     // Only set timeframe start date if not already set (first start)
     if (next && !timeframeStartDate) {
       setTimeframeStartDate(new Date().toISOString());
-      skipAccountSyncRef.current = false; // New challenge started, re-enable account sync
     }
 
     if (next && boardId) {
@@ -1075,12 +1073,8 @@ export default function TradingDashboardPage() {
     );
     if (!confirmed) return;
     try {
-      // 1. Reset balance and created_at
-      await fetch('/api/trading/account', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ boardId: 15, balance: amt }),
-      });
+      // 1. Delete paper account so setup screen shows fresh
+      await fetch('/api/trading/account?boardId=15', { method: 'DELETE' });
       // 2. Fetch all trades
       const tradesRes = await fetch('/api/v1/trades?boardId=15');
       const tradesData = await tradesRes.json();

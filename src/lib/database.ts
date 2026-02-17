@@ -1736,9 +1736,17 @@ export async function exitTrade(tradeId: number, exitPrice: number, lessonTag: s
     throw new Error('ENTRY_PRICE_REQUIRED');
   }
 
-  const positionSize = parseNumeric(trade.position_size);
+  let positionSize = parseNumeric(trade.position_size);
+  // Graceful fallback for legacy trades with missing position_size
   if (positionSize === null || positionSize <= 0) {
-    throw new Error('POSITION_SIZE_REQUIRED');
+    // Try to derive from entry_order_size or metadata
+    const fallbackSize = parseNumeric(trade.entry_order_size) || parseNumeric(trade.metadata?.position_size);
+    if (fallbackSize !== null && fallbackSize > 0) {
+      positionSize = fallbackSize;
+      console.warn(`[exitTrade] Trade ${tradeId} missing position_size, derived from fallback: ${positionSize}`);
+    } else {
+      throw new Error('POSITION_SIZE_REQUIRED');
+    }
   }
 
   const pnl = computePnl(trade.entry_price, exitPrice, positionSize, trade.direction);
@@ -2447,12 +2455,12 @@ export async function getPaperAccount(boardId: number, userId: number, startingB
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    // Only create if doesn't exist - DO NOT reset existing balance!
+    // Create if doesn't exist, or update starting_balance (preserves current_balance)
     await client.query(
       `
         INSERT INTO paper_accounts (board_id, user_id, starting_balance, current_balance)
         VALUES ($1, $2, $3, $3)
-        ON CONFLICT (board_id, user_id) DO NOTHING
+        ON CONFLICT (board_id, user_id) DO UPDATE SET starting_balance = EXCLUDED.starting_balance
       `,
       [boardId, userId, startingBalance]
     );

@@ -535,14 +535,22 @@ export default function TradingDashboardPage() {
       try {
         const acctBoardId = 15;
         const ls = JSON.parse(localStorage.getItem('clawdesk-trading-setup') || '{}');
-        const acctRes = await fetch(`/api/trading/account?boardId=${acctBoardId}`);
-        if (acctRes.ok) {
-          const acctData = await acctRes.json();
-          if (acctData?.account?.created_at) {
-            const acctDate = acctData.account.created_at;
-            setTimeframeStartDate(acctDate);
-            ls.timeframeStartDate = acctDate;
-            localStorage.setItem('clawdesk-trading-setup', JSON.stringify(ls));
+        // Check if a reset just happened — if so, consume flag and skip auto-sync
+        if (ls.resetPending) {
+          delete ls.resetPending;
+          ls.timeframeStartDate = null;
+          localStorage.setItem('clawdesk-trading-setup', JSON.stringify(ls));
+          setTimeframeStartDate(null);
+        } else {
+          const acctRes = await fetch(`/api/trading/account?boardId=${acctBoardId}`);
+          if (acctRes.ok) {
+            const acctData = await acctRes.json();
+            if (acctData?.account?.created_at) {
+              const acctDate = acctData.account.created_at;
+              setTimeframeStartDate(acctDate);
+              ls.timeframeStartDate = acctDate;
+              localStorage.setItem('clawdesk-trading-setup', JSON.stringify(ls));
+            }
           }
         }
       } catch {}
@@ -1082,6 +1090,7 @@ export default function TradingDashboardPage() {
       const saved = JSON.parse(localStorage.getItem('clawdesk-trading-setup') || '{}');
       saved.timeframeStartDate = null;
       saved.engineOn = false;
+      saved.resetPending = true; // Flag to prevent auto-sync from account.created_at
       localStorage.setItem('clawdesk-trading-setup', JSON.stringify(saved));
       setTimeframeStartDate(null);
       setEngineOn(false);

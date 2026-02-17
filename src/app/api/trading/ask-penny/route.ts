@@ -119,22 +119,24 @@ Remember: Be helpful, reference the actual data, and keep it conversational!`;
       content: h.content
     }));
 
-    // Call OpenAI
-    const openaiKey = process.env.OPENAI_API_KEY;
-    if (!openaiKey) {
+    // Call Claude Sonnet 4 via OpenRouter
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
       return NextResponse.json({ 
         reply: "Hmm, I'm having trouble connecting to my brain right now. The team needs to check my API key! 🐱" 
       });
     }
 
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    const llmResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://clawdesk.ai',
+        'X-Title': 'ClawDesk Ask Penny',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'anthropic/claude-sonnet-4',
         messages: [
           { role: 'system', content: systemPrompt },
           ...conversationHistory,
@@ -145,16 +147,16 @@ Remember: Be helpful, reference the actual data, and keep it conversational!`;
       }),
     });
 
-    if (!openaiResponse.ok) {
-      const error = await openaiResponse.text();
-      console.error('OpenAI error:', error);
+    if (!llmResponse.ok) {
+      const error = await llmResponse.text();
+      console.error('OpenRouter error:', error);
       return NextResponse.json({ 
         reply: "My brain is a bit foggy right now. Try again in a moment? 🐱" 
       });
     }
 
-    const openaiData = await openaiResponse.json();
-    const reply = openaiData.choices?.[0]?.message?.content || "I'm not sure how to respond to that!";
+    const llmData = await llmResponse.json();
+    const reply = llmData.choices?.[0]?.message?.content || "I'm not sure how to respond to that!";
 
     return NextResponse.json({ reply });
 

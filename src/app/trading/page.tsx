@@ -697,6 +697,7 @@ export default function TradingDashboardPage() {
   // If we have live prices, adjust the server balance by the difference
   const livePnlDelta = livePnl !== null ? (livePnl - serverUnrealized) : 0;
   const paperBalance = serverBalance + livePnlDelta;
+  if (typeof window !== 'undefined') console.log('[Balance Debug]', { serverBalance, livePnl, serverUnrealized, livePnlDelta, paperBalance, startingBalance, deployedValue, realizedPnl });
   const totalPnl = paperBalance - startingBalance;
   const totalPnlPct = startingBalance > 0 ? (totalPnl / startingBalance) * 100 : 0;
   const dailyPnlPct = startingBalance > 0 ? (dailyPnl / startingBalance) * 100 : 0;
@@ -724,7 +725,9 @@ export default function TradingDashboardPage() {
   const setupReady = riskLevel !== null && tradingAmount !== null;
   const allConfigured = setupReady && tboEnabled && engineOn;
   // When not in active challenge, show tradingAmount as balance (live update on amount change)
-  const displayBalance = (!engineOn && !timeframeStartDate && tradingAmount) ? tradingAmount : paperBalance;
+  // Always show real portfolio value when we have data; fall back to tradingAmount only during setup
+  const displayBalance = (portfolio?.summary?.live_balance != null) ? paperBalance : 
+    ((!engineOn && !timeframeStartDate && tradingAmount) ? tradingAmount : paperBalance);
 
   const AMOUNT_PRESETS = [100, 500, 1000, 5000];
 

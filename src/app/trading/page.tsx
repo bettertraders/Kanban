@@ -1928,49 +1928,6 @@ export default function TradingDashboardPage() {
           </button>
           {advancedOpen && (
             <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderTop: 'none', borderRadius: '0 0 14px 14px', padding: '16px', display: 'grid', gap: '16px' }}>
-              {/* V2 Harvest Engine Section */}
-              <div style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', borderRadius: '12px', padding: '14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                  <div>
-                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#4ade80', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      🔄 Compounding Mode
-                      <span style={{ fontSize: '10px', fontWeight: 500, padding: '2px 8px', borderRadius: '999px', background: 'rgba(74,222,128,0.2)', color: '#4ade80' }}>V2</span>
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>Auto-compounds profits at target thresholds per regime</div>
-                  </div>
-                  <ToggleSwitch on={harvestEnabled} onChange={() => setHarvestEnabled(prev => !prev)} />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '12px' }}>
-                  <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '10px' }}>
-                    <div style={{ color: 'var(--muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Current Regime</div>
-                    <div style={{ fontWeight: 600, color: currentRegime === 'trending' ? '#4ade80' : currentRegime === 'volatile' ? '#f5b544' : '#9ca3af' }}>
-                      {currentRegime === 'trending' ? '🐂 BULL' : currentRegime === 'ranging' ? '📊 NEUTRAL' : currentRegime === 'volatile' ? '🌊 WHISPER' : '📊 NEUTRAL'}
-                    </div>
-                  </div>
-                  <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '10px' }}>
-                    <div style={{ color: 'var(--muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Preset</div>
-                    <div style={{ fontWeight: 600, color: '#4ade80' }}>🔥 Aggressive</div>
-                  </div>
-                </div>
-                <div style={{ marginTop: '10px', fontSize: '11px', color: 'var(--muted)', lineHeight: 1.5 }}>
-                  {currentRegime === 'trending' ? 'Bull: Floor 6-12%, trailing stops active, 4% stop loss' :
-                   currentRegime === 'volatile' ? 'Whisper: Floor 2-4%, hard harvest at floor, 1.5% tight stop' :
-                   'Neutral: Floor 4-7%, hard harvest at floor, 2.5% stop loss'}
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
-                  <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
-                    <div style={{ color: 'var(--muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Compound Cycles</div>
-                    <div style={{ fontSize: '20px', fontWeight: 700, color: harvestCycles > 0 ? '#4ade80' : 'var(--text)' }}>{harvestCycles}</div>
-                    <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '2px' }}>{harvestCycles === 0 ? 'waiting for first' : 'profits banked'}</div>
-                  </div>
-                  <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
-                    <div style={{ color: 'var(--muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Sprint {sprintNumber}</div>
-                    <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text)' }}>{dayProgress?.day ?? 1}</div>
-                    <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '2px' }}>{`of ${dayProgress?.total ?? (timeframe && timeframe !== 'unlimited' ? parseInt(timeframe) : 10)} day sprint`}</div>
-                  </div>
-                </div>
-              </div>
-              
               <AdvancedRow label="Manual Trade" description="Pick a specific coin and enter a trade manually" />
               <AdvancedRow label="Strategy Override" description="Choose a specific strategy instead of auto" />
               <AdvancedRow label="Stop Loss / Take Profit" description="Customize SL/TP for all new trades" />

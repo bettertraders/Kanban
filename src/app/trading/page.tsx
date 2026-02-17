@@ -1847,7 +1847,7 @@ export default function TradingDashboardPage() {
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {[
                   { label: '🪙 Crypto (Binance)', selected: true, available: true },
-                  { label: '🔮 Polymarket', selected: false, available: true },
+                  { label: '🐙 Kraken', selected: false, available: true },
                   { label: '📈 Stocks (coming soon)', selected: false, available: false },
                   { label: '💱 Forex (coming soon)', selected: false, available: false },
                 ].map(m => (

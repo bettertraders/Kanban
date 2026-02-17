@@ -301,7 +301,7 @@ export function getAllocation(riskLevel: 'safe' | 'balanced' | 'bold') {
  */
 export const MARKETS = [
   { id: 'crypto', name: 'Crypto', exchange: 'Binance', icon: '🪙', available: true },
-  { id: 'polymarket', name: 'Polymarket', exchange: 'Polymarket', icon: '🔮', available: true },
+  { id: 'kraken', name: 'Kraken', exchange: 'Kraken', icon: '🐙', available: true },
   { id: 'stocks', name: 'Stocks', exchange: 'TBD', icon: '📈', available: false },
   { id: 'forex', name: 'Forex', exchange: 'TBD', icon: '💱', available: false },
 ];

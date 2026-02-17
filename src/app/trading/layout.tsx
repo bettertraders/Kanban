@@ -42,7 +42,9 @@ export default function TradingLayout({ children }: { children: React.ReactNode 
                 </div>
               </div>
             </div>
-            <UserMenu />
+            <UserMenu onSettings={() => {
+              window.dispatchEvent(new CustomEvent('clawdesk-open-settings'));
+            }} />
           </div>
         </header>
         <TradingNav activeTab={activeTab} />

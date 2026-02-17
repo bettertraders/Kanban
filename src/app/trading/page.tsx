@@ -641,6 +641,11 @@ export default function TradingDashboardPage() {
   useEffect(() => {
     const handler = () => toggleDashboardMode('advanced');
     window.addEventListener('clawdesk-open-settings', handler);
+    // Check if navigated here with settings intent from another tab
+    if (typeof window !== 'undefined' && sessionStorage.getItem('clawdesk-open-settings')) {
+      sessionStorage.removeItem('clawdesk-open-settings');
+      toggleDashboardMode('advanced');
+    }
     return () => window.removeEventListener('clawdesk-open-settings', handler);
   }, [toggleDashboardMode]);
 

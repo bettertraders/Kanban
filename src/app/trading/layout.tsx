@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { TradingNav } from '@/components/TradingNav';
 import PriceTicker from '@/components/PriceTicker';
 import { UserMenu } from '@/components/UserMenu';
@@ -21,6 +21,7 @@ function getPageMeta(pathname: string): PageMeta {
 
 export default function TradingLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { title, subtitle, activeTab } = getPageMeta(pathname);
 
   return (
@@ -43,7 +44,13 @@ export default function TradingLayout({ children }: { children: React.ReactNode 
               </div>
             </div>
             <UserMenu onSettings={() => {
-              window.dispatchEvent(new CustomEvent('clawdesk-open-settings'));
+              if (pathname !== '/trading') {
+                // Store intent, navigate, then fire event after page loads
+                sessionStorage.setItem('clawdesk-open-settings', '1');
+                router.push('/trading');
+              } else {
+                window.dispatchEvent(new CustomEvent('clawdesk-open-settings'));
+              }
             }} />
           </div>
         </header>

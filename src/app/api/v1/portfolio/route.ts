@@ -13,11 +13,12 @@ export async function GET(request: NextRequest) {
 
     const stats = await getPortfolioStats(user.id);
     
-    // Compute live_balance: cash + deployed capital + unrealized P&L
-    const paperBalance = Number(stats.summary?.paper_balance || 0);
-    const deployedValue = Number(stats.summary?.total_portfolio_value || 0);
+    // Compute live_balance: starting_balance + all realized P&L + all unrealized P&L
+    // This is the single source of truth — derived entirely from trade data
+    const startingBalance = Number(stats.summary?.starting_balance || 0);
+    const realizedPnl = Number(stats.summary?.total_realized_pnl || 0);
     const unrealizedPnl = Number(stats.summary?.total_unrealized_pnl || 0);
-    const liveBalance = Math.round((paperBalance + deployedValue + unrealizedPnl) * 100) / 100;
+    const liveBalance = Math.round((startingBalance + realizedPnl + unrealizedPnl) * 100) / 100;
     
     return NextResponse.json({
       ...stats,

@@ -697,7 +697,6 @@ export default function TradingDashboardPage() {
   // If we have live prices, adjust the server balance by the difference
   const livePnlDelta = livePnl !== null ? (livePnl - serverUnrealized) : 0;
   const paperBalance = serverBalance + livePnlDelta;
-  if (typeof window !== 'undefined') console.log('[Balance Debug]', { serverBalance, livePnl, serverUnrealized, livePnlDelta, paperBalance, startingBalance, deployedValue, realizedPnl });
   const totalPnl = paperBalance - startingBalance;
   const totalPnlPct = startingBalance > 0 ? (totalPnl / startingBalance) * 100 : 0;
   const dailyPnlPct = startingBalance > 0 ? (dailyPnl / startingBalance) * 100 : 0;

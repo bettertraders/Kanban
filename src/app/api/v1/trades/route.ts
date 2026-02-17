@@ -40,7 +40,20 @@ export async function GET(request: NextRequest) {
     const board = await getBoard(boardIdNumber, user.id);
     if (!board) return NextResponse.json({ error: 'Board not found' }, { status: 404 });
 
-    const trades = await getTradesForBoard(boardIdNumber);
+    let trades = await getTradesForBoard(boardIdNumber);
+    
+    // Filter by column_name if provided
+    const columnName = request.nextUrl.searchParams.get('column_name');
+    if (columnName) {
+      trades = trades.filter((t: any) => t.column_name === columnName);
+    }
+    
+    // Filter by status if provided
+    const status = request.nextUrl.searchParams.get('status');
+    if (status) {
+      trades = trades.filter((t: any) => t.status === status);
+    }
+    
     return NextResponse.json({ trades });
   } catch (e) {
     console.error('GET /trades error:', e);

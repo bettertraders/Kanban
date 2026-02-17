@@ -433,11 +433,8 @@ export default function TradingDashboardPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Load dashboard mode preference
-    try {
-      const mode = localStorage.getItem('clawdesk-dashboard-mode');
-      if (mode === 'simple' || mode === 'advanced') setDashboardMode(mode);
-    } catch {}
+    // Always start in simple mode — advanced is accessed via Settings
+    // (no localStorage persistence for dashboard mode)
 
     // Always load localStorage first (fast, no network)
     try {

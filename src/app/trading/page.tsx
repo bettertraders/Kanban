@@ -393,6 +393,7 @@ export default function TradingDashboardPage() {
   const [tradingAmount, setTradingAmount] = useState<number | null>(null);
   const [timeframe, setTimeframe] = useState<Timeframe | null>('10');
   const [timeframeStartDate, setTimeframeStartDate] = useState<string | null>(null);
+  const skipAccountSyncRef = useRef(false);
   const [tboEnabled, setTboEnabled] = useState(true);
   const [harvestEnabled, setHarvestEnabled] = useState(true); // V2 Harvest Engine
   const [engineOn, setEngineOn] = useState(false);
@@ -541,7 +542,8 @@ export default function TradingDashboardPage() {
           ls.timeframeStartDate = null;
           localStorage.setItem('clawdesk-trading-setup', JSON.stringify(ls));
           setTimeframeStartDate(null);
-        } else {
+          skipAccountSyncRef.current = true; // Skip account sync until user starts a new challenge
+        } else if (!skipAccountSyncRef.current) {
           const acctRes = await fetch(`/api/trading/account?boardId=${acctBoardId}`);
           if (acctRes.ok) {
             const acctData = await acctRes.json();
@@ -920,6 +922,7 @@ export default function TradingDashboardPage() {
     // Only set timeframe start date if not already set (first start)
     if (next && !timeframeStartDate) {
       setTimeframeStartDate(new Date().toISOString());
+      skipAccountSyncRef.current = false; // New challenge started, re-enable account sync
     }
 
     if (next && boardId) {

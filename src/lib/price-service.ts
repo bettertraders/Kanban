@@ -38,6 +38,29 @@ const binance = new ccxt.binanceus({ enableRateLimit: true });
 const binanceGlobal = new ccxt.binance({ enableRateLimit: true });
 const coinbase = new ccxt.coinbase({ enableRateLimit: true });
 
+// Load markets once on startup for better symbol resolution
+let binanceGlobalMarketsLoaded = false;
+let binanceUsMarketsLoaded = false;
+
+async function ensureMarketsLoaded(): Promise<void> {
+  if (!binanceGlobalMarketsLoaded) {
+    try {
+      await binanceGlobal.loadMarkets();
+      binanceGlobalMarketsLoaded = true;
+    } catch (e) {
+      console.warn('Failed to load Binance Global markets:', e);
+    }
+  }
+  if (!binanceUsMarketsLoaded) {
+    try {
+      await binance.loadMarkets();
+      binanceUsMarketsLoaded = true;
+    } catch (e) {
+      console.warn('Failed to load Binance US markets:', e);
+    }
+  }
+}
+
 function normalizePair(pair: string): string {
   return pair.replace(/-/g, '/').toUpperCase();
 }
@@ -101,25 +124,64 @@ function isTimeoutError(error: unknown): boolean {
 }
 
 async function fetchTickerWithFallback(pair: string): Promise<Ticker> {
+  // Ensure markets are loaded for proper symbol resolution
+  await ensureMarketsLoaded();
+  
+  // Normalize pair format - try both with and without slash
+  const pairVariants = [
+    pair,
+    pair.replace('/', ''),  // BTCUSDT format
+    pair.replace(/(\w+)\/(\w+)/, '$1/$2'),  // Ensure slash format
+  ].filter((v, i, arr) => arr.indexOf(v) === i); // unique values
+
   // Try Binance.US first (works from US servers / Railway)
+  for (const variant of pairVariants) {
+    try {
+      // Check if symbol exists in loaded markets
+      if (binanceUsMarketsLoaded && binance.markets && binance.markets[variant]) {
+        return await binance.fetchTicker(variant);
+      }
+    } catch (error) {
+      // Continue to next variant
+    }
+  }
+  
+  // Try the standard pair if no variant worked
   try {
     return await binance.fetchTicker(pair);
   } catch (error) {
     if (!isSymbolError(error)) {
-      console.warn('Binance.US ticker fetch failed, trying Binance global:', error);
+      console.warn(`Binance.US ticker fetch failed for ${pair}:`, error);
     }
   }
 
-  // Try Binance global (works from non-US IPs)
+  // Try Binance Global with market check (works for most altcoins)
+  for (const variant of pairVariants) {
+    try {
+      if (binanceGlobalMarketsLoaded && binanceGlobal.markets && binanceGlobal.markets[variant]) {
+        return await binanceGlobal.fetchTicker(variant);
+      }
+    } catch (error) {
+      // Continue to next variant
+    }
+  }
+  
+  // Try standard pair on Binance Global
   try {
     return await binanceGlobal.fetchTicker(pair);
   } catch (error) {
     if (!isSymbolError(error)) {
-      console.warn('Binance global ticker fetch failed, trying Coinbase:', error);
+      console.warn(`Binance Global ticker fetch failed for ${pair}:`, error);
     }
   }
 
-  return await coinbase.fetchTicker(pair);
+  // Last resort: Coinbase
+  try {
+    return await coinbase.fetchTicker(pair);
+  } catch (error) {
+    console.warn(`All exchanges failed for ${pair}. Binance US loaded: ${binanceUsMarketsLoaded}, Binance Global loaded: ${binanceGlobalMarketsLoaded}`);
+    throw error;
+  }
 }
 
 async function fetchOhlcvWithFallback(

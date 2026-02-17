@@ -656,7 +656,9 @@ export default function TradingDashboardPage() {
     return () => window.removeEventListener('clawdesk-dashboard-home', handler);
   }, [toggleDashboardMode]);
 
-  const startingBalance = Number(portfolio?.summary?.paper_balance ?? portfolio?.summary?.starting_balance ?? 0);
+  const startingBalance = Number(portfolio?.summary?.starting_balance ?? portfolio?.summary?.paper_balance ?? 0);
+  const cashBalance = Number(portfolio?.summary?.paper_balance ?? 0);
+  const deployedValue = Number(portfolio?.summary?.total_portfolio_value ?? 0);
   const realizedPnl = Number(portfolio?.summary?.total_realized_pnl ?? 0);
   // Fetch live P&L from the same price source as the board (CCXT/Binance)
   const [livePnl, setLivePnl] = useState<number | null>(null);
@@ -689,9 +691,9 @@ export default function TradingDashboardPage() {
       .catch(() => {});
   }, [portfolio]);
   const dailyPnl = livePnl ?? Number(portfolio?.summary?.daily_pnl ?? portfolio?.summary?.total_unrealized_pnl ?? 0);
-  // Live balance = starting balance + realized P&L + unrealized P&L
-  const paperBalance = startingBalance + realizedPnl + dailyPnl;
-  const totalPnl = realizedPnl + dailyPnl;
+  // Live balance = cash + deployed capital + unrealized P&L
+  const paperBalance = cashBalance + deployedValue + dailyPnl;
+  const totalPnl = paperBalance - startingBalance;
   const totalPnlPct = startingBalance > 0 ? (totalPnl / startingBalance) * 100 : 0;
   const dailyPnlPct = startingBalance > 0 ? (dailyPnl / startingBalance) * 100 : 0;
   const winRate = Number(portfolio?.summary?.win_rate ?? 0);

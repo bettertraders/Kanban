@@ -38,6 +38,9 @@ type PortfolioStats = {
     active_positions?: number;
     total_trades?: number;
     closed_trades?: number;
+    sprint_number?: number;
+    harvest_cycles?: number;
+    board_count?: number;
   };
   byCoin?: Array<{ coin_pair: string; total_pnl: number; total_trades?: number; allocation_pct?: number }>;
   activeHoldings?: Array<{ coin_pair: string; position_size: number; entry_price: number; current_price?: number; direction?: string }>;

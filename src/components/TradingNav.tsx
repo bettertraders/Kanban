@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 type TradingNavProps = {
   activeTab: 'dashboard' | 'board' | 'bots' | 'leaderboard' | 'journal' | 'market';
@@ -16,6 +17,7 @@ const tabs = [
 ];
 
 export function TradingNav({ activeTab }: TradingNavProps) {
+  const pathname = usePathname();
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', margin: '8px 0 18px', alignItems: 'center' }}>
       <Link
@@ -47,6 +49,12 @@ export function TradingNav({ activeTab }: TradingNavProps) {
           <Link
             key={tab.key}
             href={href}
+            onClick={(e) => {
+              if (tab.key === 'dashboard' && pathname === '/trading') {
+                e.preventDefault();
+                window.dispatchEvent(new CustomEvent('clawdesk-dashboard-home'));
+              }
+            }}
             style={{
               padding: '6px 14px',
               borderRadius: '999px',

@@ -644,6 +644,13 @@ export default function TradingDashboardPage() {
     return () => window.removeEventListener('clawdesk-open-settings', handler);
   }, [toggleDashboardMode]);
 
+  // Listen for dashboard tab click → return to simple mode
+  useEffect(() => {
+    const handler = () => toggleDashboardMode('simple');
+    window.addEventListener('clawdesk-dashboard-home', handler);
+    return () => window.removeEventListener('clawdesk-dashboard-home', handler);
+  }, [toggleDashboardMode]);
+
   const startingBalance = Number(portfolio?.summary?.paper_balance ?? portfolio?.summary?.starting_balance ?? 0);
   const realizedPnl = Number(portfolio?.summary?.total_realized_pnl ?? 0);
   // Fetch live P&L from the same price source as the board (CCXT/Binance)
@@ -1399,11 +1406,6 @@ export default function TradingDashboardPage() {
   return (
     <>
       <div style={{ padding: '0 clamp(20px, 4vw, 48px) 40px', maxWidth: '1400px', margin: '0 auto' }}>
-
-        {/* Mode toggle in top-right */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '12px', marginBottom: '-8px' }}>
-          <button onClick={() => toggleDashboardMode('simple')} style={{ background: '#1a1a2e', border: '1px solid #2a2a4e', color: '#666', padding: '6px 12px', borderRadius: '16px', fontSize: '11px', cursor: 'pointer' }}>🧘 Simple Mode</button>
-        </div>
 
         {/* Unlock Settings Modal */}
         {unlockModalOpen && (

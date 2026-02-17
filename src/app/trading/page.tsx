@@ -405,7 +405,7 @@ export default function TradingDashboardPage() {
   const [pieView, setPieView] = useState<'holdings' | 'allocation'>('allocation');
 
   // Dashboard mode (simple vs advanced)
-  const [dashboardMode, setDashboardMode] = useState<'simple' | 'advanced'>('advanced');
+  const [dashboardMode, setDashboardMode] = useState<'simple' | 'advanced'>('simple');
 
   // Strategy expansion state (advanced mode)
   const [expandedStrategy, setExpandedStrategy] = useState<string | null>(null);

@@ -7,10 +7,6 @@ export async function GET(request: NextRequest) {
     const user = await getAuthenticatedUser(request);
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // One-time fix: reset board-15 accounts still at 10000 default
-    const { pool } = await import('@/lib/database');
-    await pool.query(`UPDATE paper_accounts SET starting_balance = 1000, current_balance = 1000 WHERE board_id = 15 AND starting_balance = 10000`).catch(() => {});
-
     const stats = await getPortfolioStats(user.id);
     
     // Compute live_balance: starting_balance + all realized P&L + all unrealized P&L

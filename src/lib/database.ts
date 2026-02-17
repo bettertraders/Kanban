@@ -1736,9 +1736,15 @@ export async function exitTrade(tradeId: number, exitPrice: number, lessonTag: s
     throw new Error('ENTRY_PRICE_REQUIRED');
   }
 
-  const pnl = computePnl(trade.entry_price, exitPrice, trade.position_size, trade.direction);
-  const pnlDollar = pnl ? pnl.pnlDollar : null;
-  const pnlPercent = pnl ? pnl.pnlPercent : null;
+  const positionSize = parseNumeric(trade.position_size);
+  if (positionSize === null || positionSize <= 0) {
+    throw new Error('POSITION_SIZE_REQUIRED');
+  }
+
+  const pnl = computePnl(trade.entry_price, exitPrice, positionSize, trade.direction);
+  // pnl should never be null now since we validated all inputs
+  const pnlDollar = pnl ? pnl.pnlDollar : 0;
+  const pnlPercent = pnl ? pnl.pnlPercent : 0;
   const toColumn = 'Closed';
 
   const updates: Record<string, unknown> = {
@@ -1754,11 +1760,9 @@ export async function exitTrade(tradeId: number, exitPrice: number, lessonTag: s
   }
 
   const updated = await updateTrade(tradeId, updates);
-  const positionSize = parseNumeric(trade.position_size);
-  if (positionSize !== null && positionSize > 0) {
-    const balanceDelta = positionSize + (pnlDollar ?? 0);
-    await updatePaperBalance(trade.board_id, userId, balanceDelta, 10000, true);
-  }
+  // Credit back position + P&L (positionSize already validated above)
+  const balanceDelta = positionSize + pnlDollar;
+  await updatePaperBalance(trade.board_id, userId, balanceDelta, 10000, true);
   const user = await getUserById(userId);
   await logTradeActivity(
     tradeId,
@@ -2443,13 +2447,12 @@ export async function getPaperAccount(boardId: number, userId: number, startingB
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    // Only create if doesn't exist - DO NOT reset existing balance!
     await client.query(
       `
         INSERT INTO paper_accounts (board_id, user_id, starting_balance, current_balance)
         VALUES ($1, $2, $3, $3)
-        ON CONFLICT (board_id, user_id) DO UPDATE
-        SET starting_balance = EXCLUDED.starting_balance,
-            current_balance = EXCLUDED.starting_balance
+        ON CONFLICT (board_id, user_id) DO NOTHING
       `,
       [boardId, userId, startingBalance]
     );
@@ -2591,10 +2594,13 @@ export async function getPortfolioStats(userId: number) {
         COUNT(*) FILTER (WHERE (t.column_name IN ('Wins', 'Won', 'Closed')) AND COALESCE(t.pnl_dollar, 0) > 0)::int as wins,
         COUNT(*) FILTER (WHERE (t.column_name IN ('Losses', 'Lost', 'Closed')) AND COALESCE(t.pnl_dollar, 0) <= 0)::int as losses,
         COALESCE(SUM(CASE WHEN t.column_name IN ('Closed', 'Wins', 'Won', 'Losses', 'Lost', 'Parked') OR t.status IN ('closed', 'won', 'lost') THEN COALESCE(t.pnl_dollar, 0) END), 0) as total_pnl,
-        COALESCE(AVG(CASE WHEN t.column_name IN ('Closed', 'Wins', 'Won', 'Losses', 'Lost', 'Parked') OR t.status IN ('closed', 'won', 'lost') THEN t.pnl_dollar END), 0) as avg_pnl
+        COALESCE(AVG(CASE WHEN t.column_name IN ('Closed', 'Wins', 'Won', 'Losses', 'Lost', 'Parked') OR t.status IN ('closed', 'won', 'lost') THEN t.pnl_dollar END), 0) as avg_pnl,
+        COUNT(*) FILTER (WHERE t.status = 'active' OR t.column_name = 'Active')::int as active_positions
       FROM trades t
       JOIN accessible_boards ab ON t.board_id = ab.id
       GROUP BY t.coin_pair
+      HAVING COUNT(*) FILTER (WHERE t.column_name IN ('Closed', 'Wins', 'Won', 'Losses', 'Lost', 'Parked') OR t.status IN ('closed', 'won', 'lost')) > 0
+         OR COUNT(*) FILTER (WHERE t.status = 'active' OR t.column_name = 'Active') > 0
       ORDER BY t.coin_pair
     `,
     [userId]

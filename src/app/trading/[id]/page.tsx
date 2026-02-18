@@ -9,6 +9,7 @@ import { AlertsPanel } from '@/components/AlertsPanel';
 import { AdjustmentsPanel } from '@/components/AdjustmentsPanel';
 import { ChallengeTracker } from '@/components/ChallengeTracker';
 import { TboToggle } from '@/components/TboToggle';
+import { TRADING_BOARD_ID } from '@/lib/constants';
 
 interface Trade {
   id: number;
@@ -3094,11 +3095,11 @@ function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
             await fetch('/api/trading/account', {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ boardId: 15, balance: amt }),
+              body: JSON.stringify({ boardId: TRADING_BOARD_ID, balance: amt }),
             });
             
             // 5. Delete all trades
-            const tradesRes = await fetch('/api/v1/trades?boardId=15');
+            const tradesRes = await fetch(`/api/v1/trades?boardId=${TRADING_BOARD_ID}`);
             const tradesData = await tradesRes.json();
             const trades = tradesData.trades || tradesData || [];
             for (const t of trades) {

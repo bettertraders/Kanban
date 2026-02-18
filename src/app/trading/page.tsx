@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ToastStack, type ToastItem } from '@/components/ToastStack';
 import Link from 'next/link';
+import { TRADING_BOARD_ID } from '@/lib/constants';
 
 type CoinPulse = {
   pair: string;
@@ -491,7 +492,7 @@ export default function TradingDashboardPage() {
     fetch('/api/trading/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ boardId: 15, settings: data }),
+      body: JSON.stringify({ boardId: TRADING_BOARD_ID, settings: data }),
     }).catch(() => {});
   }, [riskLevel, riskValue, tradingAmount, timeframe, timeframeStartDate, tboEnabled, harvestEnabled, engineOn]);
 
@@ -664,12 +665,13 @@ export default function TradingDashboardPage() {
     return () => window.removeEventListener('clawdesk-dashboard-home', handler);
   }, [toggleDashboardMode]);
 
-  // Use tradingAmount as source of truth for starting balance when set
-  // This ensures the UI always reflects the user's chosen amount, not stale DB values
+  // SINGLE SOURCE OF TRUTH: DB is the authority for balance during trading
+  // Pre-start (setup): tradingAmount is just a UI selection, displayed directly
+  // Post-start (trading): everything reads from DB. tradingAmount is irrelevant.
+  const isSetupPhase = !timeframeStartDate;
   const dbStartingBalance = Number(portfolio?.summary?.starting_balance ?? 0);
-  const startingBalance = tradingAmount ?? dbStartingBalance;
-  const serverBalance = Number(portfolio?.summary?.live_balance ?? portfolio?.summary?.paper_balance ?? 0);
-  const deployedValue = Number(portfolio?.summary?.total_portfolio_value ?? 0);
+  const dbCashBalance = Number(portfolio?.summary?.paper_balance ?? 0);
+  const deployed = Number(portfolio?.summary?.total_portfolio_value ?? 0);
   const realizedPnl = Number(portfolio?.summary?.total_realized_pnl ?? 0);
   const serverUnrealized = Number(portfolio?.summary?.total_unrealized_pnl ?? 0);
   // Fetch live P&L from the same price source as the board (CCXT/Binance)
@@ -702,16 +704,21 @@ export default function TradingDashboardPage() {
       })
       .catch(() => {});
   }, [portfolio]);
-  // Use server-computed live_balance as base, adjust with live price P&L if available
-  const dailyPnl = livePnl ?? serverUnrealized;
-  // If we have live prices, adjust the server balance by the difference
-  const livePnlDelta = livePnl !== null ? (livePnl - serverUnrealized) : 0;
-  // Calculate paperBalance based on user's chosen startingBalance, not raw serverBalance
-  // This ensures balance displays correctly even if paper_accounts hasn't been synced yet
-  const paperBalance = tradingAmount != null 
-    ? (startingBalance + realizedPnl + (livePnl ?? serverUnrealized))
-    : (serverBalance + livePnlDelta);
-  const totalPnl = paperBalance - startingBalance;
+  // Unrealized P&L: prefer live prices over server-computed
+  const unrealized = livePnl ?? serverUnrealized;
+  const dailyPnl = unrealized;
+  
+  // THE SINGLE BALANCE: simple formula based on phase
+  // Setup: show user's selection. Trading: show DB cash + deployed + unrealized
+  const displayBalance = isSetupPhase 
+    ? (tradingAmount ?? 0)
+    : (dbCashBalance + deployed + unrealized);
+  
+  // Starting balance for P&L calculation
+  const startingBalance = isSetupPhase ? (tradingAmount ?? 0) : dbStartingBalance;
+  
+  // P&L calculations
+  const totalPnl = displayBalance - startingBalance;
   const totalPnlPct = startingBalance > 0 ? (totalPnl / startingBalance) * 100 : 0;
   const dailyPnlPct = startingBalance > 0 ? (dailyPnl / startingBalance) * 100 : 0;
   const winRate = Number(portfolio?.summary?.win_rate ?? 0);
@@ -814,48 +821,8 @@ export default function TradingDashboardPage() {
 
   const setupReady = riskLevel !== null && tradingAmount !== null;
   const allConfigured = setupReady && tboEnabled && engineOn;
-  // When not in active challenge, show tradingAmount as balance (live update on amount change)
-  // Priority: if engine is OFF and no challenge started yet, ALWAYS show tradingAmount
-  // This ensures the selected amount displays immediately before clicking Start
-  // Once trading starts, paperBalance reflects tradingAmount + P&L (calculated above)
-  const displayBalance = (!engineOn && !timeframeStartDate && tradingAmount) 
-    ? tradingAmount 
-    : paperBalance;
 
   const AMOUNT_PRESETS = [100, 500, 1000, 5000];
-
-  const syncPaperBalance = useCallback(async (amount: number) => {
-    // Sync paper account balance with the selected trading amount
-    // This ensures backend stays in sync when user changes their amount
-    if (boardId && amount > 0) {
-      try {
-        // Only sync if mid-challenge or if paper account already exists
-        if (!engineOn && timeframeStartDate) {
-          // Mid-challenge: update balance
-          await fetch('/api/trading/account', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ boardId, balance: amount }),
-          });
-          loadDashboard();
-        } else if (!timeframeStartDate && dbStartingBalance > 0 && dbStartingBalance !== amount) {
-          // Pre-challenge with existing account: update balance to match selection
-          await fetch('/api/trading/account', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ boardId, balance: amount }),
-          });
-          loadDashboard();
-        }
-      } catch (err) {
-        console.error('Failed to sync paper balance:', err);
-      }
-    }
-  }, [engineOn, timeframeStartDate, boardId, loadDashboard, dbStartingBalance]);
-
-  // DO NOT auto-sync paper balance on tradingAmount change — the DB is only updated
-  // when the user clicks "Start Trading" (via POST). Syncing here causes circular effects
-  // and overwrites the balance with stale/wrong values.
 
   // When paused mid-challenge, can only increase amount (not decrease)
   const isMidChallenge = !engineOn && !!timeframeStartDate;
@@ -867,7 +834,7 @@ export default function TradingDashboardPage() {
     }
     setCustomAmountMode(false);
     setTradingAmount(val);
-    syncPaperBalance(val);
+    // No sync — DB only updated when user clicks "Start Trading" (POST)
     pushToast(`Amount set to ${formatCurrency(val)}`, 'success');
   };
 
@@ -879,7 +846,7 @@ export default function TradingDashboardPage() {
         return;
       }
       setTradingAmount(parsed);
-      syncPaperBalance(parsed);
+      // No sync — DB only updated when user clicks "Start Trading" (POST)
       pushToast(`Amount set to ${formatCurrency(parsed)}`, 'success');
     }
   };
@@ -949,7 +916,7 @@ export default function TradingDashboardPage() {
     if (!holdings || holdings.length === 0) return null;
 
     const totalPositionValue = holdings.reduce((s, h) => s + (h.position_size || 0), 0);
-    const cash = Math.max(0, paperBalance - totalPositionValue);
+    const cash = Math.max(0, displayBalance - totalPositionValue);
     const totalWithCash = totalPositionValue + cash;
     if (totalWithCash <= 0) return null;
 
@@ -967,7 +934,7 @@ export default function TradingDashboardPage() {
     if (sum !== 100 && coins.length > 0) coins[0].pct += 100 - sum;
 
     return coins.length > 0 ? coins : null;
-  }, [portfolio, hasActivePositions, paperBalance]);
+  }, [portfolio, hasActivePositions, displayBalance]);
 
   // Trade score: recalculate once per hour, not on every price tick
   const tradeScoreRef = useRef<{ score: number; label: string; color: string; explanation: string } | null>(null);
@@ -1562,7 +1529,7 @@ export default function TradingDashboardPage() {
             <div style={{ width: 'min(420px, 92vw)', background: '#1a1a2e', border: '1px solid #2a2a4e', borderRadius: '18px', padding: '24px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
               <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '12px', color: 'var(--text)' }}>You&apos;re already trading!</div>
               <div style={{ fontSize: '14px', color: '#888', lineHeight: 1.6, marginBottom: '20px' }}>
-                {dayProgress ? `Day ${dayProgress.day} of ${dayProgress.total ?? '∞'}` : 'Active run'}, {formatCurrency(paperBalance)} balance.
+                {dayProgress ? `Day ${dayProgress.day} of ${dayProgress.total ?? '∞'}` : 'Active run'}, {formatCurrency(displayBalance)} balance.
                 Your bot is watching {activePositions} position{activePositions !== 1 ? 's' : ''}. Want to keep going or start fresh?
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>

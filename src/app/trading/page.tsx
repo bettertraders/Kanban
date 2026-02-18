@@ -537,14 +537,28 @@ export default function TradingDashboardPage() {
       try {
         const acctBoardId = 15;
         const ls = JSON.parse(localStorage.getItem('clawdesk-trading-setup') || '{}');
-        // Check if a reset just happened — if so, consume flag and skip auto-sync
+        
+        // Check if a reset is pending — if so, don't auto-sync from account
+        // The flag persists until user explicitly clicks "Start Trading"
         if (ls.resetPending) {
-          delete ls.resetPending;
+          // Check if account was auto-created after reset (by bot-engine race condition)
+          const acctRes = await fetch(`/api/trading/account?boardId=${acctBoardId}&check=1`);
+          if (acctRes.ok) {
+            const acctData = await acctRes.json();
+            if (acctData?.account) {
+              // Account exists after reset — was auto-created by bot-engine
+              // Delete it again to ensure clean state
+              console.log('[loadDashboard] Found auto-created account after reset, deleting...');
+              await fetch(`/api/trading/account?boardId=${acctBoardId}`, { method: 'DELETE' });
+            }
+          }
+          // Keep resetPending flag — don't consume it
+          // It will be cleared when user clicks "Start Trading" (handleEngineToggle)
           ls.timeframeStartDate = null;
           localStorage.setItem('clawdesk-trading-setup', JSON.stringify(ls));
           setTimeframeStartDate(null);
         } else {
-          // Check if paper account exists WITHOUT auto-creating one
+          // Normal state — check if paper account exists WITHOUT auto-creating one
           const acctRes = await fetch(`/api/trading/account?boardId=${acctBoardId}&check=1`);
           if (acctRes.ok) {
             const acctData = await acctRes.json();
@@ -1004,6 +1018,13 @@ export default function TradingDashboardPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ boardId, initialBalance: tradingAmount }),
           });
+        }
+
+        // Clear resetPending flag — user has explicitly started trading
+        const ls = JSON.parse(localStorage.getItem('clawdesk-trading-setup') || '{}');
+        if (ls.resetPending) {
+          delete ls.resetPending;
+          localStorage.setItem('clawdesk-trading-setup', JSON.stringify(ls));
         }
 
         for (const bot of bots) {

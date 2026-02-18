@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/api-auth';
-import { getBoard, getPaperAccount, resetPaperBalance } from '@/lib/database';
+import { getBoard, resetPaperBalance, pool } from '@/lib/database';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,7 +16,12 @@ export async function GET(request: NextRequest) {
     const board = await getBoard(boardId, user.id);
     if (!board) return NextResponse.json({ error: 'Board not found' }, { status: 404 });
 
-    const account = await getPaperAccount(boardId, user.id);
+    // Read-only: don't auto-create account (only POST should create)
+    const result = await pool.query(
+      `SELECT * FROM paper_accounts WHERE board_id = $1 AND user_id = $2`,
+      [boardId, user.id]
+    );
+    const account = result.rows[0] || null;
     return NextResponse.json({ account });
   } catch (error) {
     console.error('GET /paper-account error:', error);

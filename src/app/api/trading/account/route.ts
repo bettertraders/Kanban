@@ -3,6 +3,8 @@ import { getAuthenticatedUser } from '@/lib/api-auth';
 import { getPaperAccount, getPortfolioStats, pool } from '@/lib/database';
 
 // GET /api/trading/account?boardId=X — get paper balance and stats
+// IMPORTANT: GET should NEVER auto-create an account. Use POST to create.
+// The check=1 param is now the default behavior (read-only).
 export async function GET(request: NextRequest) {
   try {
     const user = await getAuthenticatedUser(request);
@@ -13,18 +15,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'boardId required' }, { status: 400 });
     }
 
-    // If check=1, just look up without auto-creating
-    const checkOnly = request.nextUrl.searchParams.get('check') === '1';
-    let account;
-    if (checkOnly) {
-      const result = await pool.query(
-        `SELECT * FROM paper_accounts WHERE board_id = $1 AND user_id = $2`,
-        [boardId, user.id]
-      );
-      account = result.rows[0] || null;
-    } else {
-      account = await getPaperAccount(boardId, user.id);
-    }
+    // Always just look up without auto-creating (read-only operation)
+    // Account creation only happens via POST when user clicks "Start Trading"
+    const result = await pool.query(
+      `SELECT * FROM paper_accounts WHERE board_id = $1 AND user_id = $2`,
+      [boardId, user.id]
+    );
+    const account = result.rows[0] || null;
     const stats = await getPortfolioStats(user.id);
 
     return NextResponse.json({ account, stats });

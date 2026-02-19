@@ -2,6 +2,35 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/api-auth';
 import { getPaperAccount, getPortfolioStats, pool } from '@/lib/database';
 
+// Fetch Kraken USD balance using CCXT (same as bill.js)
+async function getKrakenBalance(): Promise<number | null> {
+  try {
+    const { default: ccxt } = await import('ccxt');
+    const apiKey = process.env.KRAKEN_API_KEY || '';
+    const apiSecret = process.env.KRAKEN_API_SECRET || '';
+    
+    if (!apiKey || !apiSecret) {
+      console.log('Kraken API credentials not configured');
+      return null;
+    }
+
+    const exchange = new ccxt.kraken({
+      apiKey,
+      secret: apiSecret,
+      enableRateLimit: true,
+    });
+
+    const balance = await exchange.fetchBalance();
+    // Return USD balance (or USDT as fallback)
+    const usd = balance.total?.USD || balance.free?.USD || 0;
+    const usdt = balance.total?.USDT || balance.free?.USDT || 0;
+    return usd + usdt;
+  } catch (error) {
+    console.error('Failed to fetch Kraken balance:', error);
+    return null;
+  }
+}
+
 // GET /api/trading/account?boardId=X — get paper balance and stats
 // IMPORTANT: GET should NEVER auto-create an account. Use POST to create.
 // The check=1 param is now the default behavior (read-only).
@@ -23,8 +52,11 @@ export async function GET(request: NextRequest) {
     );
     const account = result.rows[0] || null;
     const stats = await getPortfolioStats(user.id);
+    
+    // Fetch live Kraken balance
+    const krakenBalance = await getKrakenBalance();
 
-    return NextResponse.json({ account, stats });
+    return NextResponse.json({ account, stats, kraken_balance: krakenBalance });
   } catch (error) {
     console.error('GET /api/trading/account error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

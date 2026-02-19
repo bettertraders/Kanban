@@ -3035,7 +3035,7 @@ function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
     dayLabel = `Day ${dayNum}`;
   }
 
-  const engineLabel = settings.engineOn ? 'Engine Active' : 'Engine Off';
+  const engineLabel = settings.engineOn ? 'Engine Active - Kraken Exchange Live' : 'Engine Off';
   const engineColor = settings.engineOn ? '#4ade80' : 'var(--muted)';
 
   // If livePnl provided (from live SSE prices), use it and override stale portfolio data

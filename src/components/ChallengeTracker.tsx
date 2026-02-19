@@ -65,7 +65,7 @@ export function ChallengeTracker({ boardId, liveWinRate, liveTrades, liveBalance
   const startBalance = tracker?.startingBalance ?? liveBalance ?? 100;
 
   useEffect(() => {
-    fetch('/api/trading/challenge-tracker')
+    fetch(`/api/trading/challenge-tracker?boardId=${boardId}`)
       .then(r => r.json())
       .then(data => setTracker(data))
       .catch(() => {});

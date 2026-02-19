@@ -52,8 +52,8 @@ const INDICATOR_MAP: Record<string, string> = {
 function normalizeSymbol(pair: string) {
   // Remove separators and convert to uppercase
   const clean = pair.replace(/[/-]/g, '').toUpperCase();
-  // Binance uses USDT, not USD - convert for chart compatibility
-  return clean.replace(/USD$/, 'USDT');
+  // Kraken uses USD (not USDT) - keep as-is for Kraken charts
+  return clean;
 }
 
 function calcEMA(closes: number[], period: number): number[] {
@@ -68,7 +68,7 @@ function calcEMA(closes: number[], period: number): number[] {
 /* ── TradingView Embed (default — full indicators) ── */
 function TVEmbedChart({ pair, indicators = [] }: { pair: string; indicators: string[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const symbol = useMemo(() => `BINANCE:${normalizeSymbol(pair)}`, [pair]);
+  const symbol = useMemo(() => `KRAKEN:${normalizeSymbol(pair)}`, [pair]);
   const studies = useMemo(
     () => [...new Set(indicators.map((name) => INDICATOR_MAP[name]).filter(Boolean))],
     [indicators]

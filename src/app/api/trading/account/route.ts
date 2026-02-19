@@ -24,8 +24,10 @@ async function getKrakenBalance(): Promise<number | null> {
     console.log('Kraken balance response:', JSON.stringify(balance, null, 2));
     
     // Try multiple ways to get USD balance (Kraken uses ZUSD, CCXT normalizes to USD)
-    const usd = balance.total?.USD || balance.free?.USD || balance.total?.ZUSD || balance.free?.ZUSD || 0;
-    const usdt = balance.total?.USDT || balance.free?.USDT || 0;
+    // Access via index to avoid TypeScript strict type issues
+    const b = balance as unknown as Record<string, Record<string, number>>;
+    const usd = b.total?.USD || b.free?.USD || b.total?.ZUSD || b.free?.ZUSD || 0;
+    const usdt = b.total?.USDT || b.free?.USDT || 0;
     const totalBalance = usd + usdt;
     console.log(`Kraken balance: USD=${usd}, USDT=${usdt}, Total=${totalBalance}`);
     return totalBalance;

@@ -1384,7 +1384,7 @@ export async function getBotExecutions(botId: number, limit: number = 50): Promi
   return result.rows;
 }
 
-export async function getRecentBotExecutionsForUser(userId: number, limit: number = 10): Promise<any[]> {
+export async function getRecentBotExecutionsForUser(userId: number, limit: number = 50): Promise<any[]> {
   const result = await pool.query(
     `
       SELECT be.*, tb.name as bot_name, b.name as board_name

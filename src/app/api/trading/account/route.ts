@@ -21,10 +21,14 @@ async function getKrakenBalance(): Promise<number | null> {
     });
 
     const balance = await exchange.fetchBalance();
-    // Return USD balance (or USDT as fallback)
-    const usd = balance.total?.USD || balance.free?.USD || 0;
+    console.log('Kraken balance response:', JSON.stringify(balance, null, 2));
+    
+    // Try multiple ways to get USD balance (Kraken uses ZUSD, CCXT normalizes to USD)
+    const usd = balance.total?.USD || balance.free?.USD || balance.total?.ZUSD || balance.free?.ZUSD || 0;
     const usdt = balance.total?.USDT || balance.free?.USDT || 0;
-    return usd + usdt;
+    const totalBalance = usd + usdt;
+    console.log(`Kraken balance: USD=${usd}, USDT=${usdt}, Total=${totalBalance}`);
+    return totalBalance;
   } catch (error) {
     console.error('Failed to fetch Kraken balance:', error);
     return null;

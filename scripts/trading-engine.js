@@ -15,7 +15,7 @@ const path = require('path');
 
 const API_BASE = 'https://clawdesk.ai';
 const BOARD_ID = 15; // Paper Trading board (Michael's)
-const BOT_NAME = 'Penny Paper Trader';
+const BOT_NAME = 'Penny Live Trading';
 const ENGINE_VERSION = '3.4';
 const isPennyReview = process.argv.includes('--penny-review');
 const CORE_COINS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT']; // Always re-queue after close

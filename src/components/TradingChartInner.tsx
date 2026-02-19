@@ -50,7 +50,10 @@ const INDICATOR_MAP: Record<string, string> = {
 };
 
 function normalizeSymbol(pair: string) {
-  return pair.replace(/[/-]/g, '').toUpperCase();
+  // Remove separators and convert to uppercase
+  const clean = pair.replace(/[/-]/g, '').toUpperCase();
+  // Binance uses USDT, not USD - convert for chart compatibility
+  return clean.replace(/USD$/, 'USDT');
 }
 
 function calcEMA(closes: number[], period: number): number[] {

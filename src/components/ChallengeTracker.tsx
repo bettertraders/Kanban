@@ -54,7 +54,7 @@ export function ChallengeTracker({ boardId, liveWinRate, liveTrades, liveBalance
   boardId: number;
   liveWinRate: number;
   liveTrades: number;
-  liveBalance: number;
+  liveBalance: number | null;
   realizedPnl: number;
 }) {
   const [tracker, setTracker] = useState<TrackerData | null>(null);
@@ -62,7 +62,7 @@ export function ChallengeTracker({ boardId, liveWinRate, liveTrades, liveBalance
 
   const backtestTarget = 82.1;
   const backtestPnl = 33.9;
-  const startBalance = tracker?.startingBalance ?? liveBalance;
+  const startBalance = tracker?.startingBalance ?? liveBalance ?? 100;
 
   useEffect(() => {
     fetch('/api/trading/challenge-tracker')
@@ -72,7 +72,8 @@ export function ChallengeTracker({ boardId, liveWinRate, liveTrades, liveBalance
   }, [boardId]);
 
   const deviation = liveWinRate - backtestTarget;
-  const pnlPct = ((liveBalance - startBalance) / startBalance) * 100;
+  const effectiveBalance = liveBalance ?? startBalance;
+  const pnlPct = ((effectiveBalance - startBalance) / startBalance) * 100;
   const pnlDeviation = pnlPct - backtestPnl;
 
   let health = 'insufficient_data';
@@ -199,7 +200,7 @@ export function ChallengeTracker({ boardId, liveWinRate, liveTrades, liveBalance
             }} />
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px', fontSize: '10px', color: 'var(--muted)' }}>
-            <span>${liveBalance.toFixed(0)} / ${startBalance.toFixed(0)}</span>
+            <span>${effectiveBalance.toFixed(0)} / ${startBalance.toFixed(0)}</span>
             <span>Target: +${backtestPnl}%</span>
           </div>
         </div>

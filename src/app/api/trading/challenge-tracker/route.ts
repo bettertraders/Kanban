@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { pool } from '@/lib/database';
 
 const DATA_DIR = process.env.DATA_DIR || path.join(process.env.HOME || '', 'Projects/owen-watchdog');
 const TRACKER_FILE = path.join(DATA_DIR, '.challenge-tracker.json');
@@ -32,14 +33,16 @@ interface TrackerData {
   alerts: Array<{ timestamp: string; type: string; message: string }>;
 }
 
-function readTracker(): TrackerData {
+function readTracker(startingBalanceFallback = 100): TrackerData {
   try {
     return JSON.parse(fs.readFileSync(TRACKER_FILE, 'utf8'));
   } catch {
+    const today = new Date().toISOString().split('T')[0];
+    const end = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     return {
-      challengeStart: '2026-02-14',
-      challengeEnd: '2026-02-24',
-      startingBalance: 1000,
+      challengeStart: today,
+      challengeEnd: end,
+      startingBalance: startingBalanceFallback,
       backtestWinRate: 82.1,
       backtestPnl: 33.9,
       snapshots: [],
@@ -53,8 +56,21 @@ function writeTracker(data: TrackerData) {
 }
 
 // GET — return tracker data with current comparison
-export async function GET() {
-  const tracker = readTracker();
+export async function GET(request: NextRequest) {
+  // Pull real starting balance from DB so fallback is always accurate
+  let startingBalanceFallback = 100;
+  try {
+    const boardId = request.nextUrl.searchParams.get('boardId') || '15';
+    const res = await pool.query(
+      `SELECT starting_balance FROM paper_accounts WHERE board_id = $1 ORDER BY id LIMIT 1`,
+      [Number(boardId)]
+    );
+    if (res.rows[0]?.starting_balance) {
+      startingBalanceFallback = parseFloat(res.rows[0].starting_balance);
+    }
+  } catch { /* use fallback */ }
+
+  const tracker = readTracker(startingBalanceFallback);
   
   // Calculate current status
   const latestSnapshot = tracker.snapshots[tracker.snapshots.length - 1];

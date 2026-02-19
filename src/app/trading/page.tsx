@@ -619,8 +619,8 @@ export default function TradingDashboardPage() {
         const res = await fetch('/api/trading/account?boardId=15');
         if (res.ok) {
           const data = await res.json();
-          // Kraken balance from live trading account
-          setKrakenBalance(data?.account?.kraken_balance ?? null);
+          // Kraken balance from live trading account (top-level field from API)
+          setKrakenBalance(data?.kraken_balance ?? null);
         }
       } catch {}
     })();

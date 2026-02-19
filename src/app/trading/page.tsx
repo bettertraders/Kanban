@@ -748,10 +748,11 @@ export default function TradingDashboardPage() {
   const dailyPnl = unrealized;
   
   // THE SINGLE BALANCE: simple formula based on phase
-  // Setup: show user's selection. Trading: show DB cash + deployed + unrealized
+  // Setup: show user's selection. Trading: use API live_balance (correct for both paper and live trading)
+  const liveBalance = Number(portfolio?.summary?.live_balance ?? 0);
   const displayBalance = isSetupPhase 
     ? (tradingAmount ?? 0)
-    : (dbCashBalance + deployed + unrealized);
+    : (liveBalance > 0 ? liveBalance : dbCashBalance + deployed + unrealized);
   
   // Starting balance for P&L calculation
   const startingBalance = isSetupPhase ? (tradingAmount ?? 0) : dbStartingBalance;

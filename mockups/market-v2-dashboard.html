@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Tab - Dashboard View</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="max-w-7xl mx-auto p-6">
+        <!-- Penny's Market Update -->
+        <div class="bg-gradient-to-r from-blue-900 to-purple-900 rounded-lg p-6 mb-6">
+            <h1 class="text-2xl font-bold mb-2">Penny's Market Update</h1>
+            <p class="text-gray-300">BTC: $66,260 | ETH: $1,984 | Market in Extreme Fear (9/100) — opportunity for value entries</p>
+        </div>
+
+        <!-- Dashboard Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Direction Bias Widget -->
+            <div class="bg-green-900/30 border border-green-700 rounded-lg p-5">
+                <h3 class="text-sm font-bold text-green-400 uppercase">Direction Bias</h3>
+                <p class="text-3xl font-bold mt-2">100%</p>
+                <p class="text-green-400">LONG</p>
+                <p class="text-gray-400 text-xs mt-2">14/14 coins favor LONG</p>
+            </div>
+
+            <!-- Fear Index Widget -->
+            <div class="bg-red-900/30 border border-red-700 rounded-lg p-5">
+                <h3 class="text-sm font-bold text-red-400 uppercase">Fear Index</h3>
+                <p class="text-3xl font-bold mt-2">9/100</p>
+                <p class="text-red-400">Extreme Fear</p>
+                <p class="text-gray-400 text-xs mt-2">Opportunity zone</p>
+            </div>
+
+            <!-- Risk Params Widget -->
+            <div class="bg-blue-900/30 border border-blue-700 rounded-lg p-5">
+                <h3 class="text-sm font-bold text-blue-400 uppercase">Risk Parameters</h3>
+                <div class="mt-2 space-y-1 text-sm">
+                    <div class="flex justify-between"><span>SL:</span> <span>6%</span></div>
+                    <div class="flex justify-between"><span>TP:</span> <span>12%</span></div>
+                    <div class="flex justify-between"><span>Trail:</span> <span>3%</span></div>
+                </div>
+            </div>
+
+            <!-- Backtest Table Widget (spans 3 columns) -->
+            <div class="md:col-span-2 lg:col-span-3 bg-gray-800 rounded-lg p-5">
+                <h2 class="text-lg font-bold text-green-400 mb-4">Backtest Results</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- SHIB Card -->
+                    <div class="bg-gray-700 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-bold text-lg">SHIB</span>
+                            <span class="text-green-400 font-bold">149.5</span>
+                        </div>
+                        <div class="text-sm space-y-1 text-gray-300">
+                            <div class="flex justify-between"><span>WR:</span> <span>100%</span></div>
+                            <div class="flex justify-between"><span>PnL:</span> <span class="text-green-400">+$25.04</span></div>
+                            <div class="flex justify-between"><span>RSI:</span> <span>34.4</span></div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">Top performer</p>
+                    </div>
+
+                    <!-- AR Card -->
+                    <div class="bg-red-900/20 border border-red-700 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-bold text-lg">AR</span>
+                            <span class="text-green-400 font-bold">120.8</span>
+                        </div>
+                        <div class="text-sm space-y-1 text-gray-300">
+                            <div class="flex justify-between"><span>WR:</span> <span>85.7%</span></div>
+                            <div class="flex justify-between"><span>PnL:</span> <span class="text-green-400">+$38.79</span></div>
+                            <div class="flex justify-between"><span>RSI:</span> <span class="text-red-400 font-bold">16.7</span></div>
+                        </div>
+                        <p class="text-xs text-red-400 mt-2">🔥 Extreme oversold</p>
+                    </div>
+
+                    <!-- ATOM Card -->
+                    <div class="bg-gray-700 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-bold text-lg">ATOM</span>
+                            <span class="text-green-400 font-bold">94.9</span>
+                        </div>
+                        <div class="text-sm space-y-1 text-gray-300">
+                            <div class="flex justify-between"><span>WR:</span> <span>75%</span></div>
+                            <div class="flex justify-between"><span>PnL:</span> <span class="text-green-400">+$27.12</span></div>
+                            <div class="flex justify-between"><span>RSI:</span> <span>38.8</span></div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">Strong</p>
+                    </div>
+
+                    <!-- ALGO Card -->
+                    <div class="bg-yellow-900/20 border border-yellow-700 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-bold text-lg">ALGO</span>
+                            <span class="text-green-400 font-bold">84.0</span>
+                        </div>
+                        <div class="text-sm space-y-1 text-gray-300">
+                            <div class="flex justify-between"><span>WR:</span> <span>75%</span></div>
+                            <div class="flex justify-between"><span>PnL:</span> <span class="text-green-400">+$12.38</span></div>
+                            <div class="flex justify-between"><span>RSI:</span> <span class="text-yellow-400">29.5</span></div>
+                        </div>
+                        <p class="text-xs text-yellow-400 mt-2">Oversold entry</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RSI Alerts Widget -->
+            <div class="bg-red-900/20 border border-red-700 rounded-lg p-5">
+                <h3 class="text-sm font-bold text-red-400 uppercase mb-3">RSI Alerts</h3>
+                <div class="space-y-3">
+                    <div class="bg-gray-800 p-3 rounded">
+                        <p class="font-bold text-red-400">AR at 16.7</p>
+                        <p class="text-xs text-gray-400">Extreme oversold — mean reversion candidate</p>
+                    </div>
+                    <div class="bg-gray-800 p-3 rounded">
+                        <p class="font-bold text-yellow-400">ALGO at 29.5</p>
+                        <p class="text-xs text-gray-400">Oversold — attractive entry</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Positions Widget -->
+            <div class="bg-gray-800 rounded-lg p-5">
+                <h3 class="text-sm font-bold text-blue-400 uppercase mb-3">Active Positions</h3>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between"><span>SNX/USD:</span> <span class="text-green-400">+9.6%</span></div>
+                    <div class="flex justify-between"><span>LSK/USD:</span> <span class="text-red-400">-2.1%</span></div>
+                    <div class="flex justify-between"><span>OM/USD:</span> <span class="text-red-400">-1.7%</span></div>
+                </div>
+            </div>
+
+            <!-- Market News Widget -->
+            <div class="bg-gray-800 rounded-lg p-5">
+                <h3 class="text-sm font-bold text-purple-400 uppercase mb-3">Market News</h3>
+                <div class="space-y-2 text-xs text-gray-400">
+                    <p>• South Korea ex-president jailed for life</p>
+                    <p>• BTC ETFs seeing broad outflows</p>
+                    <p>• ETH looking bearish — $1,100 target</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

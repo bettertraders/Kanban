@@ -1210,10 +1210,12 @@ export default function TradingBoardPage() {
               {boardBots.slice(0, 3).map((bot) => {
                 const status = String(bot.status || 'stopped');
                 const color = status === 'running' ? '#4ade80' : status === 'paused' ? '#f5b544' : '#9ca3af';
+                // Override display name for Penny bots
+                const displayName = String(bot.name || '').toLowerCase().includes('penny') ? 'Penny Live Trading' : bot.name;
                 return (
                   <span key={bot.id} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span style={{ width: '8px', height: '8px', borderRadius: '999px', background: color, boxShadow: status === 'running' ? '0 0 8px rgba(74,222,128,0.5)' : 'none' }} />
-                    {bot.name}
+                    {displayName}
                   </span>
                 );
               })}

@@ -79,7 +79,7 @@ export function StartTradeModal({ boardId, existingBotCount = 0, paperBalance = 
     setCreating(true);
     try {
       const botNumber = existingBotCount + 1;
-      const name = 'Penny Live Trader';
+      const name = 'Penny Live Trading';
       const body: Record<string, unknown> = {
         name,
         strategy: strategyOverride || selectedRisk.strategy,

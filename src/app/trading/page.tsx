@@ -611,6 +611,21 @@ export default function TradingDashboardPage() {
     })();
   }, []);
 
+  // Fetch Kraken USD balance
+  const [krakenBalance, setKrakenBalance] = useState<number | null>(null);
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/trading/account?boardId=15');
+        if (res.ok) {
+          const data = await res.json();
+          // Kraken balance from live trading account
+          setKrakenBalance(data?.account?.kraken_balance ?? null);
+        }
+      } catch {}
+    })();
+  }, []);
+
   // Fetch market sentiment
   useEffect(() => {
     (async () => {
@@ -1352,6 +1367,9 @@ export default function TradingDashboardPage() {
                   Day {dayProgress.day}{dayProgress.total ? ` of ${dayProgress.total}` : ''} · Started with {formatCurrencyShort(startingBalance > 0 ? startingBalance : (isSetupPhase ? (tradingAmount || 0) : 0))}
                 </div>
               )}
+              <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                Trading on Kraken, Kraken USD Balance is {krakenBalance != null ? formatCurrency(krakenBalance) : '—'}
+              </div>
             </div>
 
             {/* Penny Card */}

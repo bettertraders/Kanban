@@ -1480,7 +1480,7 @@ export default function TradingBoardPage() {
         boardId={Number(boardId)}
         liveWinRate={stats?.win_rate ?? 0}
         liveTrades={stats?.total_trades ?? 0}
-        liveBalance={(paperAccount?.starting_balance ?? 1000) + (stats?.total_pnl ?? 0) + (columnTotals['Active']?.pnl ?? 0)}
+        liveBalance={(paperAccount?.starting_balance ?? paperAccount?.current_balance ?? 1000) + (stats?.total_pnl ?? 0) + (columnTotals['Active']?.pnl ?? 0)}
         realizedPnl={stats?.total_pnl ?? 0}
       />
       <AdjustmentsPanel boardId={Number(boardId)} />

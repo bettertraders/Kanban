@@ -1339,7 +1339,7 @@ export default function TradingDashboardPage() {
               )}
               {dayProgress && (
                 <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                  Day {dayProgress.day}{dayProgress.total ? ` of ${dayProgress.total}` : ''} · Started with {formatCurrencyShort(tradingAmount || startingBalance)}
+                  Day {dayProgress.day}{dayProgress.total ? ` of ${dayProgress.total}` : ''} · Started with {formatCurrencyShort(startingBalance > 0 ? startingBalance : (tradingAmount || 0))}
                 </div>
               )}
             </div>
@@ -1503,7 +1503,7 @@ export default function TradingDashboardPage() {
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', background: '#141428', border: '1px solid #2a2a4e' }}>
                 <span style={{ fontSize: '13px', color: '#888' }}>Trading with</span>
-                <span style={{ fontSize: '16px', fontWeight: 700, color: '#7b7dff' }}>{formatCurrencyShort(tradingAmount || startingBalance)}</span>
+                <span style={{ fontSize: '16px', fontWeight: 700, color: '#7b7dff' }}>{formatCurrencyShort(startingBalance > 0 ? startingBalance : (tradingAmount || 0))}</span>
                 <span style={{ fontSize: '11px', color: '#555' }}>🔒</span>
               </div>
             )}
@@ -1665,7 +1665,7 @@ export default function TradingDashboardPage() {
             {[
               { label: 'Bot Status', value: engineOn ? '● Active' : '● Paused', color: engineOn ? '#22c55e' : '#ef4444' },
               { label: 'Balance', value: formatCurrency(displayBalance), color: displayBalance >= startingBalance ? '#4ade80' : '#f05b6f' },
-              { label: 'Trading With', value: formatCurrencyShort(tradingAmount || startingBalance), color: '#7b7dff' },
+              { label: 'Trading With', value: formatCurrencyShort(startingBalance > 0 ? startingBalance : (tradingAmount || 0)), color: '#7b7dff' },
               { label: 'Total P&L', value: `${totalPnl >= 0 ? '+' : ''}${formatCurrency(totalPnl)} (${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(1)}%)`, color: totalPnl >= 0 ? '#4ade80' : '#f05b6f' },
               { label: 'Win Rate', value: `${winRate.toFixed(0)}% / 82%`, color: winRate >= 72 ? '#4ade80' : winRate >= 62 ? '#f5b544' : winRate > 0 ? '#f05b6f' : undefined },
               { label: 'Active Positions', value: String(activePositions), subtitle: (() => { const h = portfolio?.activeHoldings || []; const longs = h.filter(p => (p.direction || 'long') === 'long').length; const shorts = h.filter(p => p.direction === 'short').length; return longs > 0 || shorts > 0 ? `${longs}L / ${shorts}S` : undefined; })() },
@@ -2034,13 +2034,13 @@ export default function TradingDashboardPage() {
             {engineOn ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: '12px', background: '#141428', border: '1px solid #2a2a4e' }}>
                 <span style={{ fontSize: '13px', color: '#888' }}>Trading with</span>
-                <span style={{ fontSize: '17px', fontWeight: 700, color: '#7b7dff' }}>{formatCurrencyShort(tradingAmount || startingBalance)}</span>
+                <span style={{ fontSize: '17px', fontWeight: 700, color: '#7b7dff' }}>{formatCurrencyShort(startingBalance > 0 ? startingBalance : (tradingAmount || 0))}</span>
                 <span style={{ fontSize: '11px', color: '#555' }}>🔒</span>
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: '12px', background: '#141428', border: '1px solid #2a2a4e' }}>
                 <span style={{ fontSize: '13px', color: '#888' }}>Trading with</span>
-                <span style={{ fontSize: '17px', fontWeight: 700, color: '#7b7dff' }}>{formatCurrencyShort(tradingAmount || startingBalance)}</span>
+                <span style={{ fontSize: '17px', fontWeight: 700, color: '#7b7dff' }}>{formatCurrencyShort(startingBalance > 0 ? startingBalance : (tradingAmount || 0))}</span>
               </div>
             )}
             <button

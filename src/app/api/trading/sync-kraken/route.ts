@@ -282,7 +282,7 @@ async function runSync(request: NextRequest, body: any) {
       (ids.orderId && krakenTradeByOrderId.get(ids.orderId)) ??
       (ids.entryOrderId && krakenTradeByOrderId.get(ids.entryOrderId));
 
-    if (directTradeId !== undefined && directTradeId !== null) {
+    if (typeof directTradeId === 'number') {
       if (!matchedKrakenIndexes.has(directTradeId)) {
         return { index: directTradeId, candidate: krakenIndex[directTradeId] };
       }
@@ -335,9 +335,9 @@ async function runSync(request: NextRequest, body: any) {
       continue;
     }
 
-    matchedKrakenIndexes.add(match.index);
+    matchedKrakenIndexes.add(match.index!);
     matchedTradeIds.add(Number(trade.id));
-    matchedPairs.push({ boardTrade: trade, krakenTrade: match.candidate.trade });
+    matchedPairs.push({ boardTrade: trade, krakenTrade: match.candidate!.trade });
   }
 
   let deleted = 0;

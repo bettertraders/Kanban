@@ -137,7 +137,7 @@ async function runReconcile(request: NextRequest, body: any) {
     const { orderId, tradeId } = extractKrakenOrderId(trade);
     if (!orderId && !tradeId) continue;
 
-    const openOrder = openOrderById.get(orderId);
+    const openOrder = orderId ? openOrderById.get(orderId) : undefined;
     if (openOrder) {
       open++;
       const currentPrice = trade?.coin_pair ? (await getCurrentPrice(trade.coin_pair)).price : null;

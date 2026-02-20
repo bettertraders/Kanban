@@ -20,14 +20,14 @@ const normalizeSide = (value: any) => {
 };
 
 const getKrakenPnl = (trade: any) => {
-  const direct = Number(trade?.profitLoss ?? trade?.info?.profitLoss ?? trade?.info?.pl ?? trade?.info?.pnl);
-  if (Number.isFinite(direct)) return direct;
-  const price = Number(trade?.price ?? 0);
-  const cost = Number(trade?.cost ?? 0);
-  const vol = Number(trade?.amount ?? trade?.vol ?? trade?.info?.vol ?? 0);
-  if (!Number.isFinite(price) || !Number.isFinite(cost) || !Number.isFinite(vol)) return null;
-  // cost is total cost (price * vol), so PnL = revenue - cost = (price * vol) - cost
-  return (price * vol) - cost;
+  // Try Kraken's native profitLoss first (most accurate)
+  const krakenPl = Number(trade?.info?.profitLoss ?? trade?.info?.pl ?? trade?.info?.pnl);
+  if (Number.isFinite(krakenPl)) return krakenPl;
+  
+  // Fallback: calculate from trade data
+  // For sells: need to know entry price from buy trade (not available in single trade)
+  // Return null if Kraken doesn't provide PnL
+  return null;
 };
 
 const getKrakenTimestamp = (trade: any) => {

@@ -73,7 +73,7 @@ type MarketDetail = {
 };
 
 type RiskLevel = 'safe' | 'balanced' | 'bold';
-type Timeframe = '10' | '30' | '60' | '90' | 'unlimited';
+type Timeframe = '30' | '60' | '90' | '365' | 'unlimited';
 
 const RISK_LEVELS: Record<RiskLevel, { label: string; icon: string; description: string }> = {
   safe: { label: 'Safe', icon: '🛡️', description: 'Investment-heavy. BTC & ETH core holdings.' },
@@ -107,7 +107,7 @@ type StrategiesResponse = {
 };
 
 const TIMEFRAME_OPTIONS: { value: Timeframe; label: string }[] = [
-  { value: '10', label: '10 days' },
+  { value: '365', label: '12 months' },
   { value: '30', label: '30 days' },
   { value: '60', label: '60 days' },
   { value: '90', label: '90 days' },
@@ -392,7 +392,7 @@ export default function TradingDashboardPage() {
   const [riskLevel, setRiskLevel] = useState<RiskLevel | null>(null);
   const [riskValue, setRiskValue] = useState(50); // 0=safe, 50=balanced, 100=bold — continuous slider
   const [tradingAmount, setTradingAmount] = useState<number | null>(null);
-  const [timeframe, setTimeframe] = useState<Timeframe | null>('10');
+  const [timeframe, setTimeframe] = useState<Timeframe | null>('365');
   const [timeframeStartDate, setTimeframeStartDate] = useState<string | null>(null);
   const [tboEnabled, setTboEnabled] = useState(true);
   const [harvestEnabled, setHarvestEnabled] = useState(true); // V2 Harvest Engine
@@ -762,7 +762,6 @@ export default function TradingDashboardPage() {
   const totalPnlPct = startingBalance > 0 ? (totalPnl / startingBalance) * 100 : 0;
   const dailyPnlPct = startingBalance > 0 ? (dailyPnl / startingBalance) * 100 : 0;
   const winRate = Number(portfolio?.summary?.win_rate ?? 0);
-  const sprintNumber = Number(portfolio?.summary?.sprint_number ?? 1);
   const activePositions = Number(portfolio?.summary?.active_positions ?? 0);
   const totalTrades = Number(portfolio?.summary?.total_trades ?? bots.reduce((sum, b) => sum + (b.total_trades ?? b.performance?.total_trades ?? 0), 0));
   const closedTrades = Number(portfolio?.summary?.closed_trades ?? 0);
@@ -858,6 +857,18 @@ export default function TradingDashboardPage() {
     const totalDays = parseInt(timeframe);
     return { day: Math.min(dayNum, totalDays), total: totalDays };
   }, [timeframe, timeframeStartDate]);
+
+  const estimatedYearGain = useMemo(() => {
+    const days = dayProgress?.day ?? 0;
+    if (days < 2 || startingBalance <= 0 || totalPnlPct === 0) return 0;
+    const dailyRate = totalPnlPct / days / 100;
+    const cycleReturn = dailyRate * 5;
+    const numCycles = 73;
+    const projectedBalance = startingBalance * Math.pow(1 + cycleReturn, numCycles);
+    return Math.max(0, projectedBalance - startingBalance);
+  }, [dayProgress, startingBalance, totalPnlPct]);
+
+  const canEstimateYearGain = (dayProgress?.day ?? 0) >= 2 && startingBalance > 0 && totalPnlPct !== 0;
 
   const setupReady = riskLevel !== null && tradingAmount !== null;
   const allConfigured = setupReady && tboEnabled && engineOn;
@@ -1327,7 +1338,7 @@ export default function TradingDashboardPage() {
             </span>
             <div style={{ width: '1px', height: '20px', background: '#2a2a4e' }} />
             <span style={{ fontSize: '13px', color: '#888' }}>
-              {dayProgress ? (dayProgress.total ? `Day ${dayProgress.day} of ${dayProgress.total}` : `Day ${dayProgress.day}`) : `Day 1 of ${timeframe && timeframe !== 'unlimited' ? timeframe : '10'}`}
+              {dayProgress ? (dayProgress.total ? `Day ${dayProgress.day} of ${dayProgress.total}` : `Day ${dayProgress.day}`) : `Day 1 of ${timeframe && timeframe !== 'unlimited' ? timeframe : '365'}`}
             </span>
             <div style={{ width: '1px', height: '20px', background: '#2a2a4e' }} />
             <span style={{ fontSize: '13px', color: '#888' }}>{closedTrades} closed · {activePositions} active</span>
@@ -1370,6 +1381,9 @@ export default function TradingDashboardPage() {
               )}
               <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
                 Trading on Kraken, Kraken USD Balance is {krakenBalance != null ? formatCurrency(krakenBalance) : '—'}
+              </div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: canEstimateYearGain ? '#00e676' : '#666', marginTop: '8px' }}>
+                {canEstimateYearGain ? `Est. 12-Month Gain: +${formatCurrency(estimatedYearGain)}` : 'Collecting data...'}
               </div>
             </div>
 
@@ -1414,9 +1428,9 @@ export default function TradingDashboardPage() {
               <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>{harvestCycles === 0 ? 'waiting for first' : 'profits banked'}</div>
             </div>
             <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
-              <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Sprint {sprintNumber}</div>
+              <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>12 month challenge</div>
               <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text)' }}>Day {Math.max(dayProgress?.day ?? 1, 1)}</div>
-              <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>{`of ${dayProgress?.total ?? (timeframe && timeframe !== 'unlimited' ? parseInt(timeframe) : 10)} day sprint`}</div>
+              <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>of 365</div>
             </div>
           </div>
 
@@ -1693,7 +1707,13 @@ export default function TradingDashboardPage() {
           <div className="stats-row" style={{ display: 'flex', flexWrap: 'nowrap', gap: '10px' }}>
             {[
               { label: 'Bot Status', value: engineOn ? '● Active' : '● Paused', color: engineOn ? '#22c55e' : '#ef4444' },
-              { label: 'Balance', value: formatCurrency(displayBalance), color: displayBalance >= startingBalance ? '#4ade80' : '#f05b6f' },
+              {
+                label: 'Balance',
+                value: formatCurrency(displayBalance),
+                color: displayBalance >= startingBalance ? '#4ade80' : '#f05b6f',
+                note: canEstimateYearGain ? `Est. 12-Month Gain: +${formatCurrency(estimatedYearGain)}` : 'Collecting data...',
+                noteColor: canEstimateYearGain ? '#00e676' : 'var(--muted)',
+              },
               { label: 'Trading With', value: formatCurrencyShort(startingBalance > 0 ? startingBalance : (isSetupPhase ? (tradingAmount || 0) : 0)), color: '#7b7dff' },
               { label: 'Total P&L', value: `${totalPnl >= 0 ? '+' : ''}${formatCurrency(totalPnl)} (${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(1)}%)`, color: totalPnl >= 0 ? '#4ade80' : '#f05b6f' },
               { label: 'Win Rate', value: `${winRate.toFixed(0)}% / 82%`, color: winRate >= 72 ? '#4ade80' : winRate >= 62 ? '#f5b544' : winRate > 0 ? '#f05b6f' : undefined },
@@ -1705,16 +1725,17 @@ export default function TradingDashboardPage() {
                   ? dayProgress.total
                     ? `Day ${dayProgress.day} of ${dayProgress.total}`
                     : `Day ${dayProgress.day}`
-                  : `Day 1 of ${timeframe && timeframe !== 'unlimited' ? timeframe : '10'}`,
+                  : `Day 1 of ${timeframe && timeframe !== 'unlimited' ? timeframe : '365'}`,
                 color: dayProgress?.total && dayProgress.day >= dayProgress.total ? '#f5b544' : undefined,
               },
-            ].map((stat: { label: string; value: string; color?: string; subtitle?: string }) => {
+            ].map((stat: { label: string; value: string; color?: string; subtitle?: string; note?: string; noteColor?: string }) => {
               const wide = stat.label === 'Total P&L' || stat.label === 'Progress';
               return (
                 <div key={stat.label} style={{ flex: wide ? '1.6 1 0' : '1 1 0', minWidth: 0, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '14px 12px' }}>
                   <div style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stat.label}</div>
                   <div style={{ marginTop: '8px', fontSize: wide ? '16px' : '18px', fontWeight: 700, color: stat.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stat.value}</div>
                   {stat.subtitle && <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '2px' }}>{stat.subtitle}</div>}
+                  {stat.note && <div style={{ fontSize: '11px', fontWeight: 700, color: stat.noteColor ?? '#00e676', marginTop: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stat.note}</div>}
                 </div>
               );
             })}

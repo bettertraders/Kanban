@@ -26,7 +26,8 @@ const getKrakenPnl = (trade: any) => {
   const cost = Number(trade?.cost ?? 0);
   const vol = Number(trade?.amount ?? trade?.vol ?? trade?.info?.vol ?? 0);
   if (!Number.isFinite(price) || !Number.isFinite(cost) || !Number.isFinite(vol)) return null;
-  return (price - cost) * vol;
+  // cost is total cost (price * vol), so PnL = revenue - cost = (price * vol) - cost
+  return (price * vol) - cost;
 };
 
 const getKrakenTimestamp = (trade: any) => {

@@ -5,7 +5,12 @@ import {
   getRecentStrategyAdjustments,
   getStrategyStates,
   getTradingAccount,
+  replaceQueueCoinScores,
+  upsertTradingAccount,
 } from '@/lib/db/trading';
+import { fetchKrakenBalances } from '@/lib/kraken-sync';
+import { getTradesForBoard } from '@/lib/database';
+import { getCurrentPrice } from '@/lib/price-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +26,115 @@ const toNumber = (value: any, fallback = 0) => {
   return Number.isFinite(num) ? num : fallback;
 };
 
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const normalizeSymbol = (value: any) => String(value ?? '').trim();
+
+const deriveRsiFromChange = (change24h: number) => {
+  const pct = Number.isFinite(change24h) ? change24h : 0;
+  return clamp(50 + pct * 2, 0, 100);
+};
+
+const scoreFromRsi = (rsiValue: number) => clamp(100 - rsiValue, 0, 100);
+
+async function estimateUsdBalance(balances: Record<string, number>) {
+  const usdSymbols = new Set(['USD', 'USDT', 'USDC']);
+  let totalUsd = 0;
+
+  for (const [asset, amountRaw] of Object.entries(balances)) {
+    const amount = toNumber(amountRaw, 0);
+    if (amount <= 0) continue;
+    const symbol = asset.toUpperCase();
+    if (usdSymbols.has(symbol)) {
+      totalUsd += amount;
+      continue;
+    }
+
+    try {
+      const snapshot = await getCurrentPrice(`${symbol}/USD`);
+      if (Number.isFinite(snapshot.price) && snapshot.price > 0) {
+        totalUsd += amount * snapshot.price;
+        continue;
+      }
+    } catch {
+      // Ignore and try USDT fallback.
+    }
+
+    try {
+      const snapshot = await getCurrentPrice(`${symbol}/USDT`);
+      if (Number.isFinite(snapshot.price) && snapshot.price > 0) {
+        totalUsd += amount * snapshot.price;
+      }
+    } catch {
+      // Ignore unknown assets.
+    }
+  }
+
+  return totalUsd;
+}
+
+async function buildWatchlistFromActiveTrades(userId: number) {
+  const trades = await getTradesForBoard(15);
+  const activeTrades = trades.filter(
+    (trade: any) => String(trade?.column_name || '').toLowerCase() === 'active' || String(trade?.status || '').toLowerCase() === 'active'
+  );
+
+  const rsiBySymbol = new Map<string, number>();
+  for (const trade of activeTrades) {
+    const symbol = normalizeSymbol(trade?.coin_pair || trade?.symbol || trade?.pair);
+    if (!symbol || rsiBySymbol.has(symbol)) continue;
+    const rsiValue = toNumber(trade?.rsi_value, NaN);
+    if (Number.isFinite(rsiValue) && rsiValue > 0) {
+      rsiBySymbol.set(symbol, rsiValue);
+    }
+  }
+
+  const symbols = Array.from(new Set(
+    activeTrades
+      .map((trade: any) => normalizeSymbol(trade?.coin_pair || trade?.symbol || trade?.pair))
+      .filter(Boolean)
+  )).slice(0, 10);
+
+  const rows = await Promise.all(symbols.map(async (symbol) => {
+    try {
+      const snapshot = await getCurrentPrice(symbol);
+      const rsiValue = rsiBySymbol.get(symbol) ?? deriveRsiFromChange(snapshot.change24h);
+      const score = scoreFromRsi(rsiValue);
+      return {
+        symbol,
+        score,
+        rsi: rsiValue,
+        price: snapshot.price,
+        change24h: snapshot.change24h,
+        rank: 0,
+      };
+    } catch (error) {
+      console.warn(`[trading/intelligence] price fetch failed for ${symbol}:`, error);
+      return null;
+    }
+  }));
+
+  const scored = rows.filter(Boolean) as Array<{
+    symbol: string;
+    score: number;
+    rsi: number;
+    price: number;
+    change24h: number;
+    rank: number;
+  }>;
+
+  scored.sort((a, b) => b.score - a.score);
+  scored.forEach((row, index) => {
+    row.rank = index + 1;
+  });
+
+  if (scored.length > 0) {
+    await replaceQueueCoinScores(userId, scored);
+  }
+
+  return scored;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const userIdParam = request.nextUrl.searchParams.get('userId');
@@ -31,12 +145,30 @@ export async function GET(request: NextRequest) {
 
     await ensureTradingTables();
 
-    const [account, strategies, scores, adjustments] = await Promise.all([
+    const [initialAccount, strategies, initialScores, adjustments] = await Promise.all([
       getTradingAccount(userId, 'kraken'),
       getStrategyStates(userId),
       getQueueCoinScores(userId, 5),
       getRecentStrategyAdjustments(userId, 3),
     ]);
+
+    let account = initialAccount;
+    let scores: any[] = initialScores;
+
+    if (!account) {
+      try {
+        const balances = await fetchKrakenBalances();
+        const usdBalance = await estimateUsdBalance(balances);
+        account = await upsertTradingAccount({
+          userId,
+          exchange: 'kraken',
+          baseBalance: usdBalance,
+          currentBalance: usdBalance,
+        });
+      } catch (error) {
+        console.warn('[trading/intelligence] Unable to sync Kraken balances:', error);
+      }
+    }
 
     const accountState = account ?? {
       base_balance: 100,
@@ -54,7 +186,11 @@ export async function GET(request: NextRequest) {
         ? new Date(accountState.circuit_breaker_until).getTime() > Date.now()
         : false);
 
-    const watchlist = scores.map((row) => ({
+    if (!scores || scores.length === 0) {
+      scores = await buildWatchlistFromActiveTrades(userId);
+    }
+
+    const watchlist = scores.map((row: any) => ({
       symbol: String(row.symbol ?? ''),
       score: toNumber(row.score),
       rsi: toNumber(row.rsi),
@@ -70,10 +206,11 @@ export async function GET(request: NextRequest) {
       .filter((s) => (s.direction || '').toLowerCase() === 'short')
       .reduce((sum, s) => sum + toNumber(s.weight, 1), 0);
     const totalWeight = longWeight + shortWeight;
-    const longPct = totalWeight > 0 ? Math.round((longWeight / totalWeight) * 100) : 0;
-    const shortPct = totalWeight > 0 ? Math.max(0, 100 - longPct) : 0;
+    const fallbackLong = strategies.length === 0;
+    const longPct = fallbackLong ? 100 : (totalWeight > 0 ? Math.round((longWeight / totalWeight) * 100) : 0);
+    const shortPct = fallbackLong ? 0 : (totalWeight > 0 ? Math.max(0, 100 - longPct) : 0);
 
-    let label = 'No active strategies';
+    let label = fallbackLong ? '100% LONG' : 'No active strategies';
     if (longPct === 100) label = '100% LONG';
     else if (shortPct === 100) label = '100% SHORT';
     else if (totalWeight > 0) label = `${longPct}% LONG / ${shortPct}% SHORT`;
@@ -84,9 +221,16 @@ export async function GET(request: NextRequest) {
       null;
 
     const riskParamsRaw = (primaryStrategy?.risk_params || {}) as Record<string, any>;
-    const sl = normalizePctValue(toNumber(riskParamsRaw.sl ?? riskParamsRaw.stopLossPct ?? riskParamsRaw.stop_loss ?? 0));
-    const tp = normalizePctValue(toNumber(riskParamsRaw.tp ?? riskParamsRaw.takeProfitPct ?? riskParamsRaw.take_profit ?? 0));
-    const trail = normalizePctValue(toNumber(riskParamsRaw.trail ?? riskParamsRaw.trailPct ?? riskParamsRaw.trailing ?? 0));
+    const hasRiskParams = riskParamsRaw && Object.keys(riskParamsRaw).length > 0;
+    const defaultSl = 0.05;
+    const defaultTp = 0.1;
+    const defaultTrail = 0.03;
+    const slValue = toNumber(riskParamsRaw.sl ?? riskParamsRaw.stopLossPct ?? riskParamsRaw.stop_loss, NaN);
+    const tpValue = toNumber(riskParamsRaw.tp ?? riskParamsRaw.takeProfitPct ?? riskParamsRaw.take_profit, NaN);
+    const trailValue = toNumber(riskParamsRaw.trail ?? riskParamsRaw.trailPct ?? riskParamsRaw.trailing, NaN);
+    const sl = normalizePctValue(Number.isFinite(slValue) ? slValue : (hasRiskParams ? 0 : defaultSl));
+    const tp = normalizePctValue(Number.isFinite(tpValue) ? tpValue : (hasRiskParams ? 0 : defaultTp));
+    const trail = normalizePctValue(Number.isFinite(trailValue) ? trailValue : (hasRiskParams ? 0 : defaultTrail));
 
     const riskParams = {
       sl: formatPct(sl),
@@ -95,7 +239,7 @@ export async function GET(request: NextRequest) {
     };
 
     const autoCompounder = {
-      enabled: Boolean(account),
+      enabled: Boolean(account) || !initialAccount,
       compoundingBase: toNumber(accountState.base_balance, 100),
       currentBalance: toNumber(accountState.current_balance, 100),
       activeCycles: toNumber(accountState.active_cycles, 0),

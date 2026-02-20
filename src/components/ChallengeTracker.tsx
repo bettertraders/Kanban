@@ -19,6 +19,11 @@ interface TrackerData {
   backtestWinRate: number;
   backtestPnl: number;
   startingBalance: number;
+  cycleTarget: number;
+  cycleRegime: string;
+  cycleNumber: number;
+  cycleGain: number;
+  cycleActive: boolean;
   snapshots: Snapshot[];
   alerts: Array<{ timestamp: string; type: string; message: string }>;
   current: {
@@ -61,8 +66,11 @@ export function ChallengeTracker({ boardId, liveWinRate, liveTrades, liveBalance
   const [expanded, setExpanded] = useState(false);
 
   const backtestTarget = 82.1;
-  const backtestPnl = 33.9;
   const startBalance = tracker?.startingBalance ?? liveBalance ?? 100;
+  const cycleTarget = tracker?.cycleTarget ?? 8.0;
+  const cycleRegime = tracker?.cycleRegime ?? 'NONE';
+  const cycleNumber = tracker?.cycleNumber ?? 0;
+  const cycleActive = tracker?.cycleActive ?? false;
 
   useEffect(() => {
     fetch(`/api/trading/challenge-tracker?boardId=${boardId}`)
@@ -74,7 +82,9 @@ export function ChallengeTracker({ boardId, liveWinRate, liveTrades, liveBalance
   const deviation = liveWinRate - backtestTarget;
   const effectiveBalance = liveBalance ?? startBalance;
   const pnlPct = ((effectiveBalance - startBalance) / startBalance) * 100;
-  const pnlDeviation = pnlPct - backtestPnl;
+  const cycleTargetLabel = cycleTarget.toFixed(1).replace(/\.0$/, '');
+  const targetForScale = cycleTarget > 0 ? cycleTarget : 1;
+  const pnlProgressPct = cycleTarget > 0 ? (pnlPct / targetForScale) * 100 : 0;
 
   let health = 'insufficient_data';
   if (liveTrades >= 5) {
@@ -174,13 +184,13 @@ export function ChallengeTracker({ boardId, liveWinRate, liveTrades, liveBalance
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
             <span style={{ color: 'var(--muted)' }}>P&L</span>
             <span style={{ fontWeight: 600, color: pnlPct >= 0 ? '#4ade80' : '#f05b6f' }}>
-              {pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(1)}% <span style={{ color: 'var(--muted)', fontWeight: 400 }}>/ +{backtestPnl}%</span>
+              {pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(1)}% <span style={{ color: 'var(--muted)', fontWeight: 400 }}>/ {cycleTargetLabel}%</span>
             </span>
           </div>
           <div style={{ position: 'relative', height: '6px', borderRadius: '3px', background: 'rgba(255,255,255,0.08)' }}>
             <div style={{
               position: 'absolute',
-              left: `${Math.min(backtestPnl / 50 * 100, 100)}%`,
+              left: '100%',
               top: '-2px',
               width: '2px',
               height: '10px',
@@ -193,7 +203,7 @@ export function ChallengeTracker({ boardId, liveWinRate, liveTrades, liveBalance
               left: 0,
               top: 0,
               height: '100%',
-              width: `${Math.min(Math.max(pnlPct / 50 * 100, 0), 100)}%`,
+              width: `${Math.min(Math.max(pnlProgressPct, 0), 100)}%`,
               borderRadius: '3px',
               background: pnlPct >= 0 ? '#4ade80' : '#f05b6f',
               transition: 'width 0.5s ease',
@@ -201,7 +211,10 @@ export function ChallengeTracker({ boardId, liveWinRate, liveTrades, liveBalance
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px', fontSize: '10px', color: 'var(--muted)' }}>
             <span>${effectiveBalance.toFixed(0)} / ${startBalance.toFixed(0)}</span>
-            <span>Target: +${backtestPnl}%</span>
+            <span>Target: {cycleTargetLabel}%</span>
+          </div>
+          <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--muted)' }}>
+            Cycle {cycleNumber} · {cycleRegime} · Target {cycleTargetLabel}%{cycleActive ? '' : ' (inactive)'}
           </div>
         </div>
       </div>
@@ -288,8 +301,9 @@ export function ChallengeTracker({ boardId, liveWinRate, liveTrades, liveBalance
             color: 'var(--muted)',
             lineHeight: 1.5,
           }}>
-            <strong style={{ color: 'var(--text)' }}>Backtest baseline:</strong> 82.1% WR, +33.9% P&L over 90 days (106 trades).
-            Live results are compared against this target. Deviation &gt;10% triggers a warning,
+            <strong style={{ color: 'var(--text)' }}>Dynamic target:</strong> P&amp;L compares against the
+            current harvest cycle target from the compounding engine (regime-based). Win rate still
+            references the 82.1% backtest baseline. Deviation &gt;10% triggers a warning,
             &gt;20% triggers investigation. Min 5 closed trades needed for meaningful comparison.
           </div>
         </div>

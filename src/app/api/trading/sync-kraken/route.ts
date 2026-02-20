@@ -86,9 +86,9 @@ async function runSync(request: NextRequest, body: any) {
       const amount = Number(krakenTrade?.amount ?? 0);
       const positionSize = price && amount ? price * amount : null;
       const side = normalizeSide(krakenTrade?.side);
-      // Kraken 'sell' = closing a LONG position, 'buy' = closing a SHORT (or opening LONG)
-      // For trade history, we show the original position direction
-      const direction = side === 'sell' ? 'LONG' : 'SHORT';
+      // Kraken only supports LONG positions (no shorts)
+      // Buy = opening LONG, Sell = closing LONG
+      const direction = 'LONG';
       const pnlDollarRaw = getKrakenPnl(krakenTrade);
       const pnlDollar = Number.isFinite(pnlDollarRaw) ? Number(pnlDollarRaw) : null;
       const cost = Number(krakenTrade?.cost ?? (price && amount ? price * amount : NaN));
@@ -195,8 +195,8 @@ async function runSync(request: NextRequest, body: any) {
     const amount = Number(krakenTrade?.amount ?? 0);
     const positionSize = price && amount ? price * amount : null;
     const side = normalizeSide(krakenTrade?.side);
-    // Kraken 'sell' = closing a LONG position
-    const direction = side === 'sell' ? 'LONG' : 'SHORT';
+    // Kraken only supports LONG positions
+    const direction = 'LONG';
     const pnlDollarRaw = getKrakenPnl(krakenTrade);
     const pnlDollar = Number.isFinite(pnlDollarRaw) ? Number(pnlDollarRaw) : null;
     const cost = Number(krakenTrade?.cost ?? (price && amount ? price * amount : NaN));
@@ -241,8 +241,8 @@ async function runSync(request: NextRequest, body: any) {
     const amount = Number(krakenTrade?.amount ?? 0);
     const positionSize = price && amount ? price * amount : null;
     const side = normalizeSide(krakenTrade?.side);
-    // Kraken 'sell' = closing a LONG position
-    const direction = side === 'sell' ? 'LONG' : 'SHORT';
+    // Kraken only supports LONG positions
+    const direction = 'LONG';
     const pnlDollarRaw = getKrakenPnl(krakenTrade);
     const pnlDollar = Number.isFinite(pnlDollarRaw) ? Number(pnlDollarRaw) : null;
     const cost = Number(krakenTrade?.cost ?? (price && amount ? price * amount : NaN));

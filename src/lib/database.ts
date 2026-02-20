@@ -2623,6 +2623,8 @@ export async function getPortfolioStats(userId: number) {
   // Ensure sprint_number column exists (safe migration)
   await pool.query(`ALTER TABLE paper_accounts ADD COLUMN IF NOT EXISTS sprint_number INTEGER DEFAULT 1`).catch(() => {});
   
+  // TODO: Unrealized P&L relies on current_price being updated for active trades.
+  // If current_price is null or unchanged from entry_price, unrealized P&L will be near zero.
   const summaryResult = await pool.query(
     `
       WITH accessible_boards AS (
@@ -2776,7 +2778,8 @@ export async function getPortfolioStats(userId: number) {
     };
   });
 
-  // Fetch paper balance from paper_accounts
+  // Fetch paper balance from paper_accounts.
+  // TODO: Live Kraken mode should override this with Kraken USD balance (handled in the portfolio API).
   const paperResult = await pool.query(
     `SELECT COALESCE(SUM(current_balance), 0) as paper_balance,
             COALESCE(SUM(starting_balance), 0) as starting_balance,

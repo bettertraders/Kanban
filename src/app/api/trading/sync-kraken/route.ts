@@ -86,9 +86,10 @@ async function runSync(request: NextRequest, body: any) {
       const positionSize = price && amount ? price * amount : null;
       const side = normalizeSide(krakenTrade?.side);
       const direction = side === 'sell' ? 'SHORT' : 'LONG';
-      const pnlDollar = getKrakenPnl(krakenTrade);
+      const pnlDollarRaw = getKrakenPnl(krakenTrade);
+      const pnlDollar = Number.isFinite(pnlDollarRaw) ? Number(pnlDollarRaw) : null;
       const cost = Number(krakenTrade?.cost ?? (price && amount ? price * amount : NaN));
-      const pnlPercent = Number.isFinite(pnlDollar) && Number.isFinite(cost) && cost > 0 ? (pnlDollar / cost) * 100 : null;
+      const pnlPercent = pnlDollar !== null && Number.isFinite(cost) && cost > 0 ? (pnlDollar / cost) * 100 : null;
       const status = side === 'sell' ? 'closed' : 'active';
       const columnName = side === 'sell' ? 'Closed' : 'Active';
 
@@ -107,7 +108,7 @@ async function runSync(request: NextRequest, body: any) {
           kraken_trade_id: krakenTrade?.id ? String(krakenTrade.id) : null,
           kraken_order_id: krakenTrade?.order ? String(krakenTrade.order) : null,
           kraken_side: side,
-          kraken_status: String(krakenTrade?.status || 'closed').toLowerCase(),
+          kraken_status: 'closed',
           kraken_timestamp: getKrakenTimestamp(krakenTrade),
           kraken_price: Number.isFinite(price) ? price : null,
           kraken_cost: Number.isFinite(cost) ? cost : null,
@@ -192,9 +193,10 @@ async function runSync(request: NextRequest, body: any) {
     const positionSize = price && amount ? price * amount : null;
     const side = normalizeSide(krakenTrade?.side);
     const direction = side === 'sell' ? 'SHORT' : 'LONG';
-    const pnlDollar = getKrakenPnl(krakenTrade);
+    const pnlDollarRaw = getKrakenPnl(krakenTrade);
+    const pnlDollar = Number.isFinite(pnlDollarRaw) ? Number(pnlDollarRaw) : null;
     const cost = Number(krakenTrade?.cost ?? (price && amount ? price * amount : NaN));
-    const pnlPercent = Number.isFinite(pnlDollar) && Number.isFinite(cost) && cost > 0 ? (pnlDollar / cost) * 100 : null;
+    const pnlPercent = pnlDollar !== null && Number.isFinite(cost) && cost > 0 ? (pnlDollar / cost) * 100 : null;
     const status = side === 'sell' ? 'closed' : 'active';
     const columnName = side === 'sell' ? 'Closed' : 'Active';
     const existingMetadata = boardTrade.metadata || {};
@@ -236,9 +238,10 @@ async function runSync(request: NextRequest, body: any) {
     const positionSize = price && amount ? price * amount : null;
     const side = normalizeSide(krakenTrade?.side);
     const direction = side === 'sell' ? 'SHORT' : 'LONG';
-    const pnlDollar = getKrakenPnl(krakenTrade);
+    const pnlDollarRaw = getKrakenPnl(krakenTrade);
+    const pnlDollar = Number.isFinite(pnlDollarRaw) ? Number(pnlDollarRaw) : null;
     const cost = Number(krakenTrade?.cost ?? (price && amount ? price * amount : NaN));
-    const pnlPercent = Number.isFinite(pnlDollar) && Number.isFinite(cost) && cost > 0 ? (pnlDollar / cost) * 100 : null;
+    const pnlPercent = pnlDollar !== null && Number.isFinite(cost) && cost > 0 ? (pnlDollar / cost) * 100 : null;
     const status = side === 'sell' ? 'closed' : 'active';
     const columnName = side === 'sell' ? 'Closed' : 'Active';
 
@@ -257,7 +260,7 @@ async function runSync(request: NextRequest, body: any) {
         kraken_trade_id: krakenTrade?.id ? String(krakenTrade.id) : null,
         kraken_order_id: krakenTrade?.order ? String(krakenTrade.order) : null,
         kraken_side: side,
-        kraken_status: String(krakenTrade?.status || 'closed').toLowerCase(),
+        kraken_status: 'closed',
         kraken_timestamp: getKrakenTimestamp(krakenTrade),
         kraken_price: Number.isFinite(price) ? price : null,
         kraken_cost: Number.isFinite(cost) ? cost : null,

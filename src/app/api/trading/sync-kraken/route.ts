@@ -203,37 +203,47 @@ async function runSync(request: NextRequest, body: any) {
       created++;
     }
     
-    // Step 5: Create cards for unmatched BUYS (Active positions)
+    // Step 5: Create ONE card per symbol for unmatched BUYS (Active positions)
+    // Aggregate multiple buys of the same coin into a single position card
     for (const [symbol, buys] of Object.entries(buysBySymbol)) {
       const startIdx = buyIndexes[symbol] || 0;
-      for (let i = startIdx; i < buys.length; i++) {
-        const buy = buys[i];
-        await createTrade(boardId, userId, {
-          coin_pair: symbol,
-          direction: 'LONG',
-          entry_price: buy.price,
-          current_price: buy.price,
-          position_size: buy.cost,
-          status: 'active',
-          column_name: 'Active',
-          entered_at: buy.ts ? new Date(buy.ts).toISOString() : null,
-          pnl_dollar: null,
-          pnl_percent: null,
-          metadata: {
-            exchange: 'kraken',
-            kraken_trade_id: buy.trade?.id ? String(buy.trade.id) : null,
-            kraken_order_id: buy.trade?.order ? String(buy.trade.order) : null,
-            kraken_side: 'buy',
-            kraken_status: 'open',
-            kraken_timestamp: buy.ts,
-            kraken_price: buy.price,
-            kraken_cost: buy.cost,
-            kraken_amount: buy.amount,
-            created_by_sync: true,
-          },
-        });
-        created++;
-      }
+      const remainingBuys = buys.slice(startIdx);
+      if (remainingBuys.length === 0) continue;
+
+      // Aggregate: total amount, total cost, weighted avg entry price, earliest timestamp
+      const totalAmount = remainingBuys.reduce((sum, b) => sum + b.amount, 0);
+      const totalCost = remainingBuys.reduce((sum, b) => sum + b.cost, 0);
+      const avgEntryPrice = totalCost > 0 && totalAmount > 0 ? totalCost / totalAmount : remainingBuys[0].price;
+      const earliestTs = Math.min(...remainingBuys.map(b => b.ts));
+      const tradeIds = remainingBuys.map(b => b.trade?.id ? String(b.trade.id) : null).filter(Boolean);
+      const orderIds = remainingBuys.map(b => b.trade?.order ? String(b.trade.order) : null).filter(Boolean);
+
+      await createTrade(boardId, userId, {
+        coin_pair: symbol,
+        direction: 'LONG',
+        entry_price: Number(avgEntryPrice.toFixed(6)),
+        current_price: Number(avgEntryPrice.toFixed(6)),
+        position_size: Number(totalCost.toFixed(4)),
+        status: 'active',
+        column_name: 'Active',
+        entered_at: earliestTs ? new Date(earliestTs).toISOString() : null,
+        pnl_dollar: null,
+        pnl_percent: null,
+        metadata: {
+          exchange: 'kraken',
+          kraken_trade_ids: tradeIds,
+          kraken_order_ids: orderIds,
+          kraken_side: 'buy',
+          kraken_status: 'open',
+          kraken_timestamp: earliestTs,
+          kraken_avg_entry_price: Number(avgEntryPrice.toFixed(6)),
+          kraken_total_cost: Number(totalCost.toFixed(4)),
+          kraken_total_amount: Number(totalAmount.toFixed(8)),
+          kraken_num_fills: remainingBuys.length,
+          created_by_sync: true,
+        },
+      });
+      created++;
     }
 
     return NextResponse.json({

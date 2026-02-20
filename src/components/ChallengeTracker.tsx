@@ -118,16 +118,18 @@ export function ChallengeTracker({ boardId, liveWinRate, liveTrades, liveBalance
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ fontSize: '14px' }}>🏆</span>
           <span style={{ fontSize: '13px', fontWeight: 600 }}>365-Day Challenge</span>
-          <span style={{
-            fontSize: '10px',
-            padding: '2px 8px',
-            borderRadius: '999px',
-            background: `${healthColor(health)}22`,
-            color: healthColor(health),
-            fontWeight: 600,
-          }}>
-            {healthLabel(health)}
-          </span>
+          {health !== 'insufficient_data' && (
+            <span style={{
+              fontSize: '10px',
+              padding: '2px 8px',
+              borderRadius: '999px',
+              background: `${healthColor(health)}22`,
+              color: healthColor(health),
+              fontWeight: 600,
+            }}>
+              {healthLabel(health)}
+            </span>
+          )}
         </div>
         <span style={{
           fontSize: '10px',

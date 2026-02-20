@@ -47,6 +47,21 @@ type Intelligence = {
   watchlist: IntelligenceItem[];
   riskParams: { sl: string; tp: string; trail: string };
   directionBias: { long: number; short: number; label: string };
+  autoCompounder: {
+    enabled: boolean;
+    harvests: number;
+    stops: number;
+    dailyPnl: number;
+    circuitBreaker: boolean;
+    compoundingBase: number;
+  };
+  recentAdjustments: Array<{
+    timestamp: string;
+    agent: string;
+    type: string;
+    strategy: string;
+    summary: string;
+  }>;
 };
 
 /* ── helpers ── */
@@ -132,6 +147,8 @@ export default function MarketDashboard() {
     watchlist: Array<{ symbol: string; score: number; rsi: number; price: number; change24h: number }>;
     riskParams: { sl: string; tp: string; trail: string };
     directionBias: { long: number; short: number; label: string };
+    autoCompounder: Intelligence['autoCompounder'];
+    recentAdjustments: Intelligence['recentAdjustments'];
   } | null>(null);
   const [intelligenceUpdatedAt, setIntelligenceUpdatedAt] = useState<string | null>(null);
   const [intelligenceStale, setIntelligenceStale] = useState(false);
@@ -146,6 +163,10 @@ export default function MarketDashboard() {
     ],
     riskParams: { sl: '2.5%', tp: '6.0%', trail: '1.2%' },
     directionBias: { long: 100, short: 0, label: '100% LONG' },
+    autoCompounder: { enabled: true, harvests: 468, stops: 739, dailyPnl: -5.02, circuitBreaker: false, compoundingBase: 1723.14 },
+    recentAdjustments: [
+      { timestamp: '2026-02-19T04:02:00Z', agent: 'Penny', type: 'scan_complete', strategy: 'Momentum Long', summary: 'Added COMP to strategy' },
+    ],
   }), []);
 
   const loadNews = useCallback(async () => {
@@ -559,24 +580,55 @@ export default function MarketDashboard() {
               </div>
 
               <div style={card}>
-                <div style={sectionTitle}>Active Positions</div>
-                <div style={{ display: 'grid', gap: 8 }}>
-                  {[
-                    { coin: 'BTC', entry: '$64,820', pnl: '+4.3%', size: '1.2x', color: '#00e676' },
-                    { coin: 'ETH', entry: '$1,910', pnl: '-1.1%', size: '0.8x', color: '#ff5252' },
-                    { coin: 'SOL', entry: '$102.40', pnl: '+2.6%', size: '1.0x', color: '#00e676' },
-                  ].map((row) => (
-                    <div key={row.coin} style={{
-                      padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.03)',
-                      border: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    }}>
-                      <div>
-                        <div style={{ fontWeight: 700 }}>{row.coin}</div>
-                        <div style={{ fontSize: 11, color: '#888' }}>Entry {row.entry} · Size {row.size}</div>
-                      </div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: row.color }}>{row.pnl}</div>
+                <div style={sectionTitle}>Auto-Compounder</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: 12, color: '#888' }}>Status</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: 99, background: effectiveIntelligence.autoCompounder.circuitBreaker ? '#ff5252' : effectiveIntelligence.autoCompounder.enabled ? '#00e676' : '#888' }} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: effectiveIntelligence.autoCompounder.circuitBreaker ? '#ff5252' : effectiveIntelligence.autoCompounder.enabled ? '#00e676' : '#888' }}>
+                        {effectiveIntelligence.autoCompounder.circuitBreaker ? 'Circuit Breaker' : effectiveIntelligence.autoCompounder.enabled ? 'Active' : 'Disabled'}
+                      </span>
                     </div>
-                  ))}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.03)' }}>
+                      <div style={{ fontSize: 11, color: '#888' }}>Harvests</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e2ff' }}>{effectiveIntelligence.autoCompounder.harvests}</div>
+                    </div>
+                    <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.03)' }}>
+                      <div style={{ fontSize: 11, color: '#888' }}>Stops</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e2ff' }}>{effectiveIntelligence.autoCompounder.stops}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ fontSize: 11, color: '#888' }}>Daily P&L</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: pctColor(effectiveIntelligence.autoCompounder.dailyPnl) }}>{pct(effectiveIntelligence.autoCompounder.dailyPnl)}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: 11, color: '#888' }}>Compounding Base</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#e2e2ff' }}>${fmt(effectiveIntelligence.autoCompounder.compoundingBase)}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={card}>
+                <div style={sectionTitle}>Strategy Adjustments</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {effectiveIntelligence.recentAdjustments.length === 0 ? (
+                    <div style={{ fontSize: 12, color: '#888' }}>No recent adjustments</div>
+                  ) : (
+                    effectiveIntelligence.recentAdjustments.map((adj, i) => (
+                      <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 0', borderTop: i > 0 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ fontSize: 11, color: '#7b7dff', fontWeight: 600 }}>{adj.agent}</div>
+                          <div style={{ fontSize: 10, color: '#888' }}>{timeAgo(adj.timestamp)}</div>
+                        </div>
+                        <div style={{ fontSize: 12, color: '#e2e2ff' }}>{adj.summary}</div>
+                        <div style={{ fontSize: 10, color: '#888' }}>{adj.strategy}</div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 

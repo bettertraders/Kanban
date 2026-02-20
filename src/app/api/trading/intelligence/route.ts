@@ -6,6 +6,8 @@ export const dynamic = 'force-dynamic';
 const scannerPath = '/Users/pennyledger/Projects/owen-watchdog/.owen-scanner-results.json';
 const momentumLongPath = '/Users/pennyledger/Projects/owen-watchdog/strategies/momentum-long.json';
 const momentumShortPath = '/Users/pennyledger/Projects/owen-watchdog/strategies/momentum-short.json';
+const harvestStatePath = '/Users/pennyledger/Projects/owen-watchdog/.harvest-state.json';
+const adjustmentsPath = '/Users/pennyledger/Projects/owen-watchdog/.strategy-adjustments.json';
 
 const formatPct = (value: number) => `${(value * 100).toFixed(1).replace(/\.0$/, '')}%`;
 
@@ -16,10 +18,12 @@ const readJson = async <T,>(path: string): Promise<T> => {
 
 export async function GET() {
   try {
-    const [scanner, longStrat, shortStrat] = await Promise.all([
+    const [scanner, longStrat, shortStrat, harvestState, adjustments] = await Promise.all([
       readJson<any>(scannerPath),
       readJson<any>(momentumLongPath),
       readJson<any>(momentumShortPath),
+      readJson<any>(harvestStatePath).catch(() => null),
+      readJson<any>(adjustmentsPath).catch(() => []),
     ]);
 
     const watchlist = Array.isArray(scanner?.watchlist)
@@ -53,7 +57,31 @@ export async function GET() {
 
     const directionBias = { long: longPct, short: shortPct, label };
 
-    return NextResponse.json({ watchlist, riskParams, directionBias });
+    // Auto-Compounder data
+    const autoCompounder = harvestState ? {
+      enabled: true,
+      harvests: harvestState.stats?.harvests ?? 0,
+      stops: harvestState.stats?.stops ?? 0,
+      dailyPnl: harvestState.dailyPnl?.realizedPct ?? 0,
+      circuitBreaker: harvestState.circuitBreakerUntil > Date.now(),
+      compoundingBase: harvestState.compoundingBase ?? 0,
+    } : { enabled: false, harvests: 0, stops: 0, dailyPnl: 0, circuitBreaker: false, compoundingBase: 0 };
+
+    // Strategy Adjustments - last 3 significant changes
+    const recentAdjustments = Array.isArray(adjustments) 
+      ? adjustments
+          .filter((a: any) => a.changes && a.changes.some((c: any) => c.field !== 'none'))
+          .slice(-3)
+          .map((a: any) => ({
+            timestamp: a.timestamp,
+            agent: a.agent,
+            type: a.type,
+            strategy: a.strategy,
+            summary: a.reason?.split('.')[0] ?? 'Strategy adjustment',
+          }))
+      : [];
+
+    return NextResponse.json({ watchlist, riskParams, directionBias, autoCompounder, recentAdjustments });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to load trading intelligence' }, { status: 500 });
   }

@@ -4,6 +4,7 @@ type KrakenClient = {
   fetchMyTrades: (symbol?: string, since?: number, limit?: number, params?: Record<string, unknown>) => Promise<Trade[]>;
   fetchOrder: (orderId: string, symbol?: string, params?: Record<string, unknown>) => Promise<Order>;
   fetchOpenOrders: (symbol?: string, since?: number, limit?: number, params?: Record<string, unknown>) => Promise<Order[]>;
+  createOrder: (symbol: string, type: string, side: string, amount: number, price?: number, params?: Record<string, unknown>) => Promise<Order>;
 };
 
 async function createKrakenClient(): Promise<KrakenClient> {
@@ -48,4 +49,17 @@ export async function verifyOrder(orderId: string, symbol?: string): Promise<{ e
     console.error('[kraken-sync] verifyOrder error:', error);
     return { eligible: false, order: null };
   }
+}
+
+export async function createKrakenOrder(options: {
+  symbol: string;
+  side: 'buy' | 'sell';
+  amount: number;
+  type?: 'market' | 'limit';
+  price?: number;
+  params?: Record<string, unknown>;
+}): Promise<Order> {
+  const exchange = await createKrakenClient();
+  const type = options.type || 'market';
+  return exchange.createOrder(options.symbol, type, options.side, options.amount, options.price, options.params);
 }

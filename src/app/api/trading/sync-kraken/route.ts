@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/api-auth';
 import { getBoard, getTradesForBoard, updateTrade, deleteTrade, getBoardTradingStats, createTrade } from '@/lib/database';
-import { fetchKrakenTrades } from '@/lib/kraken-sync';
+import { fetchKrakenOpenOrders, fetchKrakenTrades } from '@/lib/kraken-sync';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +17,32 @@ const normalizeSide = (value: any) => {
   if (str === 'long') return 'buy';
   if (str === 'buy' || str === 'sell') return str;
   return null;
+};
+
+const isKrakenTrade = (trade: TradeRow) => {
+  const metadata = trade?.metadata || {};
+  if (metadata?.exchange && String(metadata.exchange).toLowerCase() === 'kraken') return true;
+  if (metadata?.source && String(metadata.source).toLowerCase() === 'kraken') return true;
+  if (
+    metadata?.kraken_trade_id ||
+    metadata?.kraken_order_id ||
+    metadata?.kraken_entry_order_id ||
+    metadata?.kraken_exit_order_id ||
+    metadata?.order_id ||
+    metadata?.orderId
+  ) {
+    return true;
+  }
+  if (metadata?.created_by_sync) return true;
+  if (trade?.status === 'active' || trade?.status === 'closed') return true;
+  if (trade?.column_name === 'Active' || trade?.column_name === 'Closed') return true;
+  return false;
+};
+
+const toStringOrNull = (value: any) => {
+  if (value === undefined || value === null) return null;
+  const str = String(value).trim();
+  return str.length ? str : null;
 };
 
 const getKrakenPnl = (trade: any) => {
@@ -38,10 +64,24 @@ const getKrakenTimestamp = (trade: any) => {
 };
 
 const getBoardTimestamp = (trade: TradeRow) => {
+  const entered = trade?.entered_at ? new Date(trade.entered_at).getTime() : NaN;
+  if (Number.isFinite(entered)) return entered;
+  const exited = trade?.exited_at ? new Date(trade.exited_at).getTime() : NaN;
+  if (Number.isFinite(exited)) return exited;
   const created = trade?.created_at ? new Date(trade.created_at).getTime() : NaN;
   if (Number.isFinite(created)) return created;
   const updated = trade?.updated_at ? new Date(trade.updated_at).getTime() : NaN;
   return Number.isFinite(updated) ? updated : null;
+};
+
+const getBoardKrakenIds = (trade: TradeRow) => {
+  const metadata = trade?.metadata || {};
+  return {
+    tradeId: toStringOrNull(metadata?.kraken_trade_id || metadata?.trade_id || metadata?.tradeId),
+    orderId: toStringOrNull(metadata?.kraken_order_id || metadata?.order_id || metadata?.orderId),
+    entryOrderId: toStringOrNull(metadata?.kraken_entry_order_id),
+    exitOrderId: toStringOrNull(metadata?.kraken_exit_order_id),
+  };
 };
 
 async function runSync(request: NextRequest, body: any) {
@@ -208,19 +248,53 @@ async function runSync(request: NextRequest, body: any) {
   }
 
   const krakenTrades = await fetchKrakenTrades();
+  const openOrders = await fetchKrakenOpenOrders().catch(() => []);
+  const openOrderById = new Map<string, any>();
+  for (const order of openOrders) {
+    if (order?.id) openOrderById.set(String(order.id), order);
+  }
+
   const krakenIndex = krakenTrades.map((trade) => {
     const symbol = trade?.symbol ? normalizePair(String(trade.symbol)) : 'UNKNOWN';
     const side = normalizeSide(trade?.side);
     const timestamp = getKrakenTimestamp(trade);
     return { trade, symbol, side, timestamp };
   });
+  const krakenTradeById = new Map<string, number>();
+  const krakenTradeByOrderId = new Map<string, number>();
+  for (let i = 0; i < krakenIndex.length; i++) {
+    const krakenTrade = krakenIndex[i].trade;
+    if (krakenTrade?.id) krakenTradeById.set(String(krakenTrade.id), i);
+    if (krakenTrade?.order) krakenTradeByOrderId.set(String(krakenTrade.order), i);
+  }
 
   const matchedTradeIds = new Set<number>();
   const matchedKrakenIndexes = new Set<number>();
+  const matchedOpenOrderIds = new Set<string>();
   const phantomTrades: TradeRow[] = [];
   const matchedPairs: Array<{ boardTrade: TradeRow; krakenTrade: any }> = [];
 
   const findKrakenMatch = (trade: TradeRow) => {
+    const ids = getBoardKrakenIds(trade);
+    const directTradeId =
+      (ids.tradeId && krakenTradeById.get(ids.tradeId)) ??
+      (ids.exitOrderId && krakenTradeByOrderId.get(ids.exitOrderId)) ??
+      (ids.orderId && krakenTradeByOrderId.get(ids.orderId)) ??
+      (ids.entryOrderId && krakenTradeByOrderId.get(ids.entryOrderId));
+
+    if (directTradeId !== undefined && directTradeId !== null) {
+      if (!matchedKrakenIndexes.has(directTradeId)) {
+        return { index: directTradeId, candidate: krakenIndex[directTradeId] };
+      }
+    }
+
+    if (ids.orderId && openOrderById.has(ids.orderId)) {
+      return { openOrderId: ids.orderId };
+    }
+    if (ids.entryOrderId && openOrderById.has(ids.entryOrderId)) {
+      return { openOrderId: ids.entryOrderId };
+    }
+
     const boardSymbol = trade?.coin_pair ? normalizePair(String(trade.coin_pair)) : 'UNKNOWN';
     const boardSide = normalizeSide(trade?.metadata?.kraken_side || trade?.metadata?.side || trade?.metadata?.order_side || trade?.direction);
     const boardTimestamp = getBoardTimestamp(trade);
@@ -246,10 +320,18 @@ async function runSync(request: NextRequest, body: any) {
     return bestIndex != null ? { index: bestIndex, candidate: krakenIndex[bestIndex] } : null;
   };
 
-  for (const trade of boardTrades) {
+  const boardTradesForSync = boardTrades.filter(isKrakenTrade);
+
+  for (const trade of boardTradesForSync) {
     const match = findKrakenMatch(trade);
     if (!match) {
       phantomTrades.push(trade);
+      continue;
+    }
+
+    if ('openOrderId' in match && match.openOrderId) {
+      matchedTradeIds.add(Number(trade.id));
+      matchedOpenOrderIds.add(String(match.openOrderId));
       continue;
     }
 
@@ -268,7 +350,6 @@ async function runSync(request: NextRequest, body: any) {
   for (const { boardTrade, krakenTrade } of matchedPairs) {
     const price = Number(krakenTrade?.price ?? 0);
     const amount = Number(krakenTrade?.amount ?? 0);
-    const positionSize = price && amount ? price * amount : null;
     const side = normalizeSide(krakenTrade?.side);
     // Kraken only supports LONG positions
     const direction = 'LONG';
@@ -276,35 +357,47 @@ async function runSync(request: NextRequest, body: any) {
     const pnlDollar = Number.isFinite(pnlDollarRaw) ? Number(pnlDollarRaw) : null;
     const cost = Number(krakenTrade?.cost ?? (price && amount ? price * amount : NaN));
     const pnlPercent = pnlDollar !== null && Number.isFinite(cost) && cost > 0 ? (pnlDollar / cost) * 100 : null;
-    const status = 'closed';
-    const columnName = 'Closed';
+    const isSell = side === 'sell';
+    const status = isSell ? 'closed' : 'active';
+    const columnName = isSell ? 'Closed' : 'Active';
     const existingMetadata = boardTrade.metadata || {};
+    const timestamp = getKrakenTimestamp(krakenTrade);
 
-    await updateTrade(Number(boardTrade.id), {
+    const updates: Record<string, unknown> = {
       coin_pair: krakenTrade?.symbol ? normalizePair(String(krakenTrade.symbol)) : boardTrade.coin_pair,
       direction,
-      entry_price: price || null,
       current_price: price || null,
-      position_size: positionSize,
       status,
       column_name: columnName,
-      pnl_dollar: Number.isFinite(pnlDollar) ? pnlDollar : null,
-      pnl_percent: pnlPercent,
       metadata: {
         ...existingMetadata,
         exchange: 'kraken',
         kraken_trade_id: krakenTrade?.id ? String(krakenTrade.id) : null,
         kraken_order_id: krakenTrade?.order ? String(krakenTrade.order) : null,
         kraken_side: side,
-        kraken_status: String(krakenTrade?.status || 'closed').toLowerCase(),
-        kraken_timestamp: getKrakenTimestamp(krakenTrade),
+        kraken_status: String(krakenTrade?.status || (isSell ? 'closed' : 'open')).toLowerCase(),
+        kraken_timestamp: timestamp,
         kraken_price: Number.isFinite(price) ? price : null,
         kraken_cost: Number.isFinite(cost) ? cost : null,
         kraken_amount: Number.isFinite(amount) ? amount : null,
         kraken_profit_loss: Number.isFinite(pnlDollar) ? pnlDollar : null,
         verified_at: new Date().toISOString(),
       },
-    });
+    };
+
+    if (!boardTrade.position_size && Number.isFinite(cost)) updates.position_size = cost;
+    if (side === 'buy') {
+      if (!boardTrade.entry_price) updates.entry_price = Number.isFinite(price) ? price : null;
+      if (!boardTrade.entered_at && timestamp) updates.entered_at = new Date(timestamp).toISOString();
+    }
+    if (side === 'sell') {
+      updates.exit_price = Number.isFinite(price) ? price : null;
+      if (pnlDollar !== null) updates.pnl_dollar = pnlDollar;
+      if (pnlPercent !== null) updates.pnl_percent = pnlPercent;
+      if (!boardTrade.exited_at && timestamp) updates.exited_at = new Date(timestamp).toISOString();
+    }
+
+    await updateTrade(Number(boardTrade.id), updates);
     updated++;
   }
 
@@ -322,15 +415,18 @@ async function runSync(request: NextRequest, body: any) {
     const pnlDollar = Number.isFinite(pnlDollarRaw) ? Number(pnlDollarRaw) : null;
     const cost = Number(krakenTrade?.cost ?? (price && amount ? price * amount : NaN));
     const pnlPercent = pnlDollar !== null && Number.isFinite(cost) && cost > 0 ? (pnlDollar / cost) * 100 : null;
-    const status = 'closed';
-    const columnName = 'Closed';
+    const isSell = side === 'sell';
+    const status = isSell ? 'closed' : 'active';
+    const columnName = isSell ? 'Closed' : 'Active';
+    const timestamp = getKrakenTimestamp(krakenTrade);
 
     await createTrade(boardId, user?.id || Number(body?.userId) || 1, {
       coin_pair: krakenTrade?.symbol ? normalizePair(String(krakenTrade.symbol)) : 'UNKNOWN',
       direction,
-      entry_price: price || null,
+      entry_price: !isSell && price ? price : null,
       current_price: price || null,
       position_size: positionSize,
+      exit_price: isSell && price ? price : null,
       status,
       column_name: columnName,
       pnl_dollar: Number.isFinite(pnlDollar) ? pnlDollar : null,
@@ -341,7 +437,7 @@ async function runSync(request: NextRequest, body: any) {
         kraken_order_id: krakenTrade?.order ? String(krakenTrade.order) : null,
         kraken_side: side,
         kraken_status: 'closed',
-        kraken_timestamp: getKrakenTimestamp(krakenTrade),
+        kraken_timestamp: timestamp,
         kraken_price: Number.isFinite(price) ? price : null,
         kraken_cost: Number.isFinite(cost) ? cost : null,
         kraken_amount: Number.isFinite(amount) ? amount : null,
@@ -364,6 +460,7 @@ async function runSync(request: NextRequest, body: any) {
     deleted,
     updated,
     created,
+    openOrdersMatched: matchedOpenOrderIds.size,
     stats,
   });
 }

@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Market v3 Production Mockup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: radial-gradient(circle at top, rgba(123, 125, 255, 0.08), transparent 45%),
+        linear-gradient(120deg, #0f0f1f, #141428 40%, #17172f 100%);
+      --card: rgba(123,125,255,0.06);
+      --card-border: 1px solid rgba(123,125,255,0.15);
+      --panel: #1a1a2e;
+      --panel-2: #202041;
+      --panel-3: #24244b;
+      --accent: #7b7dff;
+      --accent-2: #48c2ff;
+      --success: #3ac17c;
+      --success-bright: #00e676;
+      --danger: #f05b6f;
+      --danger-bright: #ff5252;
+      --warn: #f5b544;
+      --text: #eef0ff;
+      --muted: #9aa0b8;
+      --secondary: #888;
+      --radius: 12px;
+      --shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Space Grotesk', 'Satoshi', 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .page {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: clamp(20px, 4vw, 48px);
+    }
+
+    .card {
+      background: var(--card);
+      border: var(--card-border);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .section-title {
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    .header {
+      display: grid;
+      gap: 16px;
+    }
+
+    .header-card {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .avatar {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      border: 2px solid rgba(123,125,255,0.4);
+      box-shadow: 0 0 24px rgba(123,125,255,0.35);
+    }
+
+    .date-badge {
+      background: rgba(123,125,255,0.12);
+      border: 1px solid rgba(123,125,255,0.35);
+      color: var(--accent);
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .summary {
+      font-size: 17px;
+      line-height: 1.6;
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .analysis-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 10px;
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .analysis {
+      margin-top: 12px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding-top: 12px;
+      display: none;
+      gap: 10px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
+    .analysis.open {
+      display: grid;
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .refresh {
+      background: rgba(123,125,255,0.15);
+      border: 1px solid rgba(123,125,255,0.3);
+      color: var(--accent);
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .last-updated {
+      font-size: 12px;
+      color: var(--secondary);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 55% 45%;
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 16px;
+    }
+
+    .pinned-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .pinned-asset {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: rgba(26, 26, 46, 0.6);
+      border-radius: 10px;
+      padding: 12px;
+      border: 1px solid rgba(123,125,255,0.18);
+    }
+
+    .coin-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(140deg, rgba(123,125,255,0.4), rgba(72,194,255,0.4));
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+    }
+
+    .price {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .metric {
+      background: rgba(26,26,46,0.6);
+      border: 1px solid rgba(123,125,255,0.15);
+      border-radius: 10px;
+      padding: 12px;
+    }
+
+    .metric-label {
+      font-size: 11px;
+      color: var(--secondary);
+    }
+
+    .metric-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: 6px;
+    }
+
+    .gauge {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+    .gauge-inner {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: #141428;
+      display: grid;
+      place-items: center;
+    }
+
+    .sentiment-bar {
+      height: 8px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .sentiment-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #ef4444, #eab308, #22c55e);
+    }
+
+    .news-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 10px;
+      align-items: start;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .news-badge {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(123,125,255,0.3);
+      background: rgba(255,255,255,0.04);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .news-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.3;
+    }
+
+    .news-time {
+      font-size: 11px;
+      color: var(--secondary);
+      white-space: nowrap;
+    }
+
+    .bias {
+      display: grid;
+      gap: 6px;
+      text-align: left;
+    }
+
+    .bias-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--success-bright);
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--success);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success-bright);
+      box-shadow: 0 0 8px rgba(0,230,118,0.7);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead {
+      background: rgba(26,26,46,0.7);
+    }
+
+    th, td {
+      padding: 8px 6px;
+      text-align: right;
+    }
+
+    th:first-child, td:first-child {
+      text-align: left;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .row-positive {
+      background: rgba(58,193,124,0.08);
+    }
+
+    .row-neutral {
+      background: rgba(245,181,68,0.08);
+    }
+
+    .row-danger {
+      background: rgba(240,91,111,0.08);
+    }
+
+    .rsi-card {
+      background: rgba(26,26,46,0.6);
+      border-radius: 10px;
+      padding: 12px;
+      border-left: 4px solid var(--danger-bright);
+      border-right: 1px solid rgba(123,125,255,0.15);
+      border-top: 1px solid rgba(123,125,255,0.15);
+      border-bottom: 1px solid rgba(123,125,255,0.15);
+    }
+
+    .positions {
+      display: grid;
+      gap: 10px;
+    }
+
+    .position-card {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      background: rgba(26,26,46,0.6);
+      border-radius: 10px;
+      padding: 12px;
+      border: 1px solid rgba(123,125,255,0.15);
+    }
+
+    .risk-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      text-align: center;
+    }
+
+    .risk-card {
+      background: rgba(26,26,46,0.6);
+      border: 1px solid rgba(123,125,255,0.15);
+      border-radius: 10px;
+      padding: 12px;
+    }
+
+    @media (max-width: 1024px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      .header-card {
+        grid-template-columns: auto 1fr;
+      }
+      .date-badge {
+        justify-self: start;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .header-card {
+        grid-template-columns: 1fr;
+      }
+      .metric-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .risk-grid {
+        grid-template-columns: 1fr;
+      }
+      .news-item {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="header">
+      <div class="card header-card">
+        <img src="/icons/penny.png" alt="Penny" class="avatar" />
+        <div>
+          <div class="section-title">Penny's Market Update</div>
+          <div id="market-summary" class="summary">Loading market summary...</div>
+          <button class="analysis-toggle" id="analysis-toggle">Read full analysis ▼</button>
+          <div class="analysis" id="analysis-panel"></div>
+        </div>
+        <div class="date-badge" id="date-badge">Today</div>
+      </div>
+      <div class="toolbar">
+        <span class="last-updated" id="last-updated">Last updated: just now</span>
+        <button class="refresh" id="refresh-button">↻ Refresh</button>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="stack">
+        <div class="section-title">MARKET OVERVIEW</div>
+        <div class="card">
+          <div class="section-title">Pinned Assets</div>
+          <div class="pinned-list">
+            <div class="pinned-asset">
+              <div class="coin-icon">₿</div>
+              <div style="flex: 1;">
+                <div style="font-weight: 600;">Bitcoin <span style="color: var(--secondary); font-weight: 400;">BTC</span></div>
+                <div class="price">$66,260</div>
+              </div>
+              <div style="text-align: right;">
+                <div style="color: var(--success); font-weight: 600;">24h +1.1%</div>
+                <div style="color: var(--success-bright); font-size: 12px;">7d +5.2%</div>
+              </div>
+            </div>
+            <div class="pinned-asset">
+              <div class="coin-icon">Ξ</div>
+              <div style="flex: 1;">
+                <div style="font-weight: 600;">Ethereum <span style="color: var(--secondary); font-weight: 400;">ETH</span></div>
+                <div class="price">$1,984</div>
+              </div>
+              <div style="text-align: right;">
+                <div style="color: var(--danger); font-weight: 600;">24h -1.5%</div>
+                <div style="color: var(--success); font-size: 12px;">7d +2.1%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Global Market</div>
+          <div class="metric-grid">
+            <div class="metric">
+              <div class="metric-label">Total Market Cap</div>
+              <div class="metric-value">$2.48T</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">24h Volume</div>
+              <div class="metric-value">$98.2B</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">BTC Dominance</div>
+              <div class="metric-value" style="color: var(--accent);">56.7%</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Fear &amp; Greed Index</div>
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <div class="gauge" id="fear-gauge">
+              <div class="gauge-inner">9</div>
+            </div>
+            <div>
+              <div style="font-weight: 700; color: var(--danger-bright);">Extreme Fear</div>
+              <div style="font-size: 12px; color: var(--secondary);">Opportunity zone for value entries</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Market Sentiment</div>
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+            <div style="font-size: 28px;">🐻</div>
+            <div>
+              <div style="font-size: 18px; font-weight: 700; color: var(--danger);">Bearish</div>
+              <div style="font-size: 12px; color: var(--secondary);">Sentiment Score: 26/100</div>
+            </div>
+          </div>
+          <div class="sentiment-bar">
+            <div class="sentiment-fill" style="width: 26%;"></div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 11px; color: var(--secondary); margin-top: 10px;">
+            <div>
+              <div>BTC 24h</div>
+              <div style="font-weight: 600; color: var(--success);">+1.1%</div>
+            </div>
+            <div>
+              <div>Fear &amp; Greed</div>
+              <div style="font-weight: 600; color: var(--text);">9</div>
+            </div>
+            <div>
+              <div>Gainers/Losers</div>
+              <div style="font-weight: 600; color: var(--text);">11/24</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Market News</div>
+          <div class="news-item">
+            <span class="news-badge" style="border-color: #f39a26; color: #f39a26;">CoinDesk</span>
+            <div class="news-title">Bitcoin demand dries up as long-term holders refuse to sell during fear cycle</div>
+            <div class="news-time">2h ago</div>
+          </div>
+          <div class="news-item">
+            <span class="news-badge" style="border-color: #1b6bff; color: #1b6bff;">CoinTelegraph</span>
+            <div class="news-title">ETH gas fees cool off, but network activity signals renewed accumulation</div>
+            <div class="news-time">3h ago</div>
+          </div>
+          <div class="news-item">
+            <span class="news-badge" style="border-color: #8b5cf6; color: #8b5cf6;">Yahoo Finance</span>
+            <div class="news-title">Crypto funds see modest inflows as macro volatility rises</div>
+            <div class="news-time">5h ago</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="section-title">TRADING INTELLIGENCE</div>
+        <div class="card">
+          <div class="section-title">Direction Bias</div>
+          <div class="bias">
+            <div class="bias-value">100% LONG</div>
+            <div style="font-size: 13px; color: var(--muted);">14/14 coins with optimal params favor LONG</div>
+            <div class="status"><span class="status-dot"></span>Short strategy disabled</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Backtest Results</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Coin</th>
+                <th>Score</th>
+                <th>Win Rate</th>
+                <th>RSI</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="row-positive">
+                <td>SHIB</td>
+                <td style="color: var(--success); font-weight: 600;">149.5</td>
+                <td>100%</td>
+                <td>34.4</td>
+              </tr>
+              <tr class="row-danger">
+                <td>AR</td>
+                <td style="color: var(--success); font-weight: 600;">120.8</td>
+                <td>85.7%</td>
+                <td style="color: var(--danger-bright); font-weight: 700;">16.7</td>
+              </tr>
+              <tr class="row-positive">
+                <td>ATOM</td>
+                <td style="color: var(--success); font-weight: 600;">94.9</td>
+                <td>75%</td>
+                <td>38.8</td>
+              </tr>
+              <tr class="row-neutral">
+                <td>ALGO</td>
+                <td style="color: var(--success); font-weight: 600;">84.0</td>
+                <td>75%</td>
+                <td style="color: var(--warn); font-weight: 700;">29.5</td>
+              </tr>
+              <tr>
+                <td>W</td>
+                <td style="color: var(--success); font-weight: 600;">73.6</td>
+                <td>71.4%</td>
+                <td>38.5</td>
+              </tr>
+              <tr>
+                <td>INJ</td>
+                <td style="color: var(--success); font-weight: 600;">70.1</td>
+                <td>68.3%</td>
+                <td>42.2</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="section-title">RSI Highlights</div>
+          <div class="stack">
+            <div class="rsi-card">
+              <div style="font-weight: 700; color: var(--danger-bright);">AR at 16.7</div>
+              <div style="font-size: 12px; color: var(--secondary);">Extreme oversold — prime mean reversion candidate</div>
+              <div style="font-size: 11px; color: var(--success); margin-top: 6px;">PnL: +$38.79 (backtested)</div>
+            </div>
+            <div class="rsi-card" style="border-left-color: var(--warn);">
+              <div style="font-weight: 700; color: var(--warn);">ALGO at 29.5</div>
+              <div style="font-size: 12px; color: var(--secondary);">Oversold — attractive entry point</div>
+              <div style="font-size: 11px; color: var(--success); margin-top: 6px;">PnL: +$12.38 (backtested)</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Active Positions</div>
+          <div class="positions">
+            <div class="position-card">
+              <div>
+                <div style="font-weight: 600;">SNX/USD <span style="color: var(--secondary); font-size: 12px; font-weight: 400;">64.5 tokens</span></div>
+                <div style="font-size: 12px; color: var(--secondary);">Entry 3.18 · Size $2,060</div>
+              </div>
+              <div style="font-weight: 700; color: var(--success);">+9.6%</div>
+            </div>
+            <div class="position-card">
+              <div>
+                <div style="font-weight: 600;">LSK/USD <span style="color: var(--secondary); font-size: 12px; font-weight: 400;">198 tokens</span></div>
+                <div style="font-size: 12px; color: var(--secondary);">Entry 1.03 · Size $204</div>
+              </div>
+              <div style="font-weight: 700; color: var(--danger);">-2.1%</div>
+            </div>
+            <div class="position-card">
+              <div>
+                <div style="font-weight: 600;">OM/USD <span style="color: var(--secondary); font-size: 12px; font-weight: 400;">302 tokens</span></div>
+                <div style="font-size: 12px; color: var(--secondary);">Entry 0.77 · Size $232</div>
+              </div>
+              <div style="font-weight: 700; color: var(--danger);">-1.7%</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Risk Parameters</div>
+          <div class="risk-grid">
+            <div class="risk-card">
+              <div style="font-size: 11px; color: var(--secondary);">Stop Loss</div>
+              <div style="font-size: 20px; font-weight: 700; color: var(--danger-bright);">6%</div>
+            </div>
+            <div class="risk-card">
+              <div style="font-size: 11px; color: var(--secondary);">Take Profit</div>
+              <div style="font-size: 20px; font-weight: 700; color: var(--success-bright);">12%</div>
+            </div>
+            <div class="risk-card">
+              <div style="font-size: 11px; color: var(--secondary);">Trailing</div>
+              <div style="font-size: 20px; font-weight: 700; color: var(--accent-2);">3%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const mockData = {
+      overview: {
+        btc: { price: 66260, change24h: 1.1, change7d: 5.2, volume: 42100000000 },
+        eth: { price: 1984, change24h: -1.5, change7d: 2.1, volume: 15200000000 },
+        totalMarketCap: 2.48e12,
+        btcDominance: 56.7,
+        fearGreed: { value: 9, label: 'Extreme Fear' },
+      },
+      movers: {
+        gainers: ['INJ', 'LINK', 'NEAR'],
+        losers: ['ALGO', 'AR', 'DOGE'],
+      },
+    };
+
+    const fmt = (n) => {
+      if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
+      if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
+      return `$${n.toLocaleString('en-US')}`;
+    };
+
+    const setDate = () => {
+      const badge = document.getElementById('date-badge');
+      const now = new Date();
+      badge.textContent = now.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    };
+
+    const setSummary = () => {
+      const { btc, fearGreed } = mockData.overview;
+      const gainers = mockData.movers.gainers;
+      const losers = mockData.movers.losers;
+      const btcDir = btc.change24h >= 0 ? 'up' : 'down';
+      const btcAbs = Math.abs(btc.change24h).toFixed(1);
+
+      let summary = '';
+      if (fearGreed.value < 25) {
+        summary = `Fear is running the show right now — index at ${fearGreed.value} (${fearGreed.label}). BTC is ${btcDir} ${btcAbs}% in the last 24h. ${losers.length ? `${losers.join(', ')} taking the biggest hits.` : ''} This is where patient traders start watching for opportunities. 👀`;
+      } else if (fearGreed.value < 45) {
+        summary = `Markets are cautious with the Fear & Greed at ${fearGreed.value} (${fearGreed.label}). BTC ${btcDir} ${btcAbs}% today. ${gainers.length ? `${gainers.join(', ')} leading the green.` : ''} Not much conviction either way — staying sharp. 🎯`;
+      } else if (fearGreed.value < 60) {
+        summary = `Balanced vibes in the market — Fear & Greed sitting at ${fearGreed.value}. BTC ${btcDir} ${btcAbs}% on the day. ${gainers.length ? `Top movers: ${gainers.join(', ')}.` : ''} No panic, no FOMO — just the way I like it. 😎`;
+      } else if (fearGreed.value < 75) {
+        summary = `Getting greedy out there — index at ${fearGreed.value} (${fearGreed.label}). BTC ${btcDir} ${btcAbs}%. ${gainers.length ? `${gainers.join(', ')} on a tear.` : ''} Good times but this is when discipline matters most. 📈`;
+      } else {
+        summary = `Extreme greed in the market — ${fearGreed.value} on the Fear & Greed. BTC ${btcDir} ${btcAbs}%. Everyone's euphoric. Be careful — this is historically where tops form. Taking profits is never wrong. 🚨`;
+      }
+
+      document.getElementById('market-summary').textContent = summary;
+    };
+
+    const setAnalysis = () => {
+      const { btc, eth, totalMarketCap, btcDominance, fearGreed } = mockData.overview;
+      const btcDir = btc.change24h >= 0 ? 'up' : 'down';
+      const ethDir = eth.change24h >= 0 ? 'up' : 'down';
+
+      const domText = btcDominance > 55
+        ? 'BTC dominance is elevated — capital is consolidating into Bitcoin, which usually means altcoins are underperforming relative to BTC.'
+        : btcDominance > 45
+          ? 'BTC dominance is in a neutral range — money is flowing across the market fairly evenly.'
+          : 'BTC dominance is low — altcoins are seeing significant rotation and outperformance.';
+
+      const fngText = fearGreed.value < 25
+        ? 'Extreme fear usually marks the best buying opportunities historically, but it can persist for weeks.'
+        : fearGreed.value < 45
+          ? 'The market is cautious but not panicking. This is a wait-and-see zone.'
+          : fearGreed.value < 60
+            ? 'Sentiment is neutral, which is actually healthy. Markets can trend in either direction from here.'
+            : fearGreed.value < 75
+              ? 'Greed is building, and while the trend may have room to run, this is where smart money starts scaling out.'
+              : 'Extreme greed is historically where major tops form. Consider taking profits on extended moves.';
+
+      const analysis = [
+        `<strong style="color: var(--text);">Price Action:</strong> Bitcoin is trading at $${btc.price.toLocaleString('en-US')}, ${btcDir} ${Math.abs(btc.change24h).toFixed(1)}% in the last 24 hours. Ethereum sits at $${eth.price.toLocaleString('en-US')}, ${ethDir} ${Math.abs(eth.change24h).toFixed(1)}% on the day. Total crypto market cap stands at ${fmt(totalMarketCap)} with BTC dominance at ${btcDominance.toFixed(1)}%. ${domText}`,
+        `<strong style="color: var(--text);">Movers & Sentiment:</strong> Today\'s top gainers are ${mockData.movers.gainers.join(', ')}. On the downside, ${mockData.movers.losers.join(', ')} are seeing the most selling pressure. The Fear & Greed Index reads ${fearGreed.value} (${fearGreed.label}). ${fngText}`,
+        `<strong style="color: var(--text);">What I\'m Watching:</strong> In this fearful environment, I\'m watching for oversold bounces on quality assets — BTC and ETH near support levels are the highest-probability setups. Keep an eye on macro catalysts and funding rates for confirmation.`,
+        `<span style="font-style: italic; color: var(--accent); display: block; text-align: right;">Stay sharp, stay patient, and let the charts do the talking. — Penny 🐱</span>`,
+      ];
+
+      const panel = document.getElementById('analysis-panel');
+      panel.innerHTML = analysis.map((line) => `<div>${line}</div>`).join('');
+    };
+
+    const setGauge = () => {
+      const { value } = mockData.overview.fearGreed;
+      const color = value <= 25 ? '#ff5252' : value <= 45 ? '#f5b544' : value <= 55 ? '#eab308' : value <= 75 ? '#00e676' : '#22c55e';
+      const gauge = document.getElementById('fear-gauge');
+      gauge.style.background = `conic-gradient(${color} ${value * 3.6}deg, rgba(255,255,255,0.08) 0deg)`;
+    };
+
+    const setLastUpdated = () => {
+      const lastUpdated = document.getElementById('last-updated');
+      lastUpdated.textContent = `Last updated: ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+    };
+
+    const toggleButton = document.getElementById('analysis-toggle');
+    const analysisPanel = document.getElementById('analysis-panel');
+    toggleButton.addEventListener('click', () => {
+      const isOpen = analysisPanel.classList.toggle('open');
+      toggleButton.textContent = isOpen ? 'Show less ▲' : 'Read full analysis ▼';
+    });
+
+    document.getElementById('refresh-button').addEventListener('click', () => {
+      setSummary();
+      setAnalysis();
+      setGauge();
+      setLastUpdated();
+    });
+
+    setDate();
+    setSummary();
+    setAnalysis();
+    setGauge();
+    setLastUpdated();
+  </script>
+</body>
+</html>

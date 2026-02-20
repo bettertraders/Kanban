@@ -57,11 +57,11 @@ const timeAgo = (iso: string) => {
 /* ── styles ── */
 const card: React.CSSProperties = {
   background: 'rgba(123,125,255,0.06)', borderRadius: 12, padding: 16,
-  border: '1px solid rgba(123,125,255,0.15)', marginBottom: 12,
+  border: '1px solid rgba(123,125,255,0.15)',
 };
 const sectionTitle: React.CSSProperties = {
   fontSize: 13, fontWeight: 600, color: '#7b7dff', textTransform: 'uppercase',
-  letterSpacing: 1, marginBottom: 10,
+  letterSpacing: '0.12em', marginBottom: 10,
 };
 const coinRow: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0',
@@ -318,10 +318,10 @@ export default function MarketDashboard() {
         {error && !data && <div style={{ textAlign: 'center', padding: 60, color: '#ef4444' }}>Error: {error}</div>}
 
         {data && (
-          <div className="market-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+          <div className="market-split" style={{ display: 'grid', gridTemplateColumns: '55% 45%', gap: 18 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={sectionTitle}>Market Overview</div>
 
-            {/* ── Column 1: Overview ── */}
-            <div>
               <div style={card}>
                 <div style={sectionTitle}>Pinned Assets</div>
                 {[data.overview.btc, data.overview.eth].filter(Boolean).map((c) => (
@@ -341,10 +341,16 @@ export default function MarketDashboard() {
 
               <div style={card}>
                 <div style={sectionTitle}>Global Market</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
                   <div>
-                    <div style={{ fontSize: 11, color: '#888' }}>Total Market Cap</div>
+                    <div style={{ fontSize: 11, color: '#888' }}>Market Cap</div>
                     <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{fmt(data.overview.totalMarketCap)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#888' }}>24h Volume</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>
+                      {fmt((data.overview.btc?.volume ?? 0) + (data.overview.eth?.volume ?? 0))}
+                    </div>
                   </div>
                   <div>
                     <div style={{ fontSize: 11, color: '#888' }}>BTC Dominance</div>
@@ -354,25 +360,24 @@ export default function MarketDashboard() {
               </div>
 
               <div style={card}>
+                <div style={sectionTitle}>Fear &amp; Greed</div>
                 <FearGreedGauge value={data.overview.fearGreed.value} label={data.overview.fearGreed.label} />
               </div>
 
               <div style={card}>
-                <div style={sectionTitle}>🧠 Market Sentiment</div>
+                <div style={sectionTitle}>Market Sentiment</div>
                 {(() => {
                   const gainersCount = data.movers.gainers.length;
                   const losersCount = data.movers.losers.length;
                   const btcChange = data.overview.btc?.change24h ?? 0;
                   const fgValue = data.overview.fearGreed.value;
 
-                  // Compute sentiment score: 0-100
-                  // BTC trend (40%), Fear & Greed (40%), gainers vs losers ratio (20%)
                   const btcScore = Math.max(0, Math.min(100, 50 + btcChange * 5));
                   const glRatio = gainersCount + losersCount > 0 ? (gainersCount / (gainersCount + losersCount)) * 100 : 50;
                   const sentimentScore = Math.round(btcScore * 0.4 + fgValue * 0.4 + glRatio * 0.2);
 
                   const label = sentimentScore >= 70 ? 'Bullish' : sentimentScore >= 55 ? 'Slightly Bullish' : sentimentScore >= 45 ? 'Neutral' : sentimentScore >= 30 ? 'Slightly Bearish' : 'Bearish';
-                  const color = sentimentScore >= 70 ? '#22c55e' : sentimentScore >= 55 ? '#4ade80' : sentimentScore >= 45 ? '#eab308' : sentimentScore >= 30 ? '#f97316' : '#ef4444';
+                  const color = sentimentScore >= 70 ? '#00e676' : sentimentScore >= 55 ? '#4ade80' : sentimentScore >= 45 ? '#f5b544' : sentimentScore >= 30 ? '#f97316' : '#ff5252';
                   const emoji = sentimentScore >= 70 ? '🐂' : sentimentScore >= 55 ? '📈' : sentimentScore >= 45 ? '😐' : sentimentScore >= 30 ? '📉' : '🐻';
 
                   return (
@@ -385,7 +390,7 @@ export default function MarketDashboard() {
                         </div>
                       </div>
                       <div style={{ height: 8, borderRadius: 99, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginBottom: 10 }}>
-                        <div style={{ height: '100%', width: `${sentimentScore}%`, background: `linear-gradient(90deg, #ef4444, #eab308, #22c55e)`, borderRadius: 99 }} />
+                        <div style={{ height: '100%', width: `${sentimentScore}%`, background: `linear-gradient(90deg, #ff5252, #f5b544, #00e676)`, borderRadius: 99 }} />
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, fontSize: 11, color: '#888' }}>
                         <div>
@@ -393,7 +398,7 @@ export default function MarketDashboard() {
                           <div style={{ fontWeight: 600, color: pctColor(btcChange) }}>{pct(btcChange)}</div>
                         </div>
                         <div>
-                          <div>Fear & Greed</div>
+                          <div>Fear &amp; Greed</div>
                           <div style={{ fontWeight: 600, color: '#e2e2ff' }}>{fgValue}</div>
                         </div>
                         <div>
@@ -407,19 +412,15 @@ export default function MarketDashboard() {
               </div>
 
               <div style={card}>
-                <div style={sectionTitle}>📰 Market News</div>
+                <div style={sectionTitle}>Market News</div>
                 {newsError ? (
                   <div style={{ fontSize: 12, color: '#888' }}>Unable to load news</div>
                 ) : newsItems.length ? (
                   <div style={{ display: 'grid', gap: 8 }}>
-                    {newsItems.slice(0, 5).map((item, i) => {
+                    {newsItems.slice(0, 5).map((item) => {
                       const badge = NEWS_SOURCES[item.source];
                       return (
-                        <div key={`${item.link}-${item.pubDate}`} style={{
-                          display: 'flex', alignItems: 'start', gap: 8,
-                          paddingLeft: 0,
-                          borderLeft: 'none',
-                        }}>
+                        <div key={`${item.link}-${item.pubDate}`} style={{ display: 'flex', alignItems: 'start', gap: 8 }}>
                           <span style={{
                             fontSize: 10, padding: '2px 8px', borderRadius: 6, flexShrink: 0,
                             background: 'rgba(255,255,255,0.04)',
@@ -445,43 +446,110 @@ export default function MarketDashboard() {
               </div>
             </div>
 
-            {/* ── Column 2: Top Movers ── */}
-            <div>
-              <div style={card}>
-                <div style={sectionTitle}>🚀 Top 5 Gainers (24h)</div>
-                {data.movers.gainers.map((c) => <CoinRow key={c.id} coin={c} />)}
-              </div>
-              <div style={card}>
-                <div style={sectionTitle}>📉 Top 5 Losers (24h)</div>
-                {data.movers.losers.map((c) => <CoinRow key={c.id} coin={c} />)}
-              </div>
-              <div style={card}>
-                <div style={sectionTitle}>⚡ Most Volatile (24h)</div>
-                {data.movers.volatile.map((c) => <CoinRow key={c.id} coin={c} />)}
-              </div>
-            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={sectionTitle}>Trading Intelligence</div>
 
-            {/* ── Column 3: Discovery ── */}
-            <div>
               <div style={card}>
-                <div style={sectionTitle}>🔥 Trending</div>
-                {data.discovery.trending.map((t, i) => (
-                  <div key={i} style={coinRow}>
-                    <img src={t.thumb} alt="" width={22} height={22} style={{ borderRadius: 99 }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, color: '#e2e2ff' }}>{t.name} <span style={{ color: '#888', fontWeight: 400 }}>{t.symbol}</span></div>
-                    </div>
-                    <div style={{ fontSize: 12, color: '#888' }}>#{t.marketCapRank || '—'}</div>
+                <div style={sectionTitle}>Direction Bias</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: '#00e676' }}>100% LONG</div>
+                  <div style={{ fontSize: 12, color: '#888' }}>14/14 coins with optimal params favor LONG</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#888' }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 99, background: '#ff5252' }} />
+                    Short strategy disabled
                   </div>
-                ))}
+                </div>
               </div>
+
               <div style={card}>
-                <div style={sectionTitle}>💰 Highest Volume (24h)</div>
-                {data.discovery.topVolume.map((c) => <CoinRow key={c.id} coin={c} showVolume />)}
+                <div style={sectionTitle}>Backtest Results</div>
+                <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ textAlign: 'left', color: '#888' }}>
+                      <th style={{ paddingBottom: 8 }}>Coin</th>
+                      <th style={{ paddingBottom: 8 }}>Score</th>
+                      <th style={{ paddingBottom: 8 }}>WR</th>
+                      <th style={{ paddingBottom: 8 }}>RSI</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { coin: 'SHIB', score: 149.5, winRate: '100%', rsi: 34.4, color: '#00e676' },
+                      { coin: 'AR', score: 120.8, winRate: '85.7%', rsi: 16.7, color: '#00e676', rsiColor: '#ff5252' },
+                      { coin: 'ATOM', score: 94.9, winRate: '75%', rsi: 38.8, color: '#00e676' },
+                      { coin: 'ALGO', score: 84.0, winRate: '75%', rsi: 29.5, color: '#00e676', rsiColor: '#f5b544' },
+                      { coin: 'W', score: 73.6, winRate: '71.4%', rsi: 38.5, color: '#00e676' },
+                    ].map((row) => (
+                      <tr key={row.coin} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                        <td style={{ padding: '8px 0', fontWeight: 600 }}>{row.coin}</td>
+                        <td style={{ padding: '8px 0', color: row.color, fontWeight: 600 }}>{row.score}</td>
+                        <td style={{ padding: '8px 0' }}>{row.winRate}</td>
+                        <td style={{ padding: '8px 0', color: row.rsiColor ?? '#e2e2ff', fontWeight: 600 }}>{row.rsi}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
+
               <div style={card}>
-                <div style={sectionTitle}>👑 Top Market Cap</div>
-                {data.discovery.topMarketCap.map((c) => <CoinRow key={c.id} coin={c} />)}
+                <div style={sectionTitle}>RSI Highlights</div>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {[
+                    { coin: 'AR', rsi: 16.7, change: '-4.2%', color: '#ff5252' },
+                    { coin: 'ALGO', rsi: 29.5, change: '-2.1%', color: '#f5b544' },
+                    { coin: 'DOGE', rsi: 32.3, change: '+1.3%', color: '#7b7dff' },
+                  ].map((row) => (
+                    <div key={row.coin} style={{
+                      padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.06)', borderLeft: `3px solid ${row.color}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    }}>
+                      <div>
+                        <div style={{ fontWeight: 700 }}>{row.coin}</div>
+                        <div style={{ fontSize: 11, color: '#888' }}>RSI {row.rsi}</div>
+                      </div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: row.color }}>{row.change}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={card}>
+                <div style={sectionTitle}>Active Positions</div>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {[
+                    { coin: 'BTC', entry: '$64,820', pnl: '+4.3%', size: '1.2x', color: '#00e676' },
+                    { coin: 'ETH', entry: '$1,910', pnl: '-1.1%', size: '0.8x', color: '#ff5252' },
+                    { coin: 'SOL', entry: '$102.40', pnl: '+2.6%', size: '1.0x', color: '#00e676' },
+                  ].map((row) => (
+                    <div key={row.coin} style={{
+                      padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    }}>
+                      <div>
+                        <div style={{ fontWeight: 700 }}>{row.coin}</div>
+                        <div style={{ fontSize: 11, color: '#888' }}>Entry {row.entry} · Size {row.size}</div>
+                      </div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: row.color }}>{row.pnl}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={card}>
+                <div style={sectionTitle}>Risk Parameters</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                  {[
+                    { label: 'Stop Loss', value: '2.5%' },
+                    { label: 'Take Profit', value: '6.0%' },
+                    { label: 'Trailing', value: '1.2%' },
+                  ].map((row) => (
+                    <div key={row.label} style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div style={{ fontSize: 11, color: '#888' }}>{row.label}</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: '#e2e2ff' }}>{row.value}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -489,12 +557,7 @@ export default function MarketDashboard() {
 
         <style jsx global>{`
           @media (max-width: 1024px) {
-            .market-grid {
-              grid-template-columns: repeat(2, 1fr) !important;
-            }
-          }
-          @media (max-width: 680px) {
-            .market-grid {
+            .market-split {
               grid-template-columns: 1fr !important;
             }
           }

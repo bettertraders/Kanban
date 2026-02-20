@@ -35,6 +35,38 @@ function isValidNumber(value: unknown) {
   return Number.isFinite(Number(value));
 }
 
+const KRAKEN_CLOSE_ERROR =
+  'Kraken trades must be closed via /api/trading/trade/exit which sells on Kraken first. Direct column moves are not allowed for exchange-linked trades.';
+
+function parseTradeMetadata(metadata: any) {
+  if (!metadata) return {};
+  if (typeof metadata === 'string') {
+    try {
+      return JSON.parse(metadata);
+    } catch {
+      return {};
+    }
+  }
+  return metadata;
+}
+
+function isKrakenLinkedTrade(metadata: any) {
+  const exchange = metadata?.exchange;
+  return typeof exchange === 'string' && exchange.toLowerCase() === 'kraken';
+}
+
+function isClosingUpdate(body: any) {
+  if (body?.column_name !== undefined) {
+    const column = String(body.column_name).toLowerCase();
+    if (column === 'closed') return true;
+  }
+  if (body?.status !== undefined) {
+    const status = String(body.status).toLowerCase();
+    if (status === 'closed') return true;
+  }
+  return false;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -74,6 +106,17 @@ export async function PATCH(
     if (!board) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     if (!canEditTrade(trade, board, user.id)) {
       return NextResponse.json({ error: 'Only admins or the trade creator can edit trades' }, { status: 403 });
+    }
+
+    const metadata = parseTradeMetadata(trade?.metadata);
+    const isKrakenVerified = request.headers.get('x-kraken-verified')?.toLowerCase() === 'true';
+    if (
+      isClosingUpdate(body) &&
+      isKrakenLinkedTrade(metadata) &&
+      !isKrakenVerified &&
+      !metadata?.kraken_exit_order_id
+    ) {
+      return NextResponse.json({ error: KRAKEN_CLOSE_ERROR }, { status: 400 });
     }
 
     if (body.coin_pair !== undefined && !isValidCoinPair(body.coin_pair)) {

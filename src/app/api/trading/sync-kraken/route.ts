@@ -62,9 +62,70 @@ async function runSync(request: NextRequest, body: any) {
     return NextResponse.json({ error: 'boardId required' }, { status: 400 });
   }
 
+  const mode = String(request.nextUrl.searchParams.get('mode') || body?.mode || 'sync').toLowerCase();
+
   if (user) {
     const board = await getBoard(boardId, user.id);
     if (!board) return NextResponse.json({ error: 'Board not found' }, { status: 404 });
+  }
+
+  const boardTrades = await getTradesForBoard(boardId);
+
+  if (mode === 'reset') {
+    let deleted = 0;
+    for (const trade of boardTrades) {
+      await deleteTrade(Number(trade.id));
+      deleted++;
+    }
+
+    const krakenTrades = await fetchKrakenTrades();
+    let created = 0;
+    for (const krakenTrade of krakenTrades) {
+      const price = Number(krakenTrade?.price ?? 0);
+      const amount = Number(krakenTrade?.amount ?? 0);
+      const positionSize = price && amount ? price * amount : null;
+      const side = normalizeSide(krakenTrade?.side);
+      const direction = side === 'sell' ? 'SHORT' : 'LONG';
+      const pnlDollar = getKrakenPnl(krakenTrade);
+      const cost = Number(krakenTrade?.cost ?? (price && amount ? price * amount : NaN));
+      const pnlPercent = Number.isFinite(pnlDollar) && Number.isFinite(cost) && cost > 0 ? (pnlDollar / cost) * 100 : null;
+      const status = side === 'sell' ? 'closed' : 'active';
+      const columnName = side === 'sell' ? 'Closed' : 'Active';
+
+      await createTrade(boardId, user?.id || Number(body?.userId) || 1, {
+        coin_pair: krakenTrade?.symbol ? normalizePair(String(krakenTrade.symbol)) : 'UNKNOWN',
+        direction,
+        entry_price: price || null,
+        current_price: price || null,
+        position_size: positionSize,
+        status,
+        column_name: columnName,
+        pnl_dollar: Number.isFinite(pnlDollar) ? pnlDollar : null,
+        pnl_percent: pnlPercent,
+        metadata: {
+          exchange: 'kraken',
+          kraken_trade_id: krakenTrade?.id ? String(krakenTrade.id) : null,
+          kraken_order_id: krakenTrade?.order ? String(krakenTrade.order) : null,
+          kraken_side: side,
+          kraken_status: String(krakenTrade?.status || 'closed').toLowerCase(),
+          kraken_timestamp: getKrakenTimestamp(krakenTrade),
+          kraken_price: Number.isFinite(price) ? price : null,
+          kraken_cost: Number.isFinite(cost) ? cost : null,
+          kraken_amount: Number.isFinite(amount) ? amount : null,
+          kraken_profit_loss: Number.isFinite(pnlDollar) ? pnlDollar : null,
+          created_by_sync: true,
+        },
+      });
+      created++;
+    }
+
+    return NextResponse.json({
+      ok: true,
+      mode: 'reset',
+      deleted,
+      created,
+      krakenTrades: krakenTrades.length,
+    });
   }
 
   const krakenTrades = await fetchKrakenTrades();
@@ -75,7 +136,6 @@ async function runSync(request: NextRequest, body: any) {
     return { trade, symbol, side, timestamp };
   });
 
-  const boardTrades = await getTradesForBoard(boardId);
   const matchedTradeIds = new Set<number>();
   const matchedKrakenIndexes = new Set<number>();
   const phantomTrades: TradeRow[] = [];

@@ -49,11 +49,11 @@ type Intelligence = {
   directionBias: { long: number; short: number; label: string };
   autoCompounder: {
     enabled: boolean;
-    harvests: number;
-    stops: number;
+    compoundingBase: number;
+    activeCycles: number;
+    avgCycleDays: number;
     dailyPnl: number;
     circuitBreaker: boolean;
-    compoundingBase: number;
   };
   recentAdjustments: Array<{
     timestamp: string;
@@ -155,15 +155,15 @@ export default function MarketDashboard() {
 
   const fallbackIntelligence: Intelligence = useMemo(() => ({
     watchlist: [
+      { symbol: 'COMPUSDT', score: 58.2, rsi: 44.0, price: 0, change24h: 0 },
       { symbol: 'SHIBUSDT', score: 149.5, rsi: 34.4, price: 0, change24h: 0 },
       { symbol: 'ARUSDT', score: 120.8, rsi: 16.7, price: 0, change24h: -4.2 },
       { symbol: 'ATOMUSDT', score: 94.9, rsi: 38.8, price: 0, change24h: 0 },
       { symbol: 'ALGOUSDT', score: 84.0, rsi: 29.5, price: 0, change24h: -2.1 },
-      { symbol: 'WUSDT', score: 73.6, rsi: 38.5, price: 0, change24h: 0 },
     ],
-    riskParams: { sl: '2.5%', tp: '6.0%', trail: '1.2%' },
+    riskParams: { sl: '6%', tp: '12%', trail: '3%' },
     directionBias: { long: 100, short: 0, label: '100% LONG' },
-    autoCompounder: { enabled: true, harvests: 468, stops: 739, dailyPnl: -5.02, circuitBreaker: false, compoundingBase: 1723.14 },
+    autoCompounder: { enabled: true, compoundingBase: 1723.14, activeCycles: 2, avgCycleDays: 2.5, dailyPnl: -5.02, circuitBreaker: false },
     recentAdjustments: [
       { timestamp: '2026-02-19T04:02:00Z', agent: 'Penny', type: 'scan_complete', strategy: 'Momentum Long', summary: 'Added COMP to strategy' },
     ],
@@ -591,23 +591,23 @@ export default function MarketDashboard() {
                       </span>
                     </div>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
                     <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.03)' }}>
-                      <div style={{ fontSize: 11, color: '#888' }}>Harvests</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e2ff' }}>{effectiveIntelligence.autoCompounder.harvests}</div>
+                      <div style={{ fontSize: 11, color: '#888' }}>Compounding Base</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e2ff' }}>${fmt(effectiveIntelligence.autoCompounder.compoundingBase)}</div>
                     </div>
                     <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.03)' }}>
-                      <div style={{ fontSize: 11, color: '#888' }}>Stops</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e2ff' }}>{effectiveIntelligence.autoCompounder.stops}</div>
+                      <div style={{ fontSize: 11, color: '#888' }}>Active Cycles</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e2ff' }}>{effectiveIntelligence.autoCompounder.activeCycles}</div>
+                    </div>
+                    <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.03)' }}>
+                      <div style={{ fontSize: 11, color: '#888' }}>Avg Cycle</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e2ff' }}>{effectiveIntelligence.autoCompounder.avgCycleDays}d</div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0 0', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                     <div style={{ fontSize: 11, color: '#888' }}>Daily P&L</div>
                     <div style={{ fontSize: 12, fontWeight: 600, color: pctColor(effectiveIntelligence.autoCompounder.dailyPnl) }}>{pct(effectiveIntelligence.autoCompounder.dailyPnl)}</div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ fontSize: 11, color: '#888' }}>Compounding Base</div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: '#e2e2ff' }}>${fmt(effectiveIntelligence.autoCompounder.compoundingBase)}</div>
                   </div>
                 </div>
               </div>

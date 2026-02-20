@@ -26,14 +26,22 @@ export async function GET() {
       readJson<any>(adjustmentsPath).catch(() => []),
     ]);
 
+    // Get queue coins from strategy config
+    const queueCoins = longStrat?.coins || [];
+    
+    // Filter watchlist to only Queue coins, ranked by score
     const watchlist = Array.isArray(scanner?.watchlist)
-      ? scanner.watchlist.map((item: any) => ({
-          symbol: String(item.symbol ?? ''),
-          score: Number(item.score ?? 0),
-          rsi: Number(item.rsi ?? 0),
-          price: Number(item.price ?? 0),
-          change24h: Number(item.change24h ?? 0),
-        })).filter((item: any) => item.symbol)
+      ? scanner.watchlist
+          .filter((item: any) => queueCoins.includes(item.symbol))
+          .map((item: any) => ({
+            symbol: String(item.symbol ?? ''),
+            score: Number(item.score ?? 0),
+            rsi: Number(item.rsi ?? 0),
+            price: Number(item.price ?? 0),
+            change24h: Number(item.change24h ?? 0),
+          }))
+          .sort((a: any, b: any) => b.score - a.score)
+          .slice(0, 5)
       : [];
 
     const riskParams = {
@@ -57,15 +65,18 @@ export async function GET() {
 
     const directionBias = { long: longPct, short: shortPct, label };
 
-    // Auto-Compounder data
+    // Auto-Compounder data - simplified metrics
+    const activeCycles = harvestState?.positions ? Object.keys(harvestState.positions).length : 0;
+    const avgCycleDays = 2.5; // Estimated avg cycle duration
+    
     const autoCompounder = harvestState ? {
       enabled: true,
-      harvests: harvestState.stats?.harvests ?? 0,
-      stops: harvestState.stats?.stops ?? 0,
+      compoundingBase: harvestState.compoundingBase ?? 0,
+      activeCycles,
+      avgCycleDays,
       dailyPnl: harvestState.dailyPnl?.realizedPct ?? 0,
       circuitBreaker: harvestState.circuitBreakerUntil > Date.now(),
-      compoundingBase: harvestState.compoundingBase ?? 0,
-    } : { enabled: false, harvests: 0, stops: 0, dailyPnl: 0, circuitBreaker: false, compoundingBase: 0 };
+    } : { enabled: false, compoundingBase: 0, activeCycles: 0, avgCycleDays: 0, dailyPnl: 0, circuitBreaker: false };
 
     // Strategy Adjustments - last 3 significant changes
     const recentAdjustments = Array.isArray(adjustments) 

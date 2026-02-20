@@ -1,59 +1,74 @@
-import { NextResponse } from 'next/server';
-import { readFile } from 'fs/promises';
+import { NextRequest, NextResponse } from 'next/server';
+import {
+  ensureTradingTables,
+  getQueueCoinScores,
+  getRecentStrategyAdjustments,
+  getStrategyStates,
+  getTradingAccount,
+} from '@/lib/db/trading';
 
 export const dynamic = 'force-dynamic';
 
-const scannerPath = '/Users/pennyledger/Projects/owen-watchdog/.owen-scanner-results.json';
-const momentumLongPath = '/Users/pennyledger/Projects/owen-watchdog/strategies/momentum-long.json';
-const momentumShortPath = '/Users/pennyledger/Projects/owen-watchdog/strategies/momentum-short.json';
-const harvestStatePath = '/Users/pennyledger/Projects/owen-watchdog/.harvest-state.json';
-const adjustmentsPath = '/Users/pennyledger/Projects/owen-watchdog/.strategy-adjustments.json';
+const normalizePctValue = (value: number) => {
+  if (!Number.isFinite(value)) return 0;
+  return value > 1 ? value / 100 : value;
+};
 
 const formatPct = (value: number) => `${(value * 100).toFixed(1).replace(/\.0$/, '')}%`;
 
-const readJson = async <T,>(path: string): Promise<T> => {
-  const raw = await readFile(path, 'utf8');
-  return JSON.parse(raw) as T;
+const toNumber = (value: any, fallback = 0) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
 };
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const [scanner, longStrat, shortStrat, harvestState, adjustments] = await Promise.all([
-      readJson<any>(scannerPath),
-      readJson<any>(momentumLongPath),
-      readJson<any>(momentumShortPath),
-      readJson<any>(harvestStatePath).catch(() => null),
-      readJson<any>(adjustmentsPath).catch(() => []),
+    const userIdParam = request.nextUrl.searchParams.get('userId');
+    const userId = Number(userIdParam || 1);
+    if (!Number.isFinite(userId) || userId <= 0) {
+      return NextResponse.json({ error: 'userId required' }, { status: 400 });
+    }
+
+    await ensureTradingTables();
+
+    const [account, strategies, scores, adjustments] = await Promise.all([
+      getTradingAccount(userId, 'kraken'),
+      getStrategyStates(userId),
+      getQueueCoinScores(userId, 5),
+      getRecentStrategyAdjustments(userId, 3),
     ]);
 
-    // Get queue coins from strategy config
-    const queueCoins = longStrat?.coins || [];
-    
-    // Filter watchlist to only Queue coins, ranked by score
-    const watchlist = Array.isArray(scanner?.watchlist)
-      ? scanner.watchlist
-          .filter((item: any) => queueCoins.includes(item.symbol))
-          .map((item: any) => ({
-            symbol: String(item.symbol ?? ''),
-            score: Number(item.score ?? 0),
-            rsi: Number(item.rsi ?? 0),
-            price: Number(item.price ?? 0),
-            change24h: Number(item.change24h ?? 0),
-          }))
-          .sort((a: any, b: any) => b.score - a.score)
-          .slice(0, 5)
-      : [];
-
-    const riskParams = {
-      sl: formatPct(Number(longStrat?.risk?.stopLossPct ?? 0)),
-      tp: formatPct(Number(longStrat?.risk?.takeProfitPct ?? 0)),
-      trail: formatPct(Number(longStrat?.trailingStop?.trailPct ?? 0)),
+    const accountState = account ?? {
+      base_balance: 100,
+      current_balance: 100,
+      active_cycles: 0,
+      avg_cycle_days: 2.5,
+      realized_pnl: 0,
+      unrealized_pnl: 0,
+      circuit_breaker: false,
+      circuit_breaker_until: null,
     };
 
-    const longEnabled = longStrat?.enabled !== false;
-    const shortEnabled = shortStrat?.enabled === true;
-    const longWeight = longEnabled ? Number(longStrat?.weight ?? 1) : 0;
-    const shortWeight = shortEnabled ? Number(shortStrat?.weight ?? 1) : 0;
+    const circuitBreakerActive = Boolean(accountState.circuit_breaker) ||
+      (accountState.circuit_breaker_until
+        ? new Date(accountState.circuit_breaker_until).getTime() > Date.now()
+        : false);
+
+    const watchlist = scores.map((row) => ({
+      symbol: String(row.symbol ?? ''),
+      score: toNumber(row.score),
+      rsi: toNumber(row.rsi),
+      price: toNumber(row.price),
+      change24h: toNumber(row.change24h),
+    }));
+
+    const enabledStrategies = strategies.filter((s) => s.enabled !== false);
+    const longWeight = enabledStrategies
+      .filter((s) => (s.direction || '').toLowerCase() === 'long')
+      .reduce((sum, s) => sum + toNumber(s.weight, 1), 0);
+    const shortWeight = enabledStrategies
+      .filter((s) => (s.direction || '').toLowerCase() === 'short')
+      .reduce((sum, s) => sum + toNumber(s.weight, 1), 0);
     const totalWeight = longWeight + shortWeight;
     const longPct = totalWeight > 0 ? Math.round((longWeight / totalWeight) * 100) : 0;
     const shortPct = totalWeight > 0 ? Math.max(0, 100 - longPct) : 0;
@@ -63,37 +78,53 @@ export async function GET() {
     else if (shortPct === 100) label = '100% SHORT';
     else if (totalWeight > 0) label = `${longPct}% LONG / ${shortPct}% SHORT`;
 
-    const directionBias = { long: longPct, short: shortPct, label };
+    const primaryStrategy =
+      strategies.find((s) => (s.strategy_id || '').toLowerCase() === 'momentum-long') ||
+      strategies.find((s) => s.enabled !== false) ||
+      null;
 
-    // Auto-Compounder data - simplified metrics
-    const activeCycles = harvestState?.positions ? Object.keys(harvestState.positions).length : 0;
-    const avgCycleDays = 2.5; // Estimated avg cycle duration
-    
-    const autoCompounder = harvestState ? {
-      enabled: true,
-      compoundingBase: harvestState.compoundingBase ?? 0,
-      activeCycles,
-      avgCycleDays,
-      dailyPnl: harvestState.dailyPnl?.realizedPct ?? 0,
-      circuitBreaker: harvestState.circuitBreakerUntil > Date.now(),
-    } : { enabled: false, compoundingBase: 0, activeCycles: 0, avgCycleDays: 0, dailyPnl: 0, circuitBreaker: false };
+    const riskParamsRaw = (primaryStrategy?.risk_params || {}) as Record<string, any>;
+    const sl = normalizePctValue(toNumber(riskParamsRaw.sl ?? riskParamsRaw.stopLossPct ?? riskParamsRaw.stop_loss ?? 0));
+    const tp = normalizePctValue(toNumber(riskParamsRaw.tp ?? riskParamsRaw.takeProfitPct ?? riskParamsRaw.take_profit ?? 0));
+    const trail = normalizePctValue(toNumber(riskParamsRaw.trail ?? riskParamsRaw.trailPct ?? riskParamsRaw.trailing ?? 0));
 
-    // Strategy Adjustments - last 3 significant changes
-    const recentAdjustments = Array.isArray(adjustments) 
-      ? adjustments
-          .filter((a: any) => a.changes && a.changes.some((c: any) => c.field !== 'none'))
-          .slice(-3)
-          .map((a: any) => ({
-            timestamp: a.timestamp,
-            agent: a.agent,
-            type: a.type,
-            strategy: a.strategy,
-            summary: a.reason?.split('.')[0] ?? 'Strategy adjustment',
-          }))
-      : [];
+    const riskParams = {
+      sl: formatPct(sl),
+      tp: formatPct(tp),
+      trail: formatPct(trail),
+    };
 
-    return NextResponse.json({ watchlist, riskParams, directionBias, autoCompounder, recentAdjustments });
+    const autoCompounder = {
+      enabled: Boolean(account),
+      compoundingBase: toNumber(accountState.base_balance, 100),
+      currentBalance: toNumber(accountState.current_balance, 100),
+      activeCycles: toNumber(accountState.active_cycles, 0),
+      avgCycleDays: toNumber(accountState.avg_cycle_days, 2.5),
+      dailyPnl: 0,
+      circuitBreaker: circuitBreakerActive,
+    };
+
+    const recentAdjustments = adjustments.map((row) => {
+      const tsValue = row.created_at || row.timestamp || new Date();
+      const ts = new Date(tsValue as any);
+      return {
+        timestamp: ts.toISOString(),
+        agent: row.agent || 'system',
+        type: row.type || 'adjustment',
+        strategy: row.strategy || 'Strategy',
+        summary: row.summary || (row.reason ? row.reason.split('.')[0] : 'Strategy adjustment'),
+      };
+    });
+
+    return NextResponse.json({
+      watchlist,
+      riskParams,
+      directionBias: { long: longPct, short: shortPct, label },
+      autoCompounder,
+      recentAdjustments,
+    });
   } catch (error) {
+    console.error('GET /api/trading/intelligence error:', error);
     return NextResponse.json({ error: 'Failed to load trading intelligence' }, { status: 500 });
   }
 }

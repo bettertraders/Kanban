@@ -50,6 +50,7 @@ type Intelligence = {
   autoCompounder: {
     enabled: boolean;
     compoundingBase: number;
+    currentBalance: number;
     activeCycles: number;
     avgCycleDays: number;
     dailyPnl: number;
@@ -150,24 +151,9 @@ export default function MarketDashboard() {
     autoCompounder: Intelligence['autoCompounder'];
     recentAdjustments: Intelligence['recentAdjustments'];
   } | null>(null);
+  const [intelligenceLoading, setIntelligenceLoading] = useState(true);
   const [intelligenceUpdatedAt, setIntelligenceUpdatedAt] = useState<string | null>(null);
   const [intelligenceStale, setIntelligenceStale] = useState(false);
-
-  const fallbackIntelligence: Intelligence = useMemo(() => ({
-    watchlist: [
-      { symbol: 'COMPUSDT', score: 58.2, rsi: 44.0, price: 0, change24h: 0 },
-      { symbol: 'SHIBUSDT', score: 149.5, rsi: 34.4, price: 0, change24h: 0 },
-      { symbol: 'ARUSDT', score: 120.8, rsi: 16.7, price: 0, change24h: -4.2 },
-      { symbol: 'ATOMUSDT', score: 94.9, rsi: 38.8, price: 0, change24h: 0 },
-      { symbol: 'ALGOUSDT', score: 84.0, rsi: 29.5, price: 0, change24h: -2.1 },
-    ],
-    riskParams: { sl: '6%', tp: '12%', trail: '3%' },
-    directionBias: { long: 100, short: 0, label: '100% LONG' },
-    autoCompounder: { enabled: true, compoundingBase: 1723.14, activeCycles: 2, avgCycleDays: 2.5, dailyPnl: -5.02, circuitBreaker: false },
-    recentAdjustments: [
-      { timestamp: '2026-02-19T04:02:00Z', agent: 'Penny', type: 'scan_complete', strategy: 'Momentum Long', summary: 'Added COMP to strategy' },
-    ],
-  }), []);
 
   const loadNews = useCallback(async () => {
     try {
@@ -199,6 +185,7 @@ export default function MarketDashboard() {
   }, []);
 
   const loadIntelligence = useCallback(async () => {
+    if (!intelligence) setIntelligenceLoading(true);
     try {
       const res = await fetch('/api/trading/intelligence');
       if (!res.ok) throw new Error('Failed to fetch intelligence');
@@ -208,8 +195,10 @@ export default function MarketDashboard() {
       setIntelligenceStale(false);
     } catch {
       setIntelligenceStale(true);
+    } finally {
+      setIntelligenceLoading(false);
     }
-  }, []);
+  }, [intelligence]);
 
   useEffect(() => {
     load(); loadNews();
@@ -223,18 +212,21 @@ export default function MarketDashboard() {
     return () => clearInterval(iv);
   }, [loadIntelligence]);
 
-  const effectiveIntelligence = intelligence ?? fallbackIntelligence;
   const backtestRows = useMemo(() => (
-    [...effectiveIntelligence.watchlist]
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 7)
-  ), [effectiveIntelligence.watchlist]);
+    intelligence
+      ? [...intelligence.watchlist]
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 7)
+      : []
+  ), [intelligence]);
   const rsiHighlights = useMemo(() => (
-    [...effectiveIntelligence.watchlist]
-      .filter((item) => item.rsi < 35)
-      .sort((a, b) => a.rsi - b.rsi)
-      .slice(0, 5)
-  ), [effectiveIntelligence.watchlist]);
+    intelligence
+      ? [...intelligence.watchlist]
+          .filter((item) => item.rsi < 35)
+          .sort((a, b) => a.rsi - b.rsi)
+          .slice(0, 5)
+      : []
+  ), [intelligence]);
 
   return (
     <div style={{ minHeight: '100vh', color: '#e2e2ff' }}>
@@ -535,118 +527,136 @@ export default function MarketDashboard() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={sectionTitle}>Trading Intelligence</div>
-                <div style={{ fontSize: 11, color: intelligenceStale ? '#f97316' : '#888' }}>
-                  {intelligenceStale ? '⚠ Stale — ' : ''}
-                  {intelligenceUpdatedAt ? `Last updated: ${timeAgo(intelligenceUpdatedAt)}` : 'Using fallback data'}
+                <div style={{ fontSize: 11, color: intelligenceStale && !intelligenceLoading ? '#f97316' : '#888' }}>
+                  {intelligenceStale && !intelligenceLoading ? '⚠ Stale — ' : ''}
+                  {intelligenceLoading
+                    ? 'Loading intelligence…'
+                    : intelligenceUpdatedAt
+                      ? `Last updated: ${timeAgo(intelligenceUpdatedAt)}`
+                      : 'Awaiting sync'}
                 </div>
               </div>
 
-              <div style={card}>
-                <div style={sectionTitle}>Direction Bias</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: effectiveIntelligence.directionBias.short > 0 ? '#f5b544' : '#00e676' }}>
-                    {effectiveIntelligence.directionBias.label}
-                  </div>
+              {!intelligence ? (
+                <div style={card}>
                   <div style={{ fontSize: 12, color: '#888' }}>
-                    {effectiveIntelligence.watchlist.length} coins in scanner watchlist
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#888' }}>
-                    <span style={{ width: 8, height: 8, borderRadius: 99, background: effectiveIntelligence.directionBias.short === 0 ? '#ff5252' : '#00e676' }} />
-                    {effectiveIntelligence.directionBias.short === 0 ? 'Short strategy disabled' : 'Short strategy enabled'}
+                    {intelligenceLoading ? 'Loading trading intelligence…' : 'No trading intelligence data yet.'}
                   </div>
                 </div>
-              </div>
-
-              <div style={card}>
-                <div style={sectionTitle}>Backtest Results</div>
-                <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ textAlign: 'left', color: '#888' }}>
-                      <th style={{ paddingBottom: 8 }}>Coin</th>
-                      <th style={{ paddingBottom: 8 }}>Score</th>
-                      <th style={{ paddingBottom: 8 }}>RSI</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {backtestRows.map((row) => (
-                      <tr key={row.symbol} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                        <td style={{ padding: '8px 0', fontWeight: 600 }}>{stripUsdt(row.symbol).toUpperCase()}</td>
-                        <td style={{ padding: '8px 0', color: '#00e676', fontWeight: 600 }}>{row.score.toFixed(1)}</td>
-                        <td style={{ padding: '8px 0', color: rsiColor(row.rsi), fontWeight: 600 }}>{row.rsi.toFixed(1)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div style={card}>
-                <div style={sectionTitle}>Auto-Compounder</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ fontSize: 12, color: '#888' }}>Status</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: 99, background: effectiveIntelligence.autoCompounder.circuitBreaker ? '#ff5252' : effectiveIntelligence.autoCompounder.enabled ? '#00e676' : '#888' }} />
-                      <span style={{ fontSize: 12, fontWeight: 600, color: effectiveIntelligence.autoCompounder.circuitBreaker ? '#ff5252' : effectiveIntelligence.autoCompounder.enabled ? '#00e676' : '#888' }}>
-                        {effectiveIntelligence.autoCompounder.circuitBreaker ? 'Circuit Breaker' : effectiveIntelligence.autoCompounder.enabled ? 'Active' : 'Disabled'}
-                      </span>
-                    </div>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                    <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.03)' }}>
-                      <div style={{ fontSize: 11, color: '#888' }}>Compounding Base</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e2ff' }}>${fmt(effectiveIntelligence.autoCompounder.compoundingBase)}</div>
-                    </div>
-                    <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.03)' }}>
-                      <div style={{ fontSize: 11, color: '#888' }}>Active Cycles</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e2ff' }}>{effectiveIntelligence.autoCompounder.activeCycles}</div>
-                    </div>
-                    <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.03)' }}>
-                      <div style={{ fontSize: 11, color: '#888' }}>Avg Cycle</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e2ff' }}>{effectiveIntelligence.autoCompounder.avgCycleDays}d</div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0 0', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div style={{ fontSize: 11, color: '#888' }}>Daily P&L</div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: pctColor(effectiveIntelligence.autoCompounder.dailyPnl) }}>{pct(effectiveIntelligence.autoCompounder.dailyPnl)}</div>
-                  </div>
-                </div>
-              </div>
-
-              <div style={card}>
-                <div style={sectionTitle}>Strategy Adjustments</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {effectiveIntelligence.recentAdjustments.length === 0 ? (
-                    <div style={{ fontSize: 12, color: '#888' }}>No recent adjustments</div>
-                  ) : (
-                    effectiveIntelligence.recentAdjustments.map((adj, i) => (
-                      <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 0', borderTop: i > 0 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <div style={{ fontSize: 11, color: '#7b7dff', fontWeight: 600 }}>{adj.agent}</div>
-                          <div style={{ fontSize: 10, color: '#888' }}>{timeAgo(adj.timestamp)}</div>
-                        </div>
-                        <div style={{ fontSize: 12, color: '#e2e2ff' }}>{adj.summary}</div>
-                        <div style={{ fontSize: 10, color: '#888' }}>{adj.strategy}</div>
+              ) : (
+                <>
+                  <div style={card}>
+                    <div style={sectionTitle}>Direction Bias</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div style={{ fontSize: 20, fontWeight: 700, color: intelligence.directionBias.short > 0 ? '#f5b544' : '#00e676' }}>
+                        {intelligence.directionBias.label}
                       </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              <div style={card}>
-                <div style={sectionTitle}>Risk Parameters</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-                  {[
-                    { label: 'Stop Loss', value: effectiveIntelligence.riskParams.sl },
-                    { label: 'Take Profit', value: effectiveIntelligence.riskParams.tp },
-                    { label: 'Trailing', value: effectiveIntelligence.riskParams.trail },
-                  ].map((row) => (
-                    <div key={row.label} style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <div style={{ fontSize: 11, color: '#888' }}>{row.label}</div>
-                      <div style={{ fontSize: 16, fontWeight: 700, color: '#e2e2ff' }}>{row.value}</div>
+                      <div style={{ fontSize: 12, color: '#888' }}>
+                        {intelligence.watchlist.length} coins in scanner watchlist
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#888' }}>
+                        <span style={{ width: 8, height: 8, borderRadius: 99, background: intelligence.directionBias.short === 0 ? '#ff5252' : '#00e676' }} />
+                        {intelligence.directionBias.short === 0 ? 'Short strategy disabled' : 'Short strategy enabled'}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
+
+                  <div style={card}>
+                    <div style={sectionTitle}>Backtest Results</div>
+                    <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ textAlign: 'left', color: '#888' }}>
+                          <th style={{ paddingBottom: 8 }}>Coin</th>
+                          <th style={{ paddingBottom: 8 }}>Score</th>
+                          <th style={{ paddingBottom: 8 }}>RSI</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {backtestRows.map((row) => (
+                          <tr key={row.symbol} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                            <td style={{ padding: '8px 0', fontWeight: 600 }}>{stripUsdt(row.symbol).toUpperCase()}</td>
+                            <td style={{ padding: '8px 0', color: '#00e676', fontWeight: 600 }}>{row.score.toFixed(1)}</td>
+                            <td style={{ padding: '8px 0', color: rsiColor(row.rsi), fontWeight: 600 }}>{row.rsi.toFixed(1)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div style={card}>
+                    <div style={sectionTitle}>Auto-Compounder</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ fontSize: 12, color: '#888' }}>Status</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ width: 8, height: 8, borderRadius: 99, background: intelligence.autoCompounder.circuitBreaker ? '#ff5252' : intelligence.autoCompounder.enabled ? '#00e676' : '#888' }} />
+                          <span style={{ fontSize: 12, fontWeight: 600, color: intelligence.autoCompounder.circuitBreaker ? '#ff5252' : intelligence.autoCompounder.enabled ? '#00e676' : '#888' }}>
+                            {intelligence.autoCompounder.circuitBreaker ? 'Circuit Breaker' : intelligence.autoCompounder.enabled ? 'Active' : 'Disabled'}
+                          </span>
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+                        <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.03)' }}>
+                          <div style={{ fontSize: 11, color: '#888' }}>Compounding Base</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e2ff' }}>{fmt(intelligence.autoCompounder.compoundingBase)}</div>
+                        </div>
+                        <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.03)' }}>
+                          <div style={{ fontSize: 11, color: '#888' }}>Current Balance</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e2ff' }}>{fmt(intelligence.autoCompounder.currentBalance)}</div>
+                        </div>
+                        <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.03)' }}>
+                          <div style={{ fontSize: 11, color: '#888' }}>Active Cycles</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e2ff' }}>{intelligence.autoCompounder.activeCycles}</div>
+                        </div>
+                        <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.03)' }}>
+                          <div style={{ fontSize: 11, color: '#888' }}>Avg Cycle</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e2ff' }}>{intelligence.autoCompounder.avgCycleDays}d</div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0 0', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ fontSize: 11, color: '#888' }}>Daily P&L</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: pctColor(intelligence.autoCompounder.dailyPnl) }}>{pct(intelligence.autoCompounder.dailyPnl)}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={card}>
+                    <div style={sectionTitle}>Strategy Adjustments</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {intelligence.recentAdjustments.length === 0 ? (
+                        <div style={{ fontSize: 12, color: '#888' }}>No recent adjustments</div>
+                      ) : (
+                        intelligence.recentAdjustments.map((adj, i) => (
+                          <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 0', borderTop: i > 0 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <div style={{ fontSize: 11, color: '#7b7dff', fontWeight: 600 }}>{adj.agent}</div>
+                              <div style={{ fontSize: 10, color: '#888' }}>{timeAgo(adj.timestamp)}</div>
+                            </div>
+                            <div style={{ fontSize: 12, color: '#e2e2ff' }}>{adj.summary}</div>
+                            <div style={{ fontSize: 10, color: '#888' }}>{adj.strategy}</div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={card}>
+                    <div style={sectionTitle}>Risk Parameters</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                      {[
+                        { label: 'Stop Loss', value: intelligence.riskParams.sl },
+                        { label: 'Take Profit', value: intelligence.riskParams.tp },
+                        { label: 'Trailing', value: intelligence.riskParams.trail },
+                      ].map((row) => (
+                        <div key={row.label} style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <div style={{ fontSize: 11, color: '#888' }}>{row.label}</div>
+                          <div style={{ fontSize: 16, fontWeight: 700, color: '#e2e2ff' }}>{row.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

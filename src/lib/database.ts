@@ -3038,3 +3038,145 @@ export async function saveTradingSettings(userId: number, boardId: number, setti
   );
   return result.rows[0]?.settings;
 }
+
+export type HarvestState = {
+  cycleTarget: number;
+  cycleRegime: string;
+  cycleNumber: number;
+  cycleGain: number;
+  cycleActive: boolean;
+  stopLoss: number;
+  harvestFloor: number;
+  trailEnabled: boolean;
+  trailWidth: number;
+  maxDays: number;
+  updatedAt: Date | null;
+};
+
+const HARVEST_STATE_DEFAULTS: HarvestState = {
+  cycleTarget: 8.0,
+  cycleRegime: 'NONE',
+  cycleNumber: 0,
+  cycleGain: 0,
+  cycleActive: false,
+  stopLoss: 0.04,
+  harvestFloor: 0.08,
+  trailEnabled: false,
+  trailWidth: 0,
+  maxDays: 7,
+  updatedAt: null,
+};
+
+let harvestStateReady = false;
+export async function ensureHarvestStateTable() {
+  if (harvestStateReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS harvest_state (
+      id INTEGER PRIMARY KEY DEFAULT 1,
+      cycle_target DECIMAL(10,4) DEFAULT 8.0,
+      cycle_regime VARCHAR(20) DEFAULT 'NONE',
+      cycle_number INTEGER DEFAULT 0,
+      cycle_gain DECIMAL(10,4) DEFAULT 0,
+      cycle_active BOOLEAN DEFAULT false,
+      stop_loss DECIMAL(10,4) DEFAULT 0.04,
+      harvest_floor DECIMAL(10,4) DEFAULT 0.08,
+      trail_enabled BOOLEAN DEFAULT false,
+      trail_width DECIMAL(10,4) DEFAULT 0,
+      max_days INTEGER DEFAULT 7,
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+  harvestStateReady = true;
+}
+
+const toHarvestNumber = (value: any, fallback: number) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+};
+
+const mapHarvestStateRow = (row: Record<string, any> | undefined | null): HarvestState => {
+  if (!row) return { ...HARVEST_STATE_DEFAULTS };
+  return {
+    cycleTarget: toHarvestNumber(row.cycle_target, HARVEST_STATE_DEFAULTS.cycleTarget),
+    cycleRegime: row.cycle_regime ?? HARVEST_STATE_DEFAULTS.cycleRegime,
+    cycleNumber: toHarvestNumber(row.cycle_number, HARVEST_STATE_DEFAULTS.cycleNumber),
+    cycleGain: toHarvestNumber(row.cycle_gain, HARVEST_STATE_DEFAULTS.cycleGain),
+    cycleActive: Boolean(row.cycle_active),
+    stopLoss: toHarvestNumber(row.stop_loss, HARVEST_STATE_DEFAULTS.stopLoss),
+    harvestFloor: toHarvestNumber(row.harvest_floor, HARVEST_STATE_DEFAULTS.harvestFloor),
+    trailEnabled: Boolean(row.trail_enabled),
+    trailWidth: toHarvestNumber(row.trail_width, HARVEST_STATE_DEFAULTS.trailWidth),
+    maxDays: toHarvestNumber(row.max_days, HARVEST_STATE_DEFAULTS.maxDays),
+    updatedAt: row.updated_at ? new Date(row.updated_at) : null,
+  };
+};
+
+export async function getHarvestState(): Promise<HarvestState> {
+  await ensureHarvestStateTable();
+  const result = await pool.query(
+    `INSERT INTO harvest_state (id)
+     VALUES (1)
+     ON CONFLICT (id) DO UPDATE SET id = EXCLUDED.id
+     RETURNING *`
+  );
+  return mapHarvestStateRow(result.rows[0]);
+}
+
+export async function upsertHarvestState(params: {
+  cycleTarget?: number | null;
+  cycleRegime?: string | null;
+  cycleNumber?: number | null;
+  cycleGain?: number | null;
+  cycleActive?: boolean | null;
+  stopLoss?: number | null;
+  harvestFloor?: number | null;
+  trailEnabled?: boolean | null;
+  trailWidth?: number | null;
+  maxDays?: number | null;
+}) {
+  await ensureHarvestStateTable();
+  const result = await pool.query(
+    `INSERT INTO harvest_state (
+      id,
+      cycle_target,
+      cycle_regime,
+      cycle_number,
+      cycle_gain,
+      cycle_active,
+      stop_loss,
+      harvest_floor,
+      trail_enabled,
+      trail_width,
+      max_days,
+      updated_at
+    ) VALUES (
+      1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW()
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      cycle_target = COALESCE(EXCLUDED.cycle_target, harvest_state.cycle_target),
+      cycle_regime = COALESCE(EXCLUDED.cycle_regime, harvest_state.cycle_regime),
+      cycle_number = COALESCE(EXCLUDED.cycle_number, harvest_state.cycle_number),
+      cycle_gain = COALESCE(EXCLUDED.cycle_gain, harvest_state.cycle_gain),
+      cycle_active = COALESCE(EXCLUDED.cycle_active, harvest_state.cycle_active),
+      stop_loss = COALESCE(EXCLUDED.stop_loss, harvest_state.stop_loss),
+      harvest_floor = COALESCE(EXCLUDED.harvest_floor, harvest_state.harvest_floor),
+      trail_enabled = COALESCE(EXCLUDED.trail_enabled, harvest_state.trail_enabled),
+      trail_width = COALESCE(EXCLUDED.trail_width, harvest_state.trail_width),
+      max_days = COALESCE(EXCLUDED.max_days, harvest_state.max_days),
+      updated_at = NOW()
+    RETURNING *`,
+    [
+      params.cycleTarget ?? null,
+      params.cycleRegime ?? null,
+      params.cycleNumber ?? null,
+      params.cycleGain ?? null,
+      params.cycleActive ?? null,
+      params.stopLoss ?? null,
+      params.harvestFloor ?? null,
+      params.trailEnabled ?? null,
+      params.trailWidth ?? null,
+      params.maxDays ?? null,
+    ]
+  );
+  return mapHarvestStateRow(result.rows[0]);
+}

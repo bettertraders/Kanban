@@ -1,4 +1,4 @@
-import { pool } from '@/lib/database';
+import { ensureHarvestStateTable, pool } from '@/lib/database';
 
 export type TradingAccount = {
   id: number;
@@ -128,6 +128,7 @@ export async function ensureTradingTables() {
     ALTER TABLE IF EXISTS strategy_adjustments
       ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();
   `);
+  await ensureHarvestStateTable();
   tradingTablesReady = true;
 }
 

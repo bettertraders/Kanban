@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { pool } from '@/lib/database';
+import { getHarvestState, pool } from '@/lib/database';
 
 const DATA_DIR = process.env.DATA_DIR || path.join(process.env.HOME || '', 'Projects/owen-watchdog');
 const TRACKER_FILE = path.join(DATA_DIR, '.challenge-tracker.json');
-const HARVEST_STATE_FILE = path.join(
-  process.env.HOME || '',
-  'Projects/tbt-platform/compounding/.harvest-state.json'
-);
 
 interface DailySnapshot {
   date: string;
@@ -37,18 +33,6 @@ interface TrackerData {
   alerts: Array<{ timestamp: string; type: string; message: string }>;
 }
 
-interface HarvestState {
-  currentCycle?: {
-    harvestFloor?: number;
-    regimeAtEntry?: string;
-    status?: string;
-    currentGain?: number;
-  };
-  stats?: {
-    totalCycles?: number;
-  };
-}
-
 function readTracker(startingBalanceFallback = 100): TrackerData {
   try {
     return JSON.parse(fs.readFileSync(TRACKER_FILE, 'utf8'));
@@ -71,43 +55,6 @@ function writeTracker(data: TrackerData) {
   fs.writeFileSync(TRACKER_FILE, JSON.stringify(data, null, 2));
 }
 
-function readHarvestState(): {
-  cycleTarget: number;
-  cycleRegime: string;
-  cycleNumber: number;
-  cycleGain: number;
-  cycleActive: boolean;
-} {
-  const fallback = {
-    cycleTarget: 8.0,
-    cycleRegime: 'NONE',
-    cycleNumber: 0,
-    cycleGain: 0,
-    cycleActive: false,
-  };
-
-  try {
-    if (!fs.existsSync(HARVEST_STATE_FILE)) {
-      return fallback;
-    }
-    const state = JSON.parse(fs.readFileSync(HARVEST_STATE_FILE, 'utf8')) as HarvestState;
-    const currentCycle = state.currentCycle;
-    const cycleActive = currentCycle?.status === 'active';
-    const targetFromState = cycleActive && typeof currentCycle?.harvestFloor === 'number'
-      ? currentCycle.harvestFloor * 100
-      : fallback.cycleTarget;
-
-    return {
-      cycleTarget: targetFromState,
-      cycleRegime: currentCycle?.regimeAtEntry || fallback.cycleRegime,
-      cycleNumber: state.stats?.totalCycles ?? fallback.cycleNumber,
-      cycleGain: typeof currentCycle?.currentGain === 'number' ? currentCycle.currentGain * 100 : fallback.cycleGain,
-      cycleActive,
-    };
-  } catch {
-    return fallback;
-  }
-}
 
 // GET — return tracker data with current comparison
 export async function GET(request: NextRequest) {
@@ -140,7 +87,25 @@ export async function GET(request: NextRequest) {
     else health = 'critical';
   }
 
-  const harvestState = readHarvestState();
+  let harvestState = {
+    cycleTarget: 8.0,
+    cycleRegime: 'NONE',
+    cycleNumber: 0,
+    cycleGain: 0,
+    cycleActive: false,
+  };
+  try {
+    const state = await getHarvestState();
+    harvestState = {
+      cycleTarget: state.cycleTarget,
+      cycleRegime: state.cycleRegime,
+      cycleNumber: state.cycleNumber,
+      cycleGain: state.cycleGain,
+      cycleActive: state.cycleActive,
+    };
+  } catch {
+    // Fall back to defaults if DB unavailable
+  }
   
   return NextResponse.json({
     ...tracker,

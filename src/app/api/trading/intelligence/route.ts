@@ -9,7 +9,7 @@ import {
   upsertTradingAccount,
 } from '@/lib/db/trading';
 import { fetchKrakenBalances } from '@/lib/kraken-sync';
-import { getTradesForBoard } from '@/lib/database';
+import { getHarvestState, getTradesForBoard } from '@/lib/database';
 import { getCurrentPrice } from '@/lib/price-service';
 
 export const dynamic = 'force-dynamic';
@@ -228,16 +228,13 @@ export async function GET(request: NextRequest) {
     let defaultTp = 0.08;
     let defaultTrail = 0.03;
     try {
-      const harvestPath = require('path').join(process.env.HOME || '', 'Projects/tbt-platform/compounding/.harvest-state.json');
-      const fs = require('fs');
-      if (fs.existsSync(harvestPath)) {
-        const hState = JSON.parse(fs.readFileSync(harvestPath, 'utf8'));
-        const cycle = hState?.currentCycle;
-        if (cycle?.status === 'active') {
-          defaultSl = cycle.stopLoss ?? defaultSl;
-          defaultTp = cycle.harvestFloor ?? defaultTp;
-          defaultTrail = cycle.trailEnabled ? (cycle.trailWidth ? cycle.harvestFloor * (1 - cycle.trailWidth) : 0.03) : 0;
-        }
+      const harvestState = await getHarvestState();
+      if (harvestState.cycleActive) {
+        defaultSl = harvestState.stopLoss ?? defaultSl;
+        defaultTp = harvestState.harvestFloor ?? defaultTp;
+        defaultTrail = harvestState.trailEnabled
+          ? (harvestState.trailWidth ? harvestState.harvestFloor * (1 - harvestState.trailWidth) : 0.03)
+          : 0;
       }
     } catch {}
     const slValue = toNumber(riskParamsRaw.sl ?? riskParamsRaw.stopLossPct ?? riskParamsRaw.stop_loss, NaN);

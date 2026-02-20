@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/api-auth';
 import { getTradesForBoard, getBoard, updateTrade, getTrade, createTrade } from '@/lib/database';
+import { verifyOrder } from '@/lib/kraken-sync';
 
 // GET /api/trading/trades?boardId=X&status=open|closed|all
 export async function GET(request: NextRequest) {
@@ -48,15 +49,43 @@ export async function POST(request: NextRequest) {
     const board = await getBoard(boardId, user.id);
     if (!board) return NextResponse.json({ error: 'Board not found' }, { status: 404 });
 
+    const orderId = body?.order_id || body?.orderId || body?.orderID || null;
+    const exchange = String(body?.exchange || body?.source || body?.metadata?.exchange || '').toLowerCase();
+    const status = body?.status || 'watching';
+    const columnName = body?.column_name || 'Watchlist';
+    const isActive = String(status).toLowerCase() === 'active' || String(columnName) === 'Active';
+
+    let orderDetails: any = null;
+    if (orderId && (exchange === 'kraken' || !exchange) && isActive) {
+      const verification = await verifyOrder(String(orderId), body?.coin_pair);
+      if (!verification.eligible) {
+        return NextResponse.json({ error: 'Order not filled', order: verification.order }, { status: 409 });
+      }
+      orderDetails = verification.order;
+    }
+
+    const metadata = {
+      ...(body?.metadata || {}),
+      ...(orderId ? {
+        exchange: exchange || 'kraken',
+        order_id: String(orderId),
+        order_status: orderDetails?.status || null,
+        order_filled: orderDetails?.filled ?? null,
+        order_remaining: orderDetails?.remaining ?? null,
+        order_symbol: orderDetails?.symbol || null,
+      } : {})
+    };
+
     const trade = await createTrade(boardId, user.id, {
       coin_pair: body.coin_pair || 'UNKNOWN',
       direction: body.direction || 'LONG',
-      column_name: body.column_name || 'Watchlist',
-      status: body.status || 'watching',
+      column_name: columnName,
+      status,
       notes: body.notes || null,
       entry_price: body.entry_price || null,
       position_size: body.position_size || null,
       bot_id: body.bot_id || null,
+      metadata: Object.keys(metadata).length ? metadata : undefined,
     });
 
     return NextResponse.json({ trade });

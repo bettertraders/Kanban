@@ -1573,7 +1573,7 @@ export async function createTrade(boardId: number, userId: number, data: Record<
     'stop_loss', 'take_profit', 'position_size', 'tbo_signal', 'rsi_value',
     'macd_status', 'volume_assessment', 'confidence_score', 'pnl_dollar',
     'pnl_percent', 'bot_id', 'priority', 'pause_reason', 'lesson_tag',
-    'notes', 'links', 'status', 'column_name'
+    'notes', 'links', 'trade_settings', 'metadata', 'status', 'column_name'
   ];
   const cols = ['board_id', 'created_by'];
   const vals: unknown[] = [boardId, userId];
@@ -1582,7 +1582,7 @@ export async function createTrade(boardId: number, userId: number, data: Record<
   for (const f of fields) {
     if (data[f] !== undefined) {
       cols.push(f);
-      vals.push(f === 'links' ? JSON.stringify(data[f]) : data[f]);
+      vals.push(['links', 'trade_settings', 'metadata'].includes(f) ? JSON.stringify(data[f]) : data[f]);
       idx++;
     }
   }

@@ -34,35 +34,35 @@ type CachedEntry = {
 const CACHE_TTL_MS = 60 * 1000;
 const priceCache = new Map<string, CachedEntry>();
 
-const binance = new ccxt.binanceus({ enableRateLimit: true });
-const binanceGlobal = new ccxt.binance({ enableRateLimit: true });
-const coinbase = new ccxt.coinbase({ enableRateLimit: true });
+const kraken = new ccxt.kraken({ enableRateLimit: true });
 
 // Load markets once on startup for better symbol resolution
-let binanceGlobalMarketsLoaded = false;
-let binanceUsMarketsLoaded = false;
+let krakenMarketsLoaded = false;
 
 async function ensureMarketsLoaded(): Promise<void> {
-  if (!binanceGlobalMarketsLoaded) {
+  if (!krakenMarketsLoaded) {
     try {
-      await binanceGlobal.loadMarkets();
-      binanceGlobalMarketsLoaded = true;
+      await kraken.loadMarkets();
+      krakenMarketsLoaded = true;
     } catch (e) {
-      console.warn('Failed to load Binance Global markets:', e);
-    }
-  }
-  if (!binanceUsMarketsLoaded) {
-    try {
-      await binance.loadMarkets();
-      binanceUsMarketsLoaded = true;
-    } catch (e) {
-      console.warn('Failed to load Binance US markets:', e);
+      console.warn('Failed to load Kraken markets:', e);
     }
   }
 }
 
 function normalizePair(pair: string): string {
   return pair.replace(/-/g, '/').toUpperCase();
+}
+
+function buildSymbolVariants(pair: string): string[] {
+  const normalized = normalizePair(pair);
+  const variants = new Set<string>([normalized]);
+  if (normalized.endsWith('/USDT')) variants.add(normalized.replace('/USDT', '/USD'));
+  if (normalized.endsWith('/USD')) variants.add(normalized.replace('/USD', '/USDT'));
+  if (normalized.startsWith('BTC/')) variants.add(normalized.replace('BTC/', 'XBT/'));
+  if (normalized.startsWith('XBT/')) variants.add(normalized.replace('XBT/', 'BTC/'));
+  variants.add(normalized.replace('/', ''));
+  return Array.from(variants);
 }
 
 function getCachedPrice(pair: string): PriceSnapshot | null {
@@ -128,60 +128,29 @@ async function fetchTickerWithFallback(pair: string): Promise<Ticker> {
   await ensureMarketsLoaded();
   
   // Normalize pair format - try both with and without slash
-  const pairVariants = [
-    pair,
-    pair.replace('/', ''),  // BTCUSDT format
-    pair.replace(/(\w+)\/(\w+)/, '$1/$2'),  // Ensure slash format
-  ].filter((v, i, arr) => arr.indexOf(v) === i); // unique values
+  const pairVariants = buildSymbolVariants(pair);
 
-  // Try Binance.US first (works from US servers / Railway)
   for (const variant of pairVariants) {
     try {
-      // Check if symbol exists in loaded markets
-      if (binanceUsMarketsLoaded && binance.markets && binance.markets[variant]) {
-        return await binance.fetchTicker(variant);
+      if (krakenMarketsLoaded && kraken.markets && kraken.markets[variant]) {
+        return await kraken.fetchTicker(variant);
       }
     } catch (error) {
       // Continue to next variant
     }
   }
-  
-  // Try the standard pair if no variant worked
-  try {
-    return await binance.fetchTicker(pair);
-  } catch (error) {
-    if (!isSymbolError(error)) {
-      console.warn(`Binance.US ticker fetch failed for ${pair}:`, error);
-    }
-  }
 
-  // Try Binance Global with market check (works for most altcoins)
   for (const variant of pairVariants) {
     try {
-      if (binanceGlobalMarketsLoaded && binanceGlobal.markets && binanceGlobal.markets[variant]) {
-        return await binanceGlobal.fetchTicker(variant);
-      }
+      return await kraken.fetchTicker(variant);
     } catch (error) {
-      // Continue to next variant
-    }
-  }
-  
-  // Try standard pair on Binance Global
-  try {
-    return await binanceGlobal.fetchTicker(pair);
-  } catch (error) {
-    if (!isSymbolError(error)) {
-      console.warn(`Binance Global ticker fetch failed for ${pair}:`, error);
+      if (!isSymbolError(error)) {
+        console.warn(`Kraken ticker fetch failed for ${variant}:`, error);
+      }
     }
   }
 
-  // Last resort: Coinbase
-  try {
-    return await coinbase.fetchTicker(pair);
-  } catch (error) {
-    console.warn(`All exchanges failed for ${pair}. Binance US loaded: ${binanceUsMarketsLoaded}, Binance Global loaded: ${binanceGlobalMarketsLoaded}`);
-    throw error;
-  }
+  throw new Error(`Kraken ticker fetch failed for ${pair}`);
 }
 
 async function fetchOhlcvWithFallback(
@@ -189,23 +158,18 @@ async function fetchOhlcvWithFallback(
   timeframe: string,
   limit: number
 ): Promise<OHLCV[]> {
-  try {
-    return await binance.fetchOHLCV(pair, timeframe, undefined, limit);
-  } catch (error) {
-    if (!isSymbolError(error)) {
-      console.warn('Binance.US OHLCV fetch failed, trying Binance global:', error);
+  const pairVariants = buildSymbolVariants(pair);
+  for (const variant of pairVariants) {
+    try {
+      return await kraken.fetchOHLCV(variant, timeframe, undefined, limit);
+    } catch (error) {
+      if (!isSymbolError(error)) {
+        console.warn(`Kraken OHLCV fetch failed for ${variant}:`, error);
+      }
     }
   }
 
-  try {
-    return await binanceGlobal.fetchOHLCV(pair, timeframe, undefined, limit);
-  } catch (error) {
-    if (!isSymbolError(error)) {
-      console.warn('Binance global OHLCV fetch failed, trying Coinbase:', error);
-    }
-  }
-
-  return await coinbase.fetchOHLCV(pair, timeframe, undefined, limit);
+  throw new Error(`Kraken OHLCV fetch failed for ${pair}`);
 }
 
 export async function getCurrentPrice(pair: string): Promise<PriceSnapshot> {
@@ -271,43 +235,21 @@ export async function getMultiplePrices(pairs: string[]): Promise<Record<string,
 }
 
 export async function getTopCoins(limit: number): Promise<Array<{ pair: string; price: number; volume24h: number; change24h: number }>> {
-  try {
-    const tickers = await binance.fetchTickers();
-    const entries = Object.entries(tickers)
-      .filter(([symbol]) => symbol.endsWith('/USDT'))
-      .map(([symbol, ticker]) => {
-        const snapshot = extractPriceSnapshot(ticker);
-    return {
-      pair: symbol,
-      price: snapshot.price,
-      volume24h: snapshot.volume24h,
-      change24h: snapshot.change24h,
-      high24h: snapshot.high24h,
-      low24h: snapshot.low24h
-    };
-  })
-  .sort((a, b) => b.volume24h - a.volume24h);
-
-    return entries.slice(0, limit);
-  } catch (error) {
-    console.warn('Binance top coins fetch failed, trying Coinbase:', error);
-  }
-
-  const tickers = await coinbase.fetchTickers();
+  const tickers = await kraken.fetchTickers();
   const entries = Object.entries(tickers)
-    .filter(([symbol]) => symbol.endsWith('/USD'))
+    .filter(([symbol]) => symbol.endsWith('/USD') || symbol.endsWith('/USDT'))
     .map(([symbol, ticker]) => {
       const snapshot = extractPriceSnapshot(ticker);
-    return {
-      pair: symbol,
-      price: snapshot.price,
-      volume24h: snapshot.volume24h,
-      change24h: snapshot.change24h,
-      high24h: snapshot.high24h,
-      low24h: snapshot.low24h
-    };
-  })
-  .sort((a, b) => b.volume24h - a.volume24h);
+      return {
+        pair: symbol,
+        price: snapshot.price,
+        volume24h: snapshot.volume24h,
+        change24h: snapshot.change24h,
+        high24h: snapshot.high24h,
+        low24h: snapshot.low24h
+      };
+    })
+    .sort((a, b) => b.volume24h - a.volume24h);
 
   return entries.slice(0, limit);
 }

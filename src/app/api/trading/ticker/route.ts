@@ -15,13 +15,22 @@ const TOP_SYMBOLS = [
 let cache: { data: TickerCoin[]; ts: number } | null = null;
 const CACHE_MS = 3 * 60 * 1000; // 3 minutes
 
-async function fetchFromBinance(): Promise<TickerCoin[]> {
-  const exchange = new ccxt.binance({ enableRateLimit: true });
-  const tickers = await exchange.fetchTickers(
-    TOP_SYMBOLS.map((s) => `${s}/USDT`)
-  );
+async function fetchFromKraken(): Promise<TickerCoin[]> {
+  const exchange = new ccxt.kraken({ enableRateLimit: true });
+  await exchange.loadMarkets();
+
+  const symbols = TOP_SYMBOLS.flatMap((s) => [`${s}/USD`, `${s}/USDT`])
+    .filter((pair) => exchange.markets && exchange.markets[pair]);
+
+  if (!symbols.length) {
+    throw new Error('No Kraken symbols available');
+  }
+
+  const tickers = await exchange.fetchTickers(symbols);
   return TOP_SYMBOLS.map((sym) => {
-    const t = tickers[`${sym}/USDT`];
+    const usdTicker = tickers[`${sym}/USD`];
+    const usdtTicker = tickers[`${sym}/USDT`];
+    const t = usdTicker || usdtTicker;
     return {
       symbol: sym,
       price: t?.last ?? 0,
@@ -59,7 +68,7 @@ export async function GET() {
 
   let coins: TickerCoin[];
   try {
-    coins = await fetchFromBinance();
+    coins = await fetchFromKraken();
   } catch {
     try {
       coins = await fetchFromCoinGecko();

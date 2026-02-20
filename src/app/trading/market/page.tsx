@@ -559,28 +559,6 @@ export default function MarketDashboard() {
               </div>
 
               <div style={card}>
-                <div style={sectionTitle}>RSI Highlights</div>
-                <div style={{ display: 'grid', gap: 8 }}>
-                  {rsiHighlights.length === 0 && (
-                    <div style={{ fontSize: 12, color: '#888' }}>No oversold setups detected</div>
-                  )}
-                  {rsiHighlights.map((row) => (
-                    <div key={row.symbol} style={{
-                      padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.03)',
-                      border: '1px solid rgba(255,255,255,0.06)', borderLeft: `3px solid ${rsiColor(row.rsi)}`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    }}>
-                      <div>
-                        <div style={{ fontWeight: 700 }}>{stripUsdt(row.symbol).toUpperCase()}</div>
-                        <div style={{ fontSize: 11, color: '#888' }}>RSI {row.rsi.toFixed(1)}</div>
-                      </div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: rsiColor(row.rsi) }}>{pct(row.change24h)}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div style={card}>
                 <div style={sectionTitle}>Active Positions</div>
                 <div style={{ display: 'grid', gap: 8 }}>
                   {[

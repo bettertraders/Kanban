@@ -240,13 +240,14 @@ async function runSync(request: NextRequest, body: any) {
     const amount = Number(krakenTrade?.amount ?? 0);
     const positionSize = price && amount ? price * amount : null;
     const side = normalizeSide(krakenTrade?.side);
-    const direction = side === 'sell' ? 'SHORT' : 'LONG';
+    // Kraken 'sell' = closing a LONG position
+    const direction = side === 'sell' ? 'LONG' : 'SHORT';
     const pnlDollarRaw = getKrakenPnl(krakenTrade);
     const pnlDollar = Number.isFinite(pnlDollarRaw) ? Number(pnlDollarRaw) : null;
     const cost = Number(krakenTrade?.cost ?? (price && amount ? price * amount : NaN));
     const pnlPercent = pnlDollar !== null && Number.isFinite(cost) && cost > 0 ? (pnlDollar / cost) * 100 : null;
-    const status = side === 'sell' ? 'closed' : 'active';
-    const columnName = side === 'sell' ? 'Closed' : 'Active';
+    const status = 'closed';
+    const columnName = 'Closed';
 
     await createTrade(boardId, user?.id || Number(body?.userId) || 1, {
       coin_pair: krakenTrade?.symbol ? normalizePair(String(krakenTrade.symbol)) : 'UNKNOWN',

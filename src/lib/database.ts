@@ -1573,7 +1573,8 @@ export async function createTrade(boardId: number, userId: number, data: Record<
     'stop_loss', 'take_profit', 'position_size', 'tbo_signal', 'rsi_value',
     'macd_status', 'volume_assessment', 'confidence_score', 'pnl_dollar',
     'pnl_percent', 'bot_id', 'priority', 'pause_reason', 'lesson_tag',
-    'notes', 'links', 'trade_settings', 'metadata', 'status', 'column_name'
+    'notes', 'links', 'trade_settings', 'metadata', 'status', 'column_name',
+    'entered_at', 'exited_at'
   ];
   const cols = ['board_id', 'created_by'];
   const vals: unknown[] = [boardId, userId];

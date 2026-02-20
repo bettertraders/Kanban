@@ -36,6 +36,18 @@ type MarketData = {
   updatedAt: string;
   stale?: boolean;
 };
+type IntelligenceItem = {
+  symbol: string;
+  score: number;
+  rsi: number;
+  price: number;
+  change24h: number;
+};
+type Intelligence = {
+  watchlist: IntelligenceItem[];
+  riskParams: { sl: string; tp: string; trail: string };
+  directionBias: { long: number; short: number; label: string };
+};
 
 /* ── helpers ── */
 const fmt = (n: number, decimals = 2) => {
@@ -47,6 +59,8 @@ const fmt = (n: number, decimals = 2) => {
 };
 const pct = (n: number | null) => n == null ? '—' : `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`;
 const pctColor = (n: number | null) => n == null ? '#888' : n >= 0 ? '#22c55e' : '#ef4444';
+const rsiColor = (n: number) => (n < 20 ? '#ff5252' : n < 35 ? '#f5b544' : n > 70 ? '#7b7dff' : '#e2e2ff');
+const stripUsdt = (symbol: string) => symbol.replace(/USDT$/i, '');
 const timeAgo = (iso: string) => {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
   if (s < 60) return 'just now';
@@ -114,6 +128,25 @@ export default function MarketDashboard() {
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [newsError, setNewsError] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [intelligence, setIntelligence] = useState<{
+    watchlist: Array<{ symbol: string; score: number; rsi: number; price: number; change24h: number }>;
+    riskParams: { sl: string; tp: string; trail: string };
+    directionBias: { long: number; short: number; label: string };
+  } | null>(null);
+  const [intelligenceUpdatedAt, setIntelligenceUpdatedAt] = useState<string | null>(null);
+  const [intelligenceStale, setIntelligenceStale] = useState(false);
+
+  const fallbackIntelligence: Intelligence = useMemo(() => ({
+    watchlist: [
+      { symbol: 'SHIBUSDT', score: 149.5, rsi: 34.4, price: 0, change24h: 0 },
+      { symbol: 'ARUSDT', score: 120.8, rsi: 16.7, price: 0, change24h: -4.2 },
+      { symbol: 'ATOMUSDT', score: 94.9, rsi: 38.8, price: 0, change24h: 0 },
+      { symbol: 'ALGOUSDT', score: 84.0, rsi: 29.5, price: 0, change24h: -2.1 },
+      { symbol: 'WUSDT', score: 73.6, rsi: 38.5, price: 0, change24h: 0 },
+    ],
+    riskParams: { sl: '2.5%', tp: '6.0%', trail: '1.2%' },
+    directionBias: { long: 100, short: 0, label: '100% LONG' },
+  }), []);
 
   const loadNews = useCallback(async () => {
     try {
@@ -144,11 +177,43 @@ export default function MarketDashboard() {
     }
   }, []);
 
+  const loadIntelligence = useCallback(async () => {
+    try {
+      const res = await fetch('/api/trading/intelligence');
+      if (!res.ok) throw new Error('Failed to fetch intelligence');
+      const json = await res.json();
+      setIntelligence(json);
+      setIntelligenceUpdatedAt(new Date().toISOString());
+      setIntelligenceStale(false);
+    } catch {
+      setIntelligenceStale(true);
+    }
+  }, []);
+
   useEffect(() => {
     load(); loadNews();
     const iv = setInterval(() => { load(); loadNews(); }, 60_000);
     return () => clearInterval(iv);
   }, [load, loadNews]);
+
+  useEffect(() => {
+    loadIntelligence();
+    const iv = setInterval(() => { loadIntelligence(); }, 30_000);
+    return () => clearInterval(iv);
+  }, [loadIntelligence]);
+
+  const effectiveIntelligence = intelligence ?? fallbackIntelligence;
+  const backtestRows = useMemo(() => (
+    [...effectiveIntelligence.watchlist]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 7)
+  ), [effectiveIntelligence.watchlist]);
+  const rsiHighlights = useMemo(() => (
+    [...effectiveIntelligence.watchlist]
+      .filter((item) => item.rsi < 35)
+      .sort((a, b) => a.rsi - b.rsi)
+      .slice(0, 5)
+  ), [effectiveIntelligence.watchlist]);
 
   return (
     <div style={{ minHeight: '100vh', color: '#e2e2ff' }}>
@@ -447,16 +512,26 @@ export default function MarketDashboard() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={sectionTitle}>Trading Intelligence</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={sectionTitle}>Trading Intelligence</div>
+                <div style={{ fontSize: 11, color: intelligenceStale ? '#f97316' : '#888' }}>
+                  {intelligenceStale ? '⚠ Stale — ' : ''}
+                  {intelligenceUpdatedAt ? `Last updated: ${timeAgo(intelligenceUpdatedAt)}` : 'Using fallback data'}
+                </div>
+              </div>
 
               <div style={card}>
                 <div style={sectionTitle}>Direction Bias</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: '#00e676' }}>100% LONG</div>
-                  <div style={{ fontSize: 12, color: '#888' }}>14/14 coins with optimal params favor LONG</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: effectiveIntelligence.directionBias.short > 0 ? '#f5b544' : '#00e676' }}>
+                    {effectiveIntelligence.directionBias.label}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#888' }}>
+                    {effectiveIntelligence.watchlist.length} coins in scanner watchlist
+                  </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#888' }}>
-                    <span style={{ width: 8, height: 8, borderRadius: 99, background: '#ff5252' }} />
-                    Short strategy disabled
+                    <span style={{ width: 8, height: 8, borderRadius: 99, background: effectiveIntelligence.directionBias.short === 0 ? '#ff5252' : '#00e676' }} />
+                    {effectiveIntelligence.directionBias.short === 0 ? 'Short strategy disabled' : 'Short strategy enabled'}
                   </div>
                 </div>
               </div>
@@ -468,23 +543,15 @@ export default function MarketDashboard() {
                     <tr style={{ textAlign: 'left', color: '#888' }}>
                       <th style={{ paddingBottom: 8 }}>Coin</th>
                       <th style={{ paddingBottom: 8 }}>Score</th>
-                      <th style={{ paddingBottom: 8 }}>WR</th>
                       <th style={{ paddingBottom: 8 }}>RSI</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {[
-                      { coin: 'SHIB', score: 149.5, winRate: '100%', rsi: 34.4, color: '#00e676' },
-                      { coin: 'AR', score: 120.8, winRate: '85.7%', rsi: 16.7, color: '#00e676', rsiColor: '#ff5252' },
-                      { coin: 'ATOM', score: 94.9, winRate: '75%', rsi: 38.8, color: '#00e676' },
-                      { coin: 'ALGO', score: 84.0, winRate: '75%', rsi: 29.5, color: '#00e676', rsiColor: '#f5b544' },
-                      { coin: 'W', score: 73.6, winRate: '71.4%', rsi: 38.5, color: '#00e676' },
-                    ].map((row) => (
-                      <tr key={row.coin} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                        <td style={{ padding: '8px 0', fontWeight: 600 }}>{row.coin}</td>
-                        <td style={{ padding: '8px 0', color: row.color, fontWeight: 600 }}>{row.score}</td>
-                        <td style={{ padding: '8px 0' }}>{row.winRate}</td>
-                        <td style={{ padding: '8px 0', color: row.rsiColor ?? '#e2e2ff', fontWeight: 600 }}>{row.rsi}</td>
+                    {backtestRows.map((row) => (
+                      <tr key={row.symbol} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                        <td style={{ padding: '8px 0', fontWeight: 600 }}>{stripUsdt(row.symbol).toUpperCase()}</td>
+                        <td style={{ padding: '8px 0', color: '#00e676', fontWeight: 600 }}>{row.score.toFixed(1)}</td>
+                        <td style={{ padding: '8px 0', color: rsiColor(row.rsi), fontWeight: 600 }}>{row.rsi.toFixed(1)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -494,21 +561,20 @@ export default function MarketDashboard() {
               <div style={card}>
                 <div style={sectionTitle}>RSI Highlights</div>
                 <div style={{ display: 'grid', gap: 8 }}>
-                  {[
-                    { coin: 'AR', rsi: 16.7, change: '-4.2%', color: '#ff5252' },
-                    { coin: 'ALGO', rsi: 29.5, change: '-2.1%', color: '#f5b544' },
-                    { coin: 'DOGE', rsi: 32.3, change: '+1.3%', color: '#7b7dff' },
-                  ].map((row) => (
-                    <div key={row.coin} style={{
+                  {rsiHighlights.length === 0 && (
+                    <div style={{ fontSize: 12, color: '#888' }}>No oversold setups detected</div>
+                  )}
+                  {rsiHighlights.map((row) => (
+                    <div key={row.symbol} style={{
                       padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.03)',
-                      border: '1px solid rgba(255,255,255,0.06)', borderLeft: `3px solid ${row.color}`,
+                      border: '1px solid rgba(255,255,255,0.06)', borderLeft: `3px solid ${rsiColor(row.rsi)}`,
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     }}>
                       <div>
-                        <div style={{ fontWeight: 700 }}>{row.coin}</div>
-                        <div style={{ fontSize: 11, color: '#888' }}>RSI {row.rsi}</div>
+                        <div style={{ fontWeight: 700 }}>{stripUsdt(row.symbol).toUpperCase()}</div>
+                        <div style={{ fontSize: 11, color: '#888' }}>RSI {row.rsi.toFixed(1)}</div>
                       </div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: row.color }}>{row.change}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: rsiColor(row.rsi) }}>{pct(row.change24h)}</div>
                     </div>
                   ))}
                 </div>
@@ -540,9 +606,9 @@ export default function MarketDashboard() {
                 <div style={sectionTitle}>Risk Parameters</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
                   {[
-                    { label: 'Stop Loss', value: '2.5%' },
-                    { label: 'Take Profit', value: '6.0%' },
-                    { label: 'Trailing', value: '1.2%' },
+                    { label: 'Stop Loss', value: effectiveIntelligence.riskParams.sl },
+                    { label: 'Take Profit', value: effectiveIntelligence.riskParams.tp },
+                    { label: 'Trailing', value: effectiveIntelligence.riskParams.trail },
                   ].map((row) => (
                     <div key={row.label} style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                       <div style={{ fontSize: 11, color: '#888' }}>{row.label}</div>

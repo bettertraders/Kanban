@@ -1,7 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/api-auth';
 import { getTradesForBoard, getBoard, updateTrade, getTrade, createTrade } from '@/lib/database';
-import { verifyOrder } from '@/lib/kraken-sync';
+import { verifyOrder, fetchKrakenOpenOrders } from '@/lib/kraken-sync';
+
+const normalizeSide = (value: any) => {
+  if (value === undefined || value === null) return null;
+  const str = String(value).trim().toLowerCase();
+  if (!str) return null;
+  if (str === 'short') return 'sell';
+  if (str === 'long') return 'buy';
+  if (str === 'buy' || str === 'sell') return str;
+  return null;
+};
+
+const isKrakenTrade = (trade: any) => {
+  const metadata = trade?.metadata || {};
+  if (metadata?.exchange && String(metadata.exchange).toLowerCase() === 'kraken') return true;
+  if (metadata?.source && String(metadata.source).toLowerCase() === 'kraken') return true;
+  if (metadata?.kraken_trade_id || metadata?.kraken_order_id) return true;
+  return false;
+};
+
+const getKrakenOrderId = (trade: any) => {
+  const metadata = trade?.metadata || {};
+  return metadata?.kraken_order_id || metadata?.order_id || metadata?.orderId || null;
+};
 
 // GET /api/trading/trades?boardId=X&status=open|closed|all
 export async function GET(request: NextRequest) {
@@ -22,9 +45,21 @@ export async function GET(request: NextRequest) {
     let trades = await getTradesForBoard(boardId);
 
     if (statusFilter === 'open') {
-      trades = trades.filter(t => t.status === 'active' || t.column_name === 'Active');
+      const openOrders = await fetchKrakenOpenOrders();
+      const openOrderIds = new Set(openOrders.map((order) => String(order?.id)).filter(Boolean));
+      trades = trades.filter((t) => {
+        if (!(t.status === 'active' || t.column_name === 'Active')) return false;
+        const orderId = getKrakenOrderId(t);
+        return orderId && openOrderIds.has(String(orderId));
+      });
     } else if (statusFilter === 'closed') {
-      trades = trades.filter(t => t.status === 'closed' || t.column_name === 'Closed' || t.column_name === 'Wins' || t.column_name === 'Losses');
+      trades = trades.filter((t) => {
+        const isClosed = t.status === 'closed' || t.column_name === 'Closed' || t.column_name === 'Wins' || t.column_name === 'Losses';
+        if (!isClosed) return false;
+        if (!isKrakenTrade(t)) return false;
+        const side = normalizeSide(t?.metadata?.kraken_side || t?.metadata?.side || t?.metadata?.order_side || t?.direction);
+        return side === 'sell';
+      });
     }
 
     return NextResponse.json({ trades });

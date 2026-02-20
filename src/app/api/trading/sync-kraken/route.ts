@@ -124,6 +124,10 @@ async function runSync(request: NextRequest, body: any) {
       const exitPrice = sell.price;
       const pnlDollar = entryPrice ? (exitPrice - entryPrice) * sell.amount : null;
       const pnlPercent = entryPrice && entryPrice > 0 ? ((exitPrice - entryPrice) / entryPrice) * 100 : null;
+      const buyTs = matchedBuy ? matchedBuy.ts : null;
+      const sellTs = sell.ts;
+      const holdTimeMs = buyTs && sellTs ? sellTs - buyTs : null;
+      const holdTimeHours = holdTimeMs ? holdTimeMs / (1000 * 60 * 60) : null;
       
       await createTrade(boardId, userId, {
         coin_pair: sell.symbol,
@@ -134,6 +138,8 @@ async function runSync(request: NextRequest, body: any) {
         position_size: sell.cost,
         status: 'closed',
         column_name: 'Closed',
+        entered_at: buyTs ? new Date(buyTs).toISOString() : null,
+        exited_at: sellTs ? new Date(sellTs).toISOString() : null,
         pnl_dollar: pnlDollar !== null ? Number(pnlDollar.toFixed(4)) : null,
         pnl_percent: pnlPercent !== null ? Number(pnlPercent.toFixed(2)) : null,
         metadata: {
@@ -148,6 +154,9 @@ async function runSync(request: NextRequest, body: any) {
           kraken_amount: sell.amount,
           kraken_entry_price: entryPrice,
           kraken_profit_loss: pnlDollar !== null ? Number(pnlDollar.toFixed(4)) : null,
+          hold_time_hours: holdTimeHours ? Number(holdTimeHours.toFixed(1)) : null,
+          sell_date: sellTs ? new Date(sellTs).toISOString() : null,
+          buy_date: buyTs ? new Date(buyTs).toISOString() : null,
           created_by_sync: true,
         },
       });
@@ -167,6 +176,7 @@ async function runSync(request: NextRequest, body: any) {
           position_size: buy.cost,
           status: 'active',
           column_name: 'Active',
+          entered_at: buy.ts ? new Date(buy.ts).toISOString() : null,
           pnl_dollar: null,
           pnl_percent: null,
           metadata: {

@@ -27,6 +27,12 @@ type Trade = {
   rsi_value: string | number | null;
   volume_assessment: string | null;
   macd_status: string | null;
+  metadata?: {
+    hold_time_hours?: number | string | null;
+    sell_date?: string | null;
+    buy_date?: string | null;
+    [key: string]: any;
+  };
 };
 
 /* ── helpers ─────────────────────────────────────────── */
@@ -38,7 +44,7 @@ function fmtDateTime(ts: string | null) {
   if (!ts) return '—';
   const d = new Date(ts);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
 function holdTimeMs(entered: string | null, exited: string | null): number | null {
@@ -55,6 +61,21 @@ function fmtHold(ms: number | null) {
   const mins = Math.floor((ms % 3600000) / 60000);
   if (hours >= 24) return `${Math.floor(hours / 24)}d ${hours % 24}h`;
   return `${hours}h ${mins}m`;
+}
+
+function holdHoursFromTrade(trade: Trade): number | null {
+  const raw = trade.metadata?.hold_time_hours;
+  const parsed = Number(raw);
+  if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+  const ms = holdTimeMs(trade.entered_at, trade.exited_at);
+  return ms === null ? null : ms / 3600000;
+}
+
+function fmtHoldHours(hours: number | null) {
+  if (hours === null) return '—';
+  if (hours < 1) return `${Math.round(hours * 60)}m`;
+  if (hours <= 48) return `${Number(hours.toFixed(1))}h`;
+  return `${Number((hours / 24).toFixed(1))}d`;
 }
 
 const COIN_ICONS: Record<string, string> = {
@@ -445,9 +466,9 @@ function TradeDetail({ trade }: { trade: Trade }) {
           <span>Size <strong style={{ color: 'var(--text)' }}>${n(trade.position_size).toFixed(2)}</strong></span>
           {trade.stop_loss && <span>SL <strong style={{ color: 'var(--text)' }}>${n(trade.stop_loss)}</strong></span>}
           {trade.take_profit && <span>TP <strong style={{ color: 'var(--text)' }}>${n(trade.take_profit)}</strong></span>}
-          <span>Hold <strong style={{ color: 'var(--text)' }}>{fmtHold(holdTimeMs(trade.entered_at, trade.exited_at))}</strong></span>
+          <span>Hold <strong style={{ color: 'var(--text)' }}>{fmtHoldHours(holdHoursFromTrade(trade))}</strong></span>
           <span>Trader <strong style={{ color: 'var(--text)' }}>{trade.created_by_name || '—'}</strong></span>
-          <span>{fmtDateTime(trade.entered_at)} → {trade.exited_at ? fmtDateTime(trade.exited_at) : 'Active'}</span>
+          <span>{fmtDateTime(trade.entered_at)} → {trade.exited_at || trade.metadata?.sell_date ? fmtDateTime(trade.exited_at || trade.metadata?.sell_date || null) : 'Active'}</span>
         </div>
       </div>
       <style jsx>{`@keyframes slideFade { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }`}</style>
@@ -619,6 +640,7 @@ export default function TradeHistoryPage() {
                 const resultLabel = isParked ? (pnl >= 0 ? 'Win (Parked)' : 'Loss (Parked)') : isWin ? 'Win' : 'Loss';
                 const entryPrice = n(trade.entry_price);
                 const exitPrice = n(trade.exit_price);
+                const sellDate = trade.exited_at || trade.metadata?.sell_date || null;
 
                 return (<React.Fragment key={trade.id}>
                   <tr
@@ -668,11 +690,11 @@ export default function TradeHistoryPage() {
                     </td>
                     {/* Hold */}
                     <td style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)', fontSize: '12px', color: 'var(--muted)' }}>
-                      {fmtHold(holdTimeMs(trade.entered_at, trade.exited_at))}
+                      {fmtHoldHours(holdHoursFromTrade(trade))}
                     </td>
                     {/* Date */}
                     <td style={{ padding: '10px 8px', borderBottom: '1px solid var(--border)', fontSize: '12px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
-                      {fmtDateTime(trade.exited_at || trade.entered_at)}
+                      {fmtDateTime(sellDate || trade.entered_at)}
                     </td>
                   </tr>
                   {isExpanded && <TradeDetail trade={trade} />}

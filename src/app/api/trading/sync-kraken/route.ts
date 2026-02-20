@@ -73,54 +73,117 @@ async function runSync(request: NextRequest, body: any) {
   const boardTrades = await getTradesForBoard(boardId);
 
   if (mode === 'reset') {
+    // Step 1: Delete all existing trades
     let deleted = 0;
     for (const trade of boardTrades) {
       await deleteTrade(Number(trade.id));
       deleted++;
     }
 
+    // Step 2: Fetch all Kraken trades
     const krakenTrades = await fetchKrakenTrades();
+    
+    // Step 3: Group trades by symbol, separate buys and sells
+    const buysBySymbol: Record<string, Array<{ price: number; amount: number; cost: number; ts: number; trade: any }>> = {};
+    const sellTrades: Array<{ symbol: string; price: number; amount: number; cost: number; ts: number; trade: any }> = [];
+    
+    for (const kt of krakenTrades) {
+      const symbol = kt?.symbol ? normalizePair(String(kt.symbol)) : 'UNKNOWN';
+      const side = normalizeSide(kt?.side);
+      const price = Number(kt?.price ?? 0);
+      const amount = Number(kt?.amount ?? 0);
+      const cost = Number(kt?.cost ?? 0);
+      const ts = getKrakenTimestamp(kt) ?? 0;
+      
+      if (side === 'buy') {
+        if (!buysBySymbol[symbol]) buysBySymbol[symbol] = [];
+        buysBySymbol[symbol].push({ price, amount, cost, ts, trade: kt });
+      } else if (side === 'sell') {
+        sellTrades.push({ symbol, price, amount, cost, ts, trade: kt });
+      }
+    }
+    
+    // Sort buys by timestamp (FIFO matching)
+    for (const sym of Object.keys(buysBySymbol)) {
+      buysBySymbol[sym].sort((a, b) => a.ts - b.ts);
+    }
+    
+    // Step 4: Match sells with buys (FIFO) and calculate PnL
+    const buyIndexes: Record<string, number> = {};
     let created = 0;
-    for (const krakenTrade of krakenTrades) {
-      const price = Number(krakenTrade?.price ?? 0);
-      const amount = Number(krakenTrade?.amount ?? 0);
-      const positionSize = price && amount ? price * amount : null;
-      const side = normalizeSide(krakenTrade?.side);
-      // Kraken only supports LONG positions (no shorts)
-      // Buy = opening LONG, Sell = closing LONG
-      const direction = 'LONG';
-      const pnlDollarRaw = getKrakenPnl(krakenTrade);
-      const pnlDollar = Number.isFinite(pnlDollarRaw) ? Number(pnlDollarRaw) : null;
-      const cost = Number(krakenTrade?.cost ?? (price && amount ? price * amount : NaN));
-      const pnlPercent = pnlDollar !== null && Number.isFinite(cost) && cost > 0 ? (pnlDollar / cost) * 100 : null;
-      const status = 'closed'; // All Kraken trades in history are closed
-      const columnName = 'Closed';
-
-      await createTrade(boardId, user?.id || Number(body?.userId) || 1, {
-        coin_pair: krakenTrade?.symbol ? normalizePair(String(krakenTrade.symbol)) : 'UNKNOWN',
-        direction,
-        entry_price: price || null,
-        current_price: price || null,
-        position_size: positionSize,
-        status,
-        column_name: columnName,
-        pnl_dollar: Number.isFinite(pnlDollar) ? pnlDollar : null,
-        pnl_percent: pnlPercent,
+    const userId = user?.id || Number(body?.userId) || 1;
+    
+    // Create cards for SELL trades only (Trade History)
+    for (const sell of sellTrades) {
+      const buys = buysBySymbol[sell.symbol] || [];
+      const idx = buyIndexes[sell.symbol] || 0;
+      const matchedBuy = buys[idx];
+      if (matchedBuy) buyIndexes[sell.symbol] = idx + 1;
+      
+      const entryPrice = matchedBuy ? matchedBuy.price : null;
+      const exitPrice = sell.price;
+      const pnlDollar = entryPrice ? (exitPrice - entryPrice) * sell.amount : null;
+      const pnlPercent = entryPrice && entryPrice > 0 ? ((exitPrice - entryPrice) / entryPrice) * 100 : null;
+      
+      await createTrade(boardId, userId, {
+        coin_pair: sell.symbol,
+        direction: 'LONG',
+        entry_price: entryPrice,
+        exit_price: exitPrice,
+        current_price: exitPrice,
+        position_size: sell.cost,
+        status: 'closed',
+        column_name: 'Closed',
+        pnl_dollar: pnlDollar !== null ? Number(pnlDollar.toFixed(4)) : null,
+        pnl_percent: pnlPercent !== null ? Number(pnlPercent.toFixed(2)) : null,
         metadata: {
           exchange: 'kraken',
-          kraken_trade_id: krakenTrade?.id ? String(krakenTrade.id) : null,
-          kraken_order_id: krakenTrade?.order ? String(krakenTrade.order) : null,
-          kraken_side: side,
+          kraken_trade_id: sell.trade?.id ? String(sell.trade.id) : null,
+          kraken_order_id: sell.trade?.order ? String(sell.trade.order) : null,
+          kraken_side: 'sell',
           kraken_status: 'closed',
-          kraken_timestamp: getKrakenTimestamp(krakenTrade),
-          kraken_price: Number.isFinite(price) ? price : null,
-          kraken_cost: Number.isFinite(cost) ? cost : null,
-          kraken_amount: Number.isFinite(amount) ? amount : null,
-          kraken_profit_loss: Number.isFinite(pnlDollar) ? pnlDollar : null,
+          kraken_timestamp: sell.ts,
+          kraken_price: exitPrice,
+          kraken_cost: sell.cost,
+          kraken_amount: sell.amount,
+          kraken_entry_price: entryPrice,
+          kraken_profit_loss: pnlDollar !== null ? Number(pnlDollar.toFixed(4)) : null,
           created_by_sync: true,
         },
       });
       created++;
+    }
+    
+    // Step 5: Create cards for unmatched BUYS (Active positions)
+    for (const [symbol, buys] of Object.entries(buysBySymbol)) {
+      const startIdx = buyIndexes[symbol] || 0;
+      for (let i = startIdx; i < buys.length; i++) {
+        const buy = buys[i];
+        await createTrade(boardId, userId, {
+          coin_pair: symbol,
+          direction: 'LONG',
+          entry_price: buy.price,
+          current_price: buy.price,
+          position_size: buy.cost,
+          status: 'active',
+          column_name: 'Active',
+          pnl_dollar: null,
+          pnl_percent: null,
+          metadata: {
+            exchange: 'kraken',
+            kraken_trade_id: buy.trade?.id ? String(buy.trade.id) : null,
+            kraken_order_id: buy.trade?.order ? String(buy.trade.order) : null,
+            kraken_side: 'buy',
+            kraken_status: 'open',
+            kraken_timestamp: buy.ts,
+            kraken_price: buy.price,
+            kraken_cost: buy.cost,
+            kraken_amount: buy.amount,
+            created_by_sync: true,
+          },
+        });
+        created++;
+      }
     }
 
     return NextResponse.json({
@@ -129,6 +192,8 @@ async function runSync(request: NextRequest, body: any) {
       deleted,
       created,
       krakenTrades: krakenTrades.length,
+      sellTrades: sellTrades.length,
+      activeBuys: created - sellTrades.length,
     });
   }
 

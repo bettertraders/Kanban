@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/api-auth';
 import { getBoard, getTradesForBoard, updateTrade, deleteTrade, getBoardTradingStats, createTrade } from '@/lib/database';
-import { fetchKrakenOpenOrders, fetchKrakenTrades } from '@/lib/kraken-sync';
+import { fetchKrakenBalances, fetchKrakenOpenOrders, fetchKrakenTrades } from '@/lib/kraken-sync';
 
 export const dynamic = 'force-dynamic';
 
@@ -203,9 +203,16 @@ async function runSync(request: NextRequest, body: any) {
       created++;
     }
     
-    // Step 5: Create ONE card per symbol for unmatched BUYS (Active positions)
-    // Aggregate multiple buys of the same coin into a single position card
+    // Step 5: Fetch Kraken balances to filter out fully-sold positions
+    const krakenBalances = await fetchKrakenBalances();
+    
+    // Step 6: Create ONE card per symbol for unmatched BUYS (Active positions)
+    // Only if Kraken balance > 0 for that asset
     for (const [symbol, buys] of Object.entries(buysBySymbol)) {
+      // Check if we actually hold this asset on Kraken
+      const asset = symbol.split('/')[0]; // e.g. "0G/USD" → "0G"
+      const balance = krakenBalances[asset] ?? 0;
+      if (balance <= 0) continue; // Fully sold — no Active card
       const startIdx = buyIndexes[symbol] || 0;
       const remainingBuys = buys.slice(startIdx);
       if (remainingBuys.length === 0) continue;

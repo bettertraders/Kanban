@@ -51,6 +51,23 @@ export async function verifyOrder(orderId: string, symbol?: string): Promise<{ e
   }
 }
 
+export async function fetchKrakenBalances(): Promise<Record<string, number>> {
+  const { default: ccxt } = await import('ccxt');
+  const exchange = new ccxt.kraken({
+    apiKey: process.env.KRAKEN_API_KEY || '',
+    secret: process.env.KRAKEN_API_SECRET || '',
+    enableRateLimit: true,
+  });
+  const balance = await exchange.fetchBalance();
+  const result: Record<string, number> = {};
+  for (const [asset, amount] of Object.entries(balance.total || {})) {
+    if (typeof amount === 'number' && amount > 0) {
+      result[asset] = amount;
+    }
+  }
+  return result;
+}
+
 export async function createKrakenOrder(options: {
   symbol: string;
   side: 'buy' | 'sell';

@@ -117,7 +117,7 @@ export function ChallengeTracker({ boardId, liveWinRate, liveTrades, liveBalance
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ fontSize: '14px' }}>🏆</span>
-          <span style={{ fontSize: '13px', fontWeight: 600 }}>10-Day Challenge</span>
+          <span style={{ fontSize: '13px', fontWeight: 600 }}>365-Day Challenge</span>
           <span style={{
             fontSize: '10px',
             padding: '2px 8px',

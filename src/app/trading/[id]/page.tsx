@@ -2975,7 +2975,7 @@ function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
       setSettings({
         riskLevel: saved.riskLevel || null,
         tradingAmount: saved.tradingAmount || null,
-        timeframe: saved.timeframe || null,
+        timeframe: (saved.timeframe === '10' ? '365' : saved.timeframe) || null,
         timeframeStartDate: saved.timeframeStartDate || null,
         tboEnabled: !!saved.tboEnabled,
         engineOn: !!saved.engineOn,
@@ -2988,7 +2988,7 @@ function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
         setSettings({
           riskLevel: s.riskLevel || null,
           tradingAmount: s.tradingAmount || null,
-          timeframe: s.timeframe || null,
+          timeframe: (s.timeframe === '10' ? '365' : s.timeframe) || null,
           timeframeStartDate: s.timeframeStartDate || null,
           tboEnabled: !!s.tboEnabled,
           engineOn: !!s.engineOn,

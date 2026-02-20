@@ -222,9 +222,24 @@ export async function GET(request: NextRequest) {
 
     const riskParamsRaw = (primaryStrategy?.risk_params || {}) as Record<string, any>;
     const hasRiskParams = riskParamsRaw && Object.keys(riskParamsRaw).length > 0;
-    const defaultSl = 0.05;
-    const defaultTp = 0.1;
-    const defaultTrail = 0.03;
+    
+    // Read dynamic defaults from harvest engine state
+    let defaultSl = 0.04;
+    let defaultTp = 0.08;
+    let defaultTrail = 0.03;
+    try {
+      const harvestPath = require('path').join(process.env.HOME || '', 'Projects/tbt-platform/compounding/.harvest-state.json');
+      const fs = require('fs');
+      if (fs.existsSync(harvestPath)) {
+        const hState = JSON.parse(fs.readFileSync(harvestPath, 'utf8'));
+        const cycle = hState?.currentCycle;
+        if (cycle?.status === 'active') {
+          defaultSl = cycle.stopLoss ?? defaultSl;
+          defaultTp = cycle.harvestFloor ?? defaultTp;
+          defaultTrail = cycle.trailEnabled ? (cycle.trailWidth ? cycle.harvestFloor * (1 - cycle.trailWidth) : 0.03) : 0;
+        }
+      }
+    } catch {}
     const slValue = toNumber(riskParamsRaw.sl ?? riskParamsRaw.stopLossPct ?? riskParamsRaw.stop_loss, NaN);
     const tpValue = toNumber(riskParamsRaw.tp ?? riskParamsRaw.takeProfitPct ?? riskParamsRaw.take_profit, NaN);
     const trailValue = toNumber(riskParamsRaw.trail ?? riskParamsRaw.trailPct ?? riskParamsRaw.trailing, NaN);

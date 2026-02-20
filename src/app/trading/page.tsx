@@ -450,7 +450,15 @@ export default function TradingDashboardPage() {
       if (saved.riskLevel) setRiskLevel(saved.riskLevel);
       if (saved.riskValue != null) setRiskValue(saved.riskValue);
       if (saved.tradingAmount) setTradingAmount(saved.tradingAmount);
-      if (saved.timeframe) setTimeframe(saved.timeframe);
+      if (saved.timeframe) {
+        // Migrate removed timeframe values to 365
+        const tf = saved.timeframe === '10' ? '365' : saved.timeframe;
+        setTimeframe(tf);
+        if (saved.timeframe === '10') {
+          saved.timeframe = '365';
+          localStorage.setItem('clawdesk-trading-setup', JSON.stringify(saved));
+        }
+      }
       // timeframeStartDate is now controlled by account.created_at — don't load from localStorage
       if (saved.tboEnabled !== undefined) setTboEnabled(saved.tboEnabled);
       if (saved.harvestEnabled !== undefined) setHarvestEnabled(saved.harvestEnabled);
@@ -469,7 +477,10 @@ export default function TradingDashboardPage() {
             if (riskMig[saved.riskLevel]) saved.riskLevel = riskMig[saved.riskLevel];
             setRiskLevel(saved.riskLevel);
             if (saved.tradingAmount) setTradingAmount(saved.tradingAmount);
-            if (saved.timeframe) setTimeframe(saved.timeframe);
+            if (saved.timeframe) {
+              const tf = saved.timeframe === '10' ? '365' : saved.timeframe;
+              setTimeframe(tf);
+            }
             // timeframeStartDate is now controlled by account.created_at — don't override from settings
             if (saved.tboEnabled !== undefined) setTboEnabled(saved.tboEnabled);
             if (saved.harvestEnabled !== undefined) setHarvestEnabled(saved.harvestEnabled);

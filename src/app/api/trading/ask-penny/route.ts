@@ -83,8 +83,8 @@ IMPORTANT RULES:
 
 === PORTFOLIO SUMMARY ===
 Starting Balance: $${summary.starting_balance?.toFixed(2) || '0.00'}
-Current Balance: $${summary.paper_balance?.toFixed(2) || '0.00'}
-Total P&L: $${((summary.paper_balance || 0) - (summary.starting_balance || 0)).toFixed(2)} (${summary.starting_balance ? (((summary.paper_balance || 0) - summary.starting_balance) / summary.starting_balance * 100).toFixed(1) : '0'}%)
+Current Balance: $${summary.live_balance?.toFixed(2) || '0.00'}
+Total P&L: $${((summary.live_balance || 0) - (summary.starting_balance || 0)).toFixed(2)} (${summary.starting_balance ? (((summary.live_balance || 0) - summary.starting_balance) / summary.starting_balance * 100).toFixed(1) : '0'}%)
 Realized P&L: $${summary.total_realized_pnl?.toFixed(2) || '0.00'}
 Unrealized P&L: $${summary.total_unrealized_pnl?.toFixed(2) || '0.00'}
 Win Rate: ${summary.win_rate?.toFixed(1) || '0'}%

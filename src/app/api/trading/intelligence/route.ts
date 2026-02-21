@@ -75,9 +75,16 @@ async function estimateUsdBalance(balances: Record<string, number>) {
 
 async function buildWatchlistFromActiveTrades(userId: number) {
   const trades = await getTradesForBoard(15);
-  const activeTrades = trades.filter(
+  let activeTrades = trades.filter(
     (trade: any) => String(trade?.column_name || '').toLowerCase() === 'active' || String(trade?.status || '').toLowerCase() === 'active'
   );
+  
+  // If no active trades, use queued trades for the watchlist
+  if (activeTrades.length === 0) {
+    activeTrades = trades.filter(
+      (trade: any) => String(trade?.column_name || '').toLowerCase() === 'queued'
+    );
+  }
 
   const rsiBySymbol = new Map<string, number>();
   for (const trade of activeTrades) {
@@ -250,12 +257,35 @@ export async function GET(request: NextRequest) {
       trail: formatPct(trail),
     };
 
+    // Use harvest state + paper_accounts for auto-compounder (not Kraken total balance)
+    let harvestCycleNumber = 0;
+    let harvestCycleActive = false;
+    let harvestCompoundingBase = 100;
+    let harvestAvgCycleDays = 2.5;
+    try {
+      const hs = await getHarvestState();
+      harvestCycleNumber = hs.cycleNumber ?? 0;
+      harvestCycleActive = hs.cycleActive ?? false;
+      harvestAvgCycleDays = 2.5; // TODO: calculate from history
+    } catch {}
+
+    // Get compounding base from paper_accounts (trading capital, not total Kraken balance)
+    try {
+      const { pool } = await import('@/lib/database');
+      const paRes = await pool.query(
+        `SELECT starting_balance FROM paper_accounts WHERE board_id = 15 ORDER BY id LIMIT 1`
+      );
+      if (paRes.rows[0]?.starting_balance) {
+        harvestCompoundingBase = parseFloat(paRes.rows[0].starting_balance);
+      }
+    } catch {}
+
     const autoCompounder = {
-      enabled: Boolean(account) || !initialAccount,
-      compoundingBase: toNumber(accountState.base_balance, 100),
-      currentBalance: toNumber(accountState.current_balance, 100),
-      activeCycles: toNumber(accountState.active_cycles, 0),
-      avgCycleDays: toNumber(accountState.avg_cycle_days, 2.5),
+      enabled: true,
+      compoundingBase: harvestCompoundingBase,
+      currentBalance: harvestCompoundingBase, // Will be updated with unrealized P&L when positions exist
+      activeCycles: harvestCycleNumber,
+      avgCycleDays: harvestAvgCycleDays,
       dailyPnl: 0,
       circuitBreaker: circuitBreakerActive,
     };

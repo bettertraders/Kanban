@@ -2640,6 +2640,9 @@ export async function getPortfolioStats(userId: number) {
         COUNT(*) FILTER (WHERE t.status = 'active' OR t.column_name = 'Active')::int as active_positions,
         COALESCE(SUM(CASE WHEN t.status = 'active' OR t.column_name = 'Active' THEN COALESCE(t.position_size, 0) END), 0) as total_position_size,
         COALESCE(SUM(CASE WHEN t.status IN ('closed', 'won', 'lost') OR t.column_name IN ('Closed', 'Wins', 'Won', 'Losses', 'Lost', 'Parked') THEN COALESCE(t.pnl_dollar, 0) END), 0) as total_realized_pnl,
+        COALESCE(SUM(CASE WHEN (t.status IN ('closed', 'won', 'lost') OR t.column_name IN ('Closed', 'Wins', 'Won', 'Losses', 'Lost', 'Parked'))
+          AND t.exited_at >= (SELECT COALESCE(pa.created_at, '2020-01-01') FROM paper_accounts pa WHERE pa.board_id = t.board_id LIMIT 1)
+          THEN COALESCE(t.pnl_dollar, 0) END), 0) as cycle_realized_pnl,
         COALESCE(SUM(CASE WHEN t.status = 'active' OR t.column_name = 'Active' THEN
           CASE
             WHEN t.entry_price IS NOT NULL AND t.entry_price > 0 AND t.current_price IS NOT NULL AND t.position_size IS NOT NULL THEN
@@ -2826,6 +2829,7 @@ export async function getPortfolioStats(userId: number) {
     summary: {
       total_portfolio_value: parseNumeric(summaryRow.total_position_size) || 0,
       total_realized_pnl: parseNumeric(summaryRow.total_realized_pnl) || 0,
+      cycle_realized_pnl: parseNumeric(summaryRow.cycle_realized_pnl) || 0,
       total_unrealized_pnl: parseNumeric(summaryRow.total_unrealized_pnl) || 0,
       paper_balance: paperBalance,
       starting_balance: startingBalance,

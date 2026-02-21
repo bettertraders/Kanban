@@ -41,6 +41,12 @@ type PortfolioStats = {
     closed_trades?: number;
     sprint_number?: number;
     harvest_cycles?: number;
+    cycle_number?: number;
+    cycle_regime?: string;
+    cycle_target?: number;
+    cycle_gain?: number;
+    cycle_active?: boolean;
+    cycle_realized_pnl?: number;
     board_count?: number;
     live_balance?: number;
   };
@@ -779,6 +785,9 @@ export default function TradingDashboardPage() {
   const totalTrades = Number(portfolio?.summary?.total_trades ?? bots.reduce((sum, b) => sum + (b.total_trades ?? b.performance?.total_trades ?? 0), 0));
   const closedTrades = Number(portfolio?.summary?.closed_trades ?? 0);
   const harvestCycles = Number(portfolio?.summary?.harvest_cycles ?? 0);
+  const cycleNumber = Number(portfolio?.summary?.cycle_number ?? 0);
+  const cycleRegime = portfolio?.summary?.cycle_regime || 'NONE';
+  const cycleTarget = Number(portfolio?.summary?.cycle_target ?? 8);
 
   const botQuote = useMemo(() => getBotQuote(dailyPnlPct, winRate, activePositions, engineOn, totalTrades), [dailyPnlPct, winRate, activePositions, engineOn, totalTrades]);
 
@@ -1436,9 +1445,9 @@ export default function TradingDashboardPage() {
               </div>
             </div>
             <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
-              <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Compound Cycles</div>
-              <div style={{ fontSize: '22px', fontWeight: 700, color: harvestCycles > 0 ? '#4ade80' : 'var(--text)' }}>{harvestCycles}</div>
-              <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>{harvestCycles === 0 ? 'waiting for first' : 'profits banked'}</div>
+              <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>Compound Cycle</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: '#4ade80' }}>{cycleNumber}</div>
+              <div style={{ fontSize: '10px', color: '#666', marginTop: '2px' }}>{cycleRegime} · {cycleTarget}% target</div>
             </div>
             <div style={{ background: '#141428', borderRadius: '12px', padding: '14px', textAlign: 'center' }}>
               <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px' }}>12 month challenge</div>
@@ -1843,9 +1852,9 @@ export default function TradingDashboardPage() {
 
               {/* Compound Cycles */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', fontSize: '11px' }}>
-                <span style={{ color: 'var(--muted)' }}>Cycles:</span>
-                <span style={{ fontWeight: 700, color: harvestCycles > 0 ? '#4ade80' : 'var(--text)' }}>{harvestCycles}</span>
-                <span style={{ color: 'var(--muted)', fontSize: '10px' }}>{harvestCycles === 0 ? '(waiting for first)' : 'profits banked'}</span>
+                <span style={{ color: 'var(--muted)' }}>Cycle:</span>
+                <span style={{ fontWeight: 700, color: '#4ade80' }}>{cycleNumber}</span>
+                <span style={{ color: 'var(--muted)', fontSize: '10px' }}>{cycleRegime} · {cycleTarget}% target</span>
               </div>
 
               {/* TBO badge */}

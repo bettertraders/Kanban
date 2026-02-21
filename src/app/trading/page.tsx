@@ -774,7 +774,9 @@ export default function TradingDashboardPage() {
     : (liveBalance > 0 ? liveBalance : dbCashBalance + deployed + unrealized);
   
   // Starting balance for P&L calculation
-  const startingBalance = isSetupPhase ? (tradingAmount ?? 0) : dbStartingBalance;
+  // Fallback to tradingAmount if dbStartingBalance is not set (e.g., after DB reset)
+  const effectiveStartingBalance = dbStartingBalance > 0 ? dbStartingBalance : (tradingAmount ?? 100);
+  const startingBalance = isSetupPhase ? (tradingAmount ?? 0) : effectiveStartingBalance;
   
   // P&L calculations
   const totalPnl = displayBalance - startingBalance;
@@ -1578,7 +1580,7 @@ export default function TradingDashboardPage() {
                 </div>
               ))}
               <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #1a1a2e' }}>
-                <div style={{ fontSize: '11px', color: '#666', marginBottom: '6px' }}>🛡️ Paper trading — practice money, zero risk</div>
+                <div style={{ fontSize: '11px', color: '#666', marginBottom: '6px' }}>🛡️ Paper trading option — practice money, zero risk</div>
                 <div style={{ fontSize: '11px', color: '#666' }}>Uses proven strategies trusted by 25,000+ traders</div>
               </div>
             </div>

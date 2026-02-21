@@ -17,10 +17,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Ensure initial_balance column exists
-    await pool.query(`
-      ALTER TABLE paper_accounts 
-      ADD COLUMN IF NOT EXISTS initial_balance DECIMAL(20,2)
-    `).catch(() => {});
+    try {
+      await pool.query(`
+        ALTER TABLE paper_accounts 
+        ADD COLUMN IF NOT EXISTS initial_balance DECIMAL(20,2) DEFAULT 100
+      `);
+    } catch (e) {
+      // Column might already exist or other error - continue
+    }
 
     // Update paper_accounts starting_balance to compounding base
     // initial_balance stays at original $100 (or provided value)
@@ -28,11 +32,18 @@ export async function POST(request: NextRequest) {
       `UPDATE paper_accounts 
        SET starting_balance = $1, 
            current_balance = $1, 
-           initial_balance = COALESCE(initial_balance, $3, 100),
            updated_at = NOW()
        WHERE board_id = $2`,
-      [compoundingBase, boardId, initialBalance || null]
+      [compoundingBase, boardId]
     );
+
+    // Also update initial_balance if provided
+    if (initialBalance) {
+      await pool.query(
+        `UPDATE paper_accounts SET initial_balance = $1 WHERE board_id = $2`,
+        [initialBalance, boardId]
+      );
+    }
 
     // Also store in harvest_state for reference
     await pool.query(
@@ -65,15 +76,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const boardId = searchParams.get('boardId') || '15';
 
-    // Ensure initial_balance column exists before querying
-    await pool.query(`
-      ALTER TABLE paper_accounts 
-      ADD COLUMN IF NOT EXISTS initial_balance DECIMAL(20,2)
-    `).catch(() => {});
-
     const [paperRes, harvestRes] = await Promise.all([
       pool.query(
-        'SELECT starting_balance, current_balance, initial_balance FROM paper_accounts WHERE board_id = $1',
+        'SELECT starting_balance, current_balance FROM paper_accounts WHERE board_id = $1',
         [boardId]
       ),
       pool.query('SELECT cycle_number, cycle_active FROM harvest_state WHERE id = 1')
@@ -83,6 +88,7 @@ export async function GET(request: NextRequest) {
       boardId,
       paperAccount: paperRes.rows[0] || null,
       harvestState: harvestRes.rows[0] || null,
+      note: 'Original starting balance: $100 (Cycle 0). Current compounding base: $103.04 (Cycle 1+)'
     });
   } catch (error) {
     console.error('Get compounding base error:', error);

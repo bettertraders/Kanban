@@ -3000,11 +3000,17 @@ function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
   useEffect(() => {
     const boardId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('boardId') || window.location.pathname.split('/trading/')[1]?.split('/')[0] || '' : '';
     if (!boardId) return;
-    fetch(`/api/trading/account?boardId=${boardId}`)
-      .then(r => r.json())
-      .then(data => {
+    
+    // Fetch both account and challenge tracker to get compounding base
+    Promise.all([
+      fetch(`/api/trading/account?boardId=${boardId}`).then(r => r.json()),
+      fetch(`/api/trading/challenge-tracker?boardId=${boardId}`).then(r => r.json()).catch(() => null)
+    ])
+      .then(([data, tracker]) => {
         if (data?.account) {
-          const starting = parseFloat(data.account.starting_balance);
+          // Use compounding base from tracker if available, otherwise fall back to account starting_balance
+          const compoundingBase = tracker?.startingBalance || tracker?.compoundingBase;
+          const starting = compoundingBase ? parseFloat(compoundingBase) : parseFloat(data.account.starting_balance);
           if (!isNaN(starting)) setStartBal(starting);
           if (data.account.created_at) setAccountCreatedAt(data.account.created_at);
           fetch(`/api/v1/portfolio`)

@@ -1193,7 +1193,7 @@ export default function TradingBoardPage() {
       </section>
 
       {/* Dashboard settings status bar */}
-      <DashboardStatusBar livePnl={(stats?.total_pnl ?? 0) + (columnTotals['Active']?.pnl ?? 0)} />
+      <DashboardStatusBar liveUnrealizedPnl={columnTotals['Active']?.pnl ?? 0} />
 
       {/* Board action bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
@@ -1482,8 +1482,8 @@ export default function TradingBoardPage() {
         boardId={Number(boardId)}
         liveWinRate={stats?.win_rate ?? 0}
         liveTrades={stats?.total_trades ?? 0}
-        liveBalance={paperAccount ? ((paperAccount.starting_balance ?? paperAccount.current_balance) + (stats?.total_pnl ?? 0) + (columnTotals['Active']?.pnl ?? 0)) : null}
-        realizedPnl={stats?.total_pnl ?? 0}
+        liveBalance={paperAccount ? ((paperAccount.current_balance ?? paperAccount.starting_balance) + (columnTotals['Active']?.pnl ?? 0)) : null}
+        realizedPnl={0}
       />
       <AdjustmentsPanel boardId={Number(boardId)} />
 
@@ -2961,10 +2961,11 @@ function NewTradeModal({
 
 }
 
-function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
+function DashboardStatusBar({ liveUnrealizedPnl }: { liveUnrealizedPnl?: number | null }) {
   const [settings, setSettings] = useState<{ riskLevel: string | null; tradingAmount: number | null; timeframe: string | null; timeframeStartDate: string | null; tboEnabled: boolean; engineOn: boolean } | null>(null);
   const [pnl, setPnl] = useState<number | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
+  const [portfolioUnrealized, setPortfolioUnrealized] = useState<number | null>(null);
   const [startBal, setStartBal] = useState<number>(0);
   const [accountCreatedAt, setAccountCreatedAt] = useState<string | null>(null);
 
@@ -3022,6 +3023,7 @@ function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
               const liveBalance = cash + deployed + unrealized;
               setPnl(liveBalance - starting);
               setBalance(liveBalance);
+              setPortfolioUnrealized(unrealized);
             })
             .catch(() => {});
         }
@@ -3046,9 +3048,14 @@ function DashboardStatusBar({ livePnl }: { livePnl?: number | null }) {
   const engineLabel = settings.engineOn ? 'Engine Active - Kraken Exchange Live' : 'Engine Off';
   const engineColor = settings.engineOn ? '#4ade80' : 'var(--muted)';
 
-  // If livePnl provided (from live SSE prices), use it and override stale portfolio data
-  const displayPnl = livePnl ?? pnl;
-  const displayBalance = livePnl !== null && livePnl !== undefined ? startBal + livePnl : balance;
+  // If live unrealized P&L provided (from live SSE prices), combine with realized P&L from portfolio
+  const hasLiveUnrealized = liveUnrealizedPnl !== null && liveUnrealizedPnl !== undefined;
+  const hasPortfolioUnrealized = portfolioUnrealized !== null && portfolioUnrealized !== undefined;
+  const realizedFromPortfolio = pnl !== null && hasPortfolioUnrealized ? pnl - (portfolioUnrealized ?? 0) : pnl;
+  const displayPnl = hasLiveUnrealized
+    ? (realizedFromPortfolio !== null && realizedFromPortfolio !== undefined ? realizedFromPortfolio + (liveUnrealizedPnl ?? 0) : (liveUnrealizedPnl ?? 0))
+    : pnl;
+  const displayBalance = displayPnl !== null && displayPnl !== undefined ? startBal + displayPnl : balance;
   const pnlColor = displayPnl === null ? 'var(--muted)' : displayPnl >= 0 ? '#4ade80' : '#f05b6f';
   const pnlLabel = displayPnl === null ? '' : `${displayPnl >= 0 ? '+' : ''}$${displayPnl.toFixed(2)}`;
   const balanceLabel = displayBalance !== null ? `$${displayBalance >= 1000 ? displayBalance.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') : displayBalance.toFixed(2)}` : '';

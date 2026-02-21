@@ -881,35 +881,36 @@ export default function TradingDashboardPage() {
   }, [timeframe, timeframeStartDate]);
 
   const estimatedYearGain = useMemo(() => {
-    const days = dayProgress?.day ?? 0;
+    const days = Math.max(1, dayProgress?.day ?? 1); // At minimum day 1
     if (startingBalance <= 0) return 0;
     
-    // Use current cycle P&L if available and meaningful
-    let effectivePnlPct = totalPnlPct;
-    let effectiveDays = days;
-    
-    // If current cycle has no meaningful data but we have harvest cycles, 
-    // estimate based on historical performance (assume 3% per cycle avg)
-    if ((days < 2 || totalPnlPct === 0) && harvestCycles > 0) {
-      // Use conservative 3% per cycle estimate based on Cycle 0 performance
-      const avgCycleReturn = 3.0; // 3% per cycle average
-      const cycleReturn = avgCycleReturn / 100;
-      const numCycles = 73;
+    // If we have actual P&L data, use it for projection
+    if (totalPnlPct !== 0 && days >= 1) {
+      const dailyRate = totalPnlPct / days / 100;
+      const cycleReturn = dailyRate * 5; // 5 days per cycle
+      const numCycles = 73; // 73 cycles in 365 days
       const projectedBalance = startingBalance * Math.pow(1 + cycleReturn, numCycles);
       return Math.max(0, projectedBalance - startingBalance);
     }
     
-    // Require minimum data for current cycle projection
-    if (days < 2 || totalPnlPct === 0) return 0;
+    // If we have harvest cycles but no current P&L, use historical average
+    if (harvestCycles > 0) {
+      const avgCycleReturn = 0.03; // 3% per cycle conservative estimate
+      const numCycles = 73;
+      const projectedBalance = startingBalance * Math.pow(1 + avgCycleReturn, numCycles);
+      return Math.max(0, projectedBalance - startingBalance);
+    }
     
-    const dailyRate = totalPnlPct / days / 100;
-    const cycleReturn = dailyRate * 5;
+    // Early days with no data yet - show conservative "what if" estimate
+    // This gives users something to aim for from Day 1
+    // Using 0.5% per cycle as a conservative baseline (can be adjusted as data comes in)
+    const baselineCycleReturn = 0.005; // 0.5% per cycle baseline
     const numCycles = 73;
-    const projectedBalance = startingBalance * Math.pow(1 + cycleReturn, numCycles);
+    const projectedBalance = startingBalance * Math.pow(1 + baselineCycleReturn, numCycles);
     return Math.max(0, projectedBalance - startingBalance);
   }, [dayProgress, startingBalance, totalPnlPct, harvestCycles]);
 
-  const canEstimateYearGain = (dayProgress?.day ?? 0) >= 2 && startingBalance > 0 && totalPnlPct !== 0 || harvestCycles > 0;
+  const canEstimateYearGain = (dayProgress?.day ?? 0) >= 1 && startingBalance > 0;
 
   const setupReady = riskLevel !== null && tradingAmount !== null;
   const allConfigured = setupReady && tboEnabled && engineOn;

@@ -5,6 +5,16 @@ import { getHarvestState, pool } from '@/lib/database';
 
 const DATA_DIR = process.env.DATA_DIR || path.join(process.env.HOME || '', 'Projects/owen-watchdog');
 const TRACKER_FILE = path.join(DATA_DIR, '.challenge-tracker.json');
+const HARVEST_STATE_FILE = path.join(process.env.HOME || '', 'Projects/tbt-platform/compounding/.harvest-state.json');
+
+function getCompoundingBase(): number | null {
+  try {
+    const data = JSON.parse(fs.readFileSync(HARVEST_STATE_FILE, 'utf8'));
+    return data?.stats?.compoundingBase || data?.stats?.currentBalance || null;
+  } catch {
+    return null;
+  }
+}
 
 interface DailySnapshot {
   date: string;
@@ -87,12 +97,16 @@ export async function GET(request: NextRequest) {
     else health = 'critical';
   }
 
+  // Get compounding base from harvest state file (for Cycle 1+ it should be 103.04, not 100)
+  const compoundingBase = getCompoundingBase() || startingBalanceFallback;
+
   let harvestState = {
     cycleTarget: 8.0,
     cycleRegime: 'NONE',
     cycleNumber: 0,
     cycleGain: 0,
     cycleActive: false,
+    compoundingBase,
   };
   try {
     const state = await getHarvestState();
@@ -102,6 +116,7 @@ export async function GET(request: NextRequest) {
       cycleNumber: state.cycleNumber,
       cycleGain: state.cycleGain,
       cycleActive: state.cycleActive,
+      compoundingBase,
     };
   } catch {
     // Fall back to defaults if DB unavailable
@@ -110,6 +125,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     ...tracker,
     ...harvestState,
+    startingBalance: compoundingBase, // Override with compounding base for correct P&L calc
     current: {
       winRate: currentWinRate,
       backtestTarget: tracker.backtestWinRate,

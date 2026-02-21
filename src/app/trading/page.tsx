@@ -1413,6 +1413,7 @@ export default function TradingDashboardPage() {
               <div style={{ fontSize: '28px', fontWeight: 800, color: '#7b7dff' }}>
                 $100
               </div>
+              <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>Challenge baseline</div>
             </div>
           </div>
 

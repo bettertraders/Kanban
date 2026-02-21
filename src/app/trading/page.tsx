@@ -1419,7 +1419,7 @@ export default function TradingDashboardPage() {
             <div style={{ background: 'linear-gradient(135deg, #1e1e4a 0%, #161632 100%)', borderRadius: '14px', padding: '20px 24px', border: '1px solid #2a2a5e' }}>
               <div style={{ fontSize: '12px', color: '#888', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Starting Balance</div>
               <div style={{ fontSize: '28px', fontWeight: 800, color: '#7b7dff' }}>
-                {formatCurrency(effectiveStartingBalance)}
+                $100
               </div>
             </div>
           </div>

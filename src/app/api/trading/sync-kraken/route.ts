@@ -207,12 +207,21 @@ async function runSync(request: NextRequest, body: any) {
     const krakenBalances = await fetchKrakenBalances();
     
     // Step 6: Create ONE card per symbol for unmatched BUYS (Active positions)
-    // Only if Kraken balance > 0 for that asset
+    // Only if Kraken balance > MIN_BALANCE_USD ($1 to avoid dust positions)
+    const MIN_BALANCE_USD = 1.0;
     for (const [symbol, buys] of Object.entries(buysBySymbol)) {
-      // Check if we actually hold this asset on Kraken
+      // Check if we actually hold this asset on Kraken and it's worth > $1
       const asset = symbol.split('/')[0]; // e.g. "0G/USD" → "0G"
       const balance = krakenBalances[asset] ?? 0;
       if (balance <= 0) continue; // Fully sold — no Active card
+      // Get USD value to filter out dust positions (< $1)
+      const assetTicker = tickers[symbol + '/USD'] || tickers[symbol];
+      const currentPrice = assetTicker?.last || buys[0]?.price || 0;
+      const balanceUsd = balance * currentPrice;
+      if (balanceUsd < MIN_BALANCE_USD) {
+        console.log(`[sync-kraken] SKIPPING dust position ${symbol}: ${balance} @ $${currentPrice} = $${balanceUsd.toFixed(4)} < $${MIN_BALANCE_USD}`);
+        continue; // Dust position — don't create card
+      }
       const startIdx = buyIndexes[symbol] || 0;
       const remainingBuys = buys.slice(startIdx);
       if (remainingBuys.length === 0) continue;
@@ -418,10 +427,44 @@ async function runSync(request: NextRequest, body: any) {
     updated++;
   }
 
+  // Build dedup index from ALL existing board trades (including Closed).
+  // If a Kraken order/trade ID already appears in any board card, skip re-creating it.
+  // This prevents ghost resurrection: Kraken history is permanent, board cards are not.
+  const existingKrakenTradeIds = new Set<string>();
+  const existingKrakenOrderIds = new Set<string>();
+  for (const bt of boardTrades) {
+    const meta = bt?.metadata || {};
+    // Collect individual IDs
+    if (meta.kraken_trade_id) existingKrakenTradeIds.add(String(meta.kraken_trade_id));
+    if (meta.kraken_order_id) existingKrakenOrderIds.add(String(meta.kraken_order_id));
+    // Collect array IDs (used by reset mode)
+    for (const id of meta.kraken_trade_ids || []) existingKrakenTradeIds.add(String(id));
+    for (const id of meta.kraken_order_ids || []) existingKrakenOrderIds.add(String(id));
+    // Also collect entry/exit order IDs
+    if (meta.kraken_entry_order_id) existingKrakenOrderIds.add(String(meta.kraken_entry_order_id));
+    if (meta.kraken_exit_order_id) existingKrakenOrderIds.add(String(meta.kraken_exit_order_id));
+  }
+
   let created = 0;
+  let skippedDups = 0;
   for (let i = 0; i < krakenIndex.length; i++) {
     if (matchedKrakenIndexes.has(i)) continue;
     const krakenTrade = krakenIndex[i].trade;
+
+    // DEDUPLICATION GUARD: skip if this Kraken trade/order already has a board card.
+    // Prevents ghost resurrection of historical trades (e.g. completed OM buy
+    // with 0.00048 dust balance that keeps re-appearing every 5-minute sync cycle).
+    const krakenTradeId = krakenTrade?.id ? String(krakenTrade.id) : null;
+    const krakenOrderId = krakenTrade?.order ? String(krakenTrade.order) : null;
+    if (krakenTradeId && existingKrakenTradeIds.has(krakenTradeId)) {
+      skippedDups++;
+      continue;
+    }
+    if (krakenOrderId && existingKrakenOrderIds.has(krakenOrderId)) {
+      skippedDups++;
+      continue;
+    }
+
     const price = Number(krakenTrade?.price ?? 0);
     const amount = Number(krakenTrade?.amount ?? 0);
     const positionSize = price && amount ? price * amount : null;
@@ -477,6 +520,7 @@ async function runSync(request: NextRequest, body: any) {
     deleted,
     updated,
     created,
+    skippedDups,
     openOrdersMatched: matchedOpenOrderIds.size,
     stats,
   });

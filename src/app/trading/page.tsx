@@ -887,28 +887,29 @@ export default function TradingDashboardPage() {
     const baseBalance = effectiveStartingBalance;
     if (baseBalance <= 0) return 0;
     
+    // Average cycle length: 4 days (middle of 3-5 day range)
+    const avgCycleDays = 4;
+    const numCycles = Math.floor(365 / avgCycleDays); // ~91 cycles per year
+    
     // If we have actual P&L data, use it for projection
     if (totalPnlPct !== 0 && days >= 1) {
       const dailyRate = totalPnlPct / days / 100;
-      const cycleReturn = dailyRate * 5; // 5 days per cycle
-      const numCycles = 73; // 73 cycles in 365 days
+      const cycleReturn = dailyRate * avgCycleDays;
       const projectedBalance = baseBalance * Math.pow(1 + cycleReturn, numCycles);
       return Math.max(0, projectedBalance - baseBalance);
     }
     
     // If we have harvest cycles but no current P&L, use historical average
     if (harvestCycles > 0) {
-      const avgCycleReturn = 0.03; // 3% per cycle conservative estimate
-      const numCycles = 73;
+      // Conservative 3% per cycle (lower end of 3-10% target)
+      const avgCycleReturn = 0.03;
       const projectedBalance = baseBalance * Math.pow(1 + avgCycleReturn, numCycles);
       return Math.max(0, projectedBalance - baseBalance);
     }
     
-    // Early days with no data yet - show conservative "what if" estimate
-    // This gives users something to aim for from Day 1
-    // Using 3% per cycle as a conservative baseline (target is 3-7% per cycle)
-    const baselineCycleReturn = 0.03; // 3% per cycle baseline
-    const numCycles = 73;
+    // Early days with no data yet - show baseline estimate
+    // Using 5% per cycle (middle of 3-10% target range)
+    const baselineCycleReturn = 0.05; // 5% per cycle baseline
     const projectedBalance = baseBalance * Math.pow(1 + baselineCycleReturn, numCycles);
     return Math.max(0, projectedBalance - baseBalance);
   }, [dayProgress, effectiveStartingBalance, totalPnlPct, harvestCycles]);

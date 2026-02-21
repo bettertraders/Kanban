@@ -1495,6 +1495,42 @@ export default function TradingDashboardPage() {
             </div>
           </div>
 
+          {/* Active Trades Section */}
+          {(() => {
+            const activeHoldings = portfolio?.activeHoldings ?? [];
+            if (activeHoldings.length === 0) return null;
+            return (
+              <div style={{ background: '#141428', borderRadius: '16px', padding: '20px', marginBottom: '20px' }}>
+                <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '14px', color: 'var(--text)' }}>Active Trades ({activeHoldings.length})</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {activeHoldings.map((trade, idx) => {
+                    const livePrice = trade.current_price || 0;
+                    const entry = trade.entry_price || 0;
+                    const pnl = entry > 0 && livePrice > 0 ? (livePrice - entry) / entry * trade.position_size : 0;
+                    const pnlPct = entry > 0 && livePrice > 0 ? ((livePrice - entry) / entry) * 100 : 0;
+                    const isProfit = pnl >= 0;
+                    const coinDisplay = getCoinDisplay((trade.coin_pair || '').replace(/\/?(USDT?)$/i, ''));
+                    return (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#1a1a3e', borderRadius: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: coinDisplay.iconBg, color: coinDisplay.iconColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700 }}>{coinDisplay.icon}</div>
+                          <div>
+                            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>{coinDisplay.name} <span style={{ fontSize: '11px', color: '#888', marginLeft: '4px' }}>${(trade.position_size || 0).toFixed(0)}</span></div>
+                            <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>Entry: ${entry.toFixed(2)} · Current: ${livePrice.toFixed(2)}</div>
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '16px', fontWeight: 700, color: isProfit ? '#00e676' : '#ff5252' }}>{isProfit ? '+' : ''}{formatCurrency(pnl)}</div>
+                          <div style={{ fontSize: '12px', color: isProfit ? '#00e676' : '#ff5252' }}>{isProfit ? '+' : ''}{pnlPct.toFixed(2)}%</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Two-column: Holdings + How It Works */}
           <div className="simple-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
             {/* What You Own — Pie + Legend */}

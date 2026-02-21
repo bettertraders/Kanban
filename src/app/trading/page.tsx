@@ -913,7 +913,7 @@ export default function TradingDashboardPage() {
     return Math.max(0, projectedBalance - baseBalance);
   }, [dayProgress, effectiveStartingBalance, totalPnlPct, harvestCycles]);
 
-  const canEstimateYearGain = (dayProgress?.day ?? 0) >= 1 && effectiveStartingBalance > 0;
+  const canEstimateYearGain = effectiveStartingBalance > 0;
 
   const setupReady = riskLevel !== null && tradingAmount !== null;
   const allConfigured = setupReady && tboEnabled && engineOn;

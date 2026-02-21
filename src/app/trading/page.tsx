@@ -884,23 +884,24 @@ export default function TradingDashboardPage() {
 
   const estimatedYearGain = useMemo(() => {
     const days = Math.max(1, dayProgress?.day ?? 1); // At minimum day 1
-    if (startingBalance <= 0) return 0;
+    const baseBalance = effectiveStartingBalance;
+    if (baseBalance <= 0) return 0;
     
     // If we have actual P&L data, use it for projection
     if (totalPnlPct !== 0 && days >= 1) {
       const dailyRate = totalPnlPct / days / 100;
       const cycleReturn = dailyRate * 5; // 5 days per cycle
       const numCycles = 73; // 73 cycles in 365 days
-      const projectedBalance = startingBalance * Math.pow(1 + cycleReturn, numCycles);
-      return Math.max(0, projectedBalance - startingBalance);
+      const projectedBalance = baseBalance * Math.pow(1 + cycleReturn, numCycles);
+      return Math.max(0, projectedBalance - baseBalance);
     }
     
     // If we have harvest cycles but no current P&L, use historical average
     if (harvestCycles > 0) {
       const avgCycleReturn = 0.03; // 3% per cycle conservative estimate
       const numCycles = 73;
-      const projectedBalance = startingBalance * Math.pow(1 + avgCycleReturn, numCycles);
-      return Math.max(0, projectedBalance - startingBalance);
+      const projectedBalance = baseBalance * Math.pow(1 + avgCycleReturn, numCycles);
+      return Math.max(0, projectedBalance - baseBalance);
     }
     
     // Early days with no data yet - show conservative "what if" estimate
@@ -908,11 +909,11 @@ export default function TradingDashboardPage() {
     // Using 0.5% per cycle as a conservative baseline (can be adjusted as data comes in)
     const baselineCycleReturn = 0.005; // 0.5% per cycle baseline
     const numCycles = 73;
-    const projectedBalance = startingBalance * Math.pow(1 + baselineCycleReturn, numCycles);
-    return Math.max(0, projectedBalance - startingBalance);
-  }, [dayProgress, startingBalance, totalPnlPct, harvestCycles]);
+    const projectedBalance = baseBalance * Math.pow(1 + baselineCycleReturn, numCycles);
+    return Math.max(0, projectedBalance - baseBalance);
+  }, [dayProgress, effectiveStartingBalance, totalPnlPct, harvestCycles]);
 
-  const canEstimateYearGain = (dayProgress?.day ?? 0) >= 1 && startingBalance > 0;
+  const canEstimateYearGain = (dayProgress?.day ?? 0) >= 1 && effectiveStartingBalance > 0;
 
   const setupReady = riskLevel !== null && tradingAmount !== null;
   const allConfigured = setupReady && tboEnabled && engineOn;
@@ -1418,7 +1419,7 @@ export default function TradingDashboardPage() {
             <div style={{ background: 'linear-gradient(135deg, #1e1e4a 0%, #161632 100%)', borderRadius: '14px', padding: '20px 24px', border: '1px solid #2a2a5e' }}>
               <div style={{ fontSize: '12px', color: '#888', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Starting Balance</div>
               <div style={{ fontSize: '28px', fontWeight: 800, color: '#7b7dff' }}>
-                {formatCurrency(startingBalance > 0 ? startingBalance : (isSetupPhase ? (tradingAmount || 0) : 0))}
+                {formatCurrency(effectiveStartingBalance)}
               </div>
             </div>
           </div>

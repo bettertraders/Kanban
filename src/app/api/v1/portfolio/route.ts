@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/api-auth';
 import { getPortfolioStats, getHarvestState } from '@/lib/database';
+import fs from 'fs';
+import path from 'path';
+
+const HARVEST_STATE_FILE = path.join(process.env.HOME || '', 'Projects/tbt-platform/compounding/.harvest-state.json');
+
+function getCompoundingBase(): number | null {
+  try {
+    const data = JSON.parse(fs.readFileSync(HARVEST_STATE_FILE, 'utf8'));
+    return data?.stats?.compoundingBase || data?.stats?.currentBalance || null;
+  } catch {
+    return null;
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,7 +23,11 @@ export async function GET(request: NextRequest) {
     const stats = await getPortfolioStats(user.id);
 
     const summary = { ...stats.summary };
-    const startingBalance = Number(summary.starting_balance || 0);
+    
+    // Use compounding base from harvest state if available (for Cycle 1+), otherwise fall back to DB starting_balance
+    const compoundingBase = getCompoundingBase();
+    const startingBalance = compoundingBase ?? Number(summary.starting_balance || 0);
+    
     const unrealizedPnl = Number(summary.total_unrealized_pnl || 0);
 
     // Only count realized P&L from trades closed AFTER the current cycle started
@@ -30,6 +47,7 @@ export async function GET(request: NextRequest) {
       summary: {
         ...summary,
         live_balance: liveBalance,
+        starting_balance: startingBalance, // Override with compounding base
         cycle_number: harvestState.cycleNumber,
         cycle_regime: harvestState.cycleRegime,
         cycle_target: harvestState.cycleTarget,

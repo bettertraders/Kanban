@@ -728,7 +728,7 @@ export default function TradingDashboardPage() {
   // Post-start (trading): everything reads from DB. tradingAmount is irrelevant.
   const isSetupPhase = !timeframeStartDate;
   const dbStartingBalance = Number(portfolio?.summary?.starting_balance ?? 0);
-  const dbCashBalance = Number(portfolio?.summary?.paper_balance ?? 0);
+  const dbCashBalance = Number(portfolio?.summary?.live_balance ?? 0);
   const deployed = Number(portfolio?.summary?.total_portfolio_value ?? 0);
   const realizedPnl = Number(portfolio?.summary?.total_realized_pnl ?? 0);
   const serverUnrealized = Number(portfolio?.summary?.total_unrealized_pnl ?? 0);

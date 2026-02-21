@@ -10,6 +10,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/login') ||
     pathname.startsWith('/signin') ||
     pathname.startsWith('/signup') ||
+    pathname.startsWith('/mobile-mockups') || // Public mockup showcase
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/setup') ||
     pathname.startsWith('/api/v1') || // API routes handle their own auth

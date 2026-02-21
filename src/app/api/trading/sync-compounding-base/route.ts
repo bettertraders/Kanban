@@ -65,6 +65,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const boardId = searchParams.get('boardId') || '15';
 
+    // Ensure initial_balance column exists before querying
+    await pool.query(`
+      ALTER TABLE paper_accounts 
+      ADD COLUMN IF NOT EXISTS initial_balance DECIMAL(20,2)
+    `).catch(() => {});
+
     const [paperRes, harvestRes] = await Promise.all([
       pool.query(
         'SELECT starting_balance, current_balance, initial_balance FROM paper_accounts WHERE board_id = $1',

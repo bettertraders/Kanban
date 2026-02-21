@@ -903,10 +903,10 @@ export default function TradingBoardPage() {
     const sourceCol = trade.column_name;
 
     const enterTrade = async () => {
-      const amount = getTradeAmount(trade);
+      let amount = getTradeAmount(trade);
       if (!amount) {
-        pushToast('Set a position size before entering', 'error');
-        return;
+        // Default to $20 if no position size set
+        amount = 20;
       }
       const direction = String(trade.direction || 'long').toLowerCase();
       if (direction === 'short') {

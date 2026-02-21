@@ -1425,7 +1425,7 @@ export default function TradingDashboardPage() {
           </div>
 
           {/* Two-column: Balance + Penny */}
-          <div className="simple-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}
+          <div className="simple-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
             {/* Money Card */}
             <div style={{ background: 'linear-gradient(135deg, #1a1a3e 0%, #141428 100%)', borderRadius: '16px', padding: '28px 24px', position: 'relative', overflow: 'hidden' }}>
               <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>Your Balance</div>

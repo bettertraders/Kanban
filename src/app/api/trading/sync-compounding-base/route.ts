@@ -3,11 +3,11 @@ import { pool } from '@/lib/database';
 
 // POST /api/trading/sync-compounding-base
 // Syncs the compounding base from local harvest state to Railway database
-// Body: { boardId: number, compoundingBase: number }
+// Body: { boardId: number, compoundingBase: number, initialBalance?: number }
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { boardId, compoundingBase } = body;
+    const { boardId, compoundingBase, initialBalance } = body;
 
     if (!boardId || typeof compoundingBase !== 'number') {
       return NextResponse.json(
@@ -16,12 +16,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Ensure initial_balance column exists
+    await pool.query(`
+      ALTER TABLE paper_accounts 
+      ADD COLUMN IF NOT EXISTS initial_balance DECIMAL(20,2)
+    `).catch(() => {});
+
     // Update paper_accounts starting_balance to compounding base
+    // initial_balance stays at original $100 (or provided value)
     await pool.query(
       `UPDATE paper_accounts 
-       SET starting_balance = $1, current_balance = $1, updated_at = NOW()
+       SET starting_balance = $1, 
+           current_balance = $1, 
+           initial_balance = COALESCE(initial_balance, $3, 100),
+           updated_at = NOW()
        WHERE board_id = $2`,
-      [compoundingBase, boardId]
+      [compoundingBase, boardId, initialBalance || null]
     );
 
     // Also store in harvest_state for reference
@@ -36,6 +46,7 @@ export async function POST(request: NextRequest) {
       success: true,
       boardId,
       compoundingBase,
+      initialBalance: initialBalance || 100,
       message: 'Compounding base synced to database'
     });
   } catch (error) {
@@ -56,7 +67,7 @@ export async function GET(request: NextRequest) {
 
     const [paperRes, harvestRes] = await Promise.all([
       pool.query(
-        'SELECT starting_balance, current_balance FROM paper_accounts WHERE board_id = $1',
+        'SELECT starting_balance, current_balance, initial_balance FROM paper_accounts WHERE board_id = $1',
         [boardId]
       ),
       pool.query('SELECT cycle_number, cycle_active FROM harvest_state WHERE id = 1')

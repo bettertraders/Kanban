@@ -260,6 +260,27 @@ function toNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function parseTradeSettings(trade: Trade): Record<string, unknown> {
+  if (!trade.trade_settings) return {};
+  if (typeof trade.trade_settings === 'string') {
+    try {
+      return JSON.parse(trade.trade_settings);
+    } catch {
+      return {};
+    }
+  }
+  return trade.trade_settings;
+}
+
+function getTradeAmount(trade: Trade): number | null {
+  const direct = toNumber(trade.position_size);
+  if (direct !== null && direct > 0) return direct;
+  const settings = parseTradeSettings(trade);
+  const fromSettings = toNumber(settings.position_size ?? settings.positionSize ?? settings.amount);
+  if (fromSettings !== null && fromSettings > 0) return fromSettings;
+  return null;
+}
+
 function computePnl(trade: Trade, livePrice?: number | null) {
   const entry = toNumber(trade.entry_price);
   const current = toNumber(livePrice ?? trade.current_price ?? trade.exit_price);
@@ -346,6 +367,9 @@ export default function TradingBoardPage() {
   const [tradesLoading, setTradesLoading] = useState(true);
   const [dragTradeId, setDragTradeId] = useState<number | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const [movingTradeId, setMovingTradeId] = useState<number | null>(null);
+  const [movingTarget, setMovingTarget] = useState<string | null>(null);
+  const [movingAction, setMovingAction] = useState<string | null>(null);
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [priceMap, setPriceMap] = useState<Record<string, { price: number; volume24h: number; change24h: number; high24h?: number; low24h?: number }>>({});
   const [priceFlashMap, setPriceFlashMap] = useState<Record<string, { direction: 'up' | 'down'; token: number }>>({});
@@ -856,6 +880,7 @@ export default function TradingBoardPage() {
   }, [trades]);
 
   const handleDragStart = (tradeId: number) => {
+    if (movingTradeId !== null) return;
     setDragTradeId(tradeId);
   };
 
@@ -870,9 +895,130 @@ export default function TradingBoardPage() {
     e.preventDefault();
     setDragOverCol(null);
     if (dragTradeId === null) return;
+    if (movingTradeId !== null) { setDragTradeId(null); return; }
 
     const trade = trades.find(t => t.id === dragTradeId);
     if (!trade || trade.column_name === col) return;
+
+    const sourceCol = trade.column_name;
+
+    const enterTrade = async () => {
+      const amount = getTradeAmount(trade);
+      if (!amount) {
+        pushToast('Set a position size before entering', 'error');
+        return;
+      }
+      const direction = String(trade.direction || 'long').toLowerCase();
+      if (direction === 'short') {
+        pushToast('Kraken only supports LONG entries', 'error');
+        return;
+      }
+      setMovingTradeId(trade.id);
+      setMovingTarget(col);
+      setMovingAction('Entering trade…');
+      try {
+        const res = await fetch('/api/trading/trade/enter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            boardId: Number(boardId),
+            symbol: trade.coin_pair,
+            side: 'buy',
+            amount,
+            trade_id: trade.id,
+          }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data?.error || 'Failed to enter trade');
+        }
+        const data = await res.json();
+        const updatedTrade = data.trade;
+        if (updatedTrade) {
+          setTrades(prev => prev.map(t => t.id === updatedTrade.id ? updatedTrade : t));
+        } else {
+          await fetch(`/api/trading/trades`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ trade_id: trade.id, column_name: 'Active', status: 'active' }),
+          });
+          fetchTrades();
+        }
+        pushToast(`${normalizePair(trade.coin_pair)} entered`, 'success');
+      } catch (error) {
+        pushToast(error instanceof Error ? error.message : 'Failed to enter trade', 'error');
+      } finally {
+        setMovingTradeId(null);
+        setMovingTarget(null);
+        setMovingAction(null);
+      }
+    };
+
+    const exitTrade = async (targetColumn: 'Inactive' | 'Closed') => {
+      setMovingTradeId(trade.id);
+      setMovingTarget(targetColumn);
+      setMovingAction(targetColumn === 'Closed' ? 'Closing trade…' : 'Exiting trade…');
+      try {
+        const res = await fetch('/api/trading/trade/exit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ trade_id: trade.id }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data?.error || 'Failed to exit trade');
+        }
+        const data = await res.json();
+        const updatedTrade = data.trade;
+        if (targetColumn === 'Inactive') {
+          await fetch(`/api/trading/trades`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ trade_id: trade.id, column_name: 'Inactive' }),
+          });
+          if (updatedTrade) {
+            setTrades(prev => prev.map(t => t.id === trade.id ? { ...updatedTrade, column_name: 'Inactive' } : t));
+          } else {
+            fetchTrades();
+          }
+        } else if (updatedTrade) {
+          setTrades(prev => prev.map(t => t.id === updatedTrade.id ? updatedTrade : t));
+        } else {
+          fetchTrades();
+        }
+        pushToast(`${normalizePair(trade.coin_pair)} exited`, 'success');
+      } catch (error) {
+        pushToast(error instanceof Error ? error.message : 'Failed to exit trade', 'error');
+      } finally {
+        setMovingTradeId(null);
+        setMovingTarget(null);
+        setMovingAction(null);
+      }
+    };
+
+    if (sourceCol === 'Queued' && col === 'Active') {
+      await enterTrade();
+      setDragTradeId(null);
+      return;
+    }
+
+    if (sourceCol === 'Inactive' && col === 'Active') {
+      await enterTrade();
+      setDragTradeId(null);
+      return;
+    }
+
+    if (sourceCol === 'Active' && col === 'Inactive') {
+      await exitTrade('Inactive');
+      setDragTradeId(null);
+      return;
+    }
+
+    if (sourceCol === 'Active' && col === 'Closed') {
+      await exitTrade('Closed');
+      setDragTradeId(null);
+      return;
+    }
 
     if (col === 'Closed') {
       // If trade already has exit_price and pnl (e.g. from Parked), skip the exit prompt
@@ -1535,10 +1681,11 @@ export default function TradingBoardPage() {
                   const pair = normalizePair(trade.coin_pair);
                   const live = priceMap[pair];
                   const signal = signalBadge(trade.tbo_signal);
+                  const isMoving = movingTradeId === trade.id;
                   return (
                     <div
                       key={trade.id}
-                      draggable
+                      draggable={!isMoving && movingTradeId === null}
                       onDragStart={() => handleDragStart(trade.id)}
                       onClick={() => setChartPair(toApiPair(pair))}
                       style={{
@@ -1546,9 +1693,10 @@ export default function TradingBoardPage() {
                         borderRadius: '12px',
                         background: 'rgba(20, 20, 40, 0.6)',
                         border: '1px solid rgba(255,255,255,0.08)',
-                        cursor: 'pointer',
+                        cursor: isMoving ? 'progress' : 'pointer',
                         marginBottom: '8px',
                         transition: 'border-color 0.2s',
+                        opacity: isMoving ? 0.6 : 1,
                       }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
@@ -1573,6 +1721,11 @@ export default function TradingBoardPage() {
                         <span style={{ padding: '1px 6px', borderRadius: '999px', background: signal.bg, color: signal.color, fontSize: '10px', fontWeight: 600 }}>
                           {signal.label}
                         </span>
+                        {isMoving && (
+                          <span style={{ marginLeft: 'auto', fontSize: '10px', color: 'var(--muted)' }}>
+                            {(movingAction || 'Executing…')}{movingTarget ? ` → ${movingTarget}` : ''}
+                          </span>
+                        )}
                       </div>
                     </div>
                   );
@@ -1671,11 +1824,12 @@ export default function TradingBoardPage() {
                       const confidenceTone = confidenceColor(confidence);
                       const sentiment = deriveSentiment(trade);
                       const isExpanded = expandedCards[trade.id] ?? false;
+                      const isMoving = movingTradeId === trade.id;
 
                       return (
                         <article
                           key={trade.id}
-                          draggable
+                          draggable={!isMoving && movingTradeId === null}
                           onDragStart={() => handleDragStart(trade.id)}
                           onContextMenu={(event) => {
                             event.preventDefault();
@@ -1688,13 +1842,19 @@ export default function TradingBoardPage() {
                             borderLeft: col.name === 'Closed' ? `3px solid ${(toNumber(trade.pnl_dollar) ?? 0) >= 0 ? '#4ade80' : '#f05b6f'}` : undefined,
                             borderRadius: '14px',
                             padding: '8px 10px',
-                            cursor: 'pointer',
+                            cursor: isMoving ? 'progress' : 'pointer',
                             boxShadow: '0 10px 20px rgba(0,0,0,0.18)',
                             transition: 'transform 0.2s ease, border-color 0.2s ease',
+                            opacity: isMoving ? 0.6 : 1,
                           }}
                           onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = col.color; }}
                           onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
                         >
+                          {isMoving && (
+                            <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                              {(movingAction || 'Working…')}{movingTarget ? ` → ${movingTarget}` : ''}
+                            </div>
+                          )}
                           {/* Row 1: Pair + Sentiment badge + actions */}
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', gap: '4px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>

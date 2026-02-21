@@ -61,6 +61,12 @@ export async function POST(request: NextRequest) {
     const byCoin = portfolio.byCoin || [];
     const byDirection = portfolio.byDirection || [];
     
+    // Compute live_balance: starting_balance + realized P&L + unrealized P&L
+    const startingBalance = Number(summary.starting_balance || 0);
+    const realizedPnl = Number(summary.total_realized_pnl || 0);
+    const unrealizedPnl = Number(summary.total_unrealized_pnl || 0);
+    const liveBalance = Math.round((startingBalance + realizedPnl + unrealizedPnl) * 100) / 100;
+    
     // Find best and worst performers
     const sortedByCoin = [...byCoin].sort((a, b) => b.total_pnl - a.total_pnl);
     const bestPerformer = sortedByCoin[0];
@@ -82,9 +88,9 @@ IMPORTANT RULES:
 - Don't make up data - only use what's provided below
 
 === PORTFOLIO SUMMARY ===
-Starting Balance: $${summary.starting_balance?.toFixed(2) || '0.00'}
-Current Balance: $${summary.live_balance?.toFixed(2) || '0.00'}
-Total P&L: $${((summary.live_balance || 0) - (summary.starting_balance || 0)).toFixed(2)} (${summary.starting_balance ? (((summary.live_balance || 0) - summary.starting_balance) / summary.starting_balance * 100).toFixed(1) : '0'}%)
+Starting Balance: $${startingBalance.toFixed(2)}
+Current Balance: $${liveBalance.toFixed(2)}
+Total P&L: $${(liveBalance - startingBalance).toFixed(2)} (${startingBalance ? ((liveBalance - startingBalance) / startingBalance * 100).toFixed(1) : '0'}%)
 Realized P&L: $${summary.total_realized_pnl?.toFixed(2) || '0.00'}
 Unrealized P&L: $${summary.total_unrealized_pnl?.toFixed(2) || '0.00'}
 Win Rate: ${summary.win_rate?.toFixed(1) || '0'}%

@@ -883,7 +883,6 @@ export default function TradingDashboardPage() {
   }, [timeframe, timeframeStartDate]);
 
   const estimatedYearGain = useMemo(() => {
-    const days = Math.max(1, dayProgress?.day ?? 1); // At minimum day 1
     const baseBalance = effectiveStartingBalance;
     if (baseBalance <= 0) return 0;
     
@@ -891,28 +890,20 @@ export default function TradingDashboardPage() {
     const avgCycleDays = 4;
     const numCycles = Math.floor(365 / avgCycleDays); // ~91 cycles per year
     
-    // If we have actual P&L data, use it for projection
-    if (totalPnlPct !== 0 && days >= 1) {
-      const dailyRate = totalPnlPct / days / 100;
-      const cycleReturn = dailyRate * avgCycleDays;
-      const projectedBalance = baseBalance * Math.pow(1 + cycleReturn, numCycles);
-      return Math.max(0, projectedBalance - baseBalance);
-    }
+    // Clamp the cycle return to reasonable bounds (3-10% per cycle)
+    // Using 5% as baseline (middle of target range)
+    const baselineCycleReturn = 0.05;
     
-    // If we have harvest cycles but no current P&L, use historical average
-    if (harvestCycles > 0) {
-      // Conservative 3% per cycle (lower end of 3-10% target)
-      const avgCycleReturn = 0.03;
-      const projectedBalance = baseBalance * Math.pow(1 + avgCycleReturn, numCycles);
-      return Math.max(0, projectedBalance - baseBalance);
-    }
+    // Cap the projected balance to prevent insane numbers
+    // Max 10x return (1000%) as upper bound
+    const maxMultiplier = 10;
+    const projectedBalance = Math.min(
+      baseBalance * Math.pow(1 + baselineCycleReturn, numCycles),
+      baseBalance * maxMultiplier
+    );
     
-    // Early days with no data yet - show baseline estimate
-    // Using 5% per cycle (middle of 3-10% target range)
-    const baselineCycleReturn = 0.05; // 5% per cycle baseline
-    const projectedBalance = baseBalance * Math.pow(1 + baselineCycleReturn, numCycles);
     return Math.max(0, projectedBalance - baseBalance);
-  }, [dayProgress, effectiveStartingBalance, totalPnlPct, harvestCycles]);
+  }, [effectiveStartingBalance]);
 
   const canEstimateYearGain = effectiveStartingBalance > 0;
 

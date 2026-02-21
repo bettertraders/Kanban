@@ -1404,8 +1404,24 @@ export default function TradingDashboardPage() {
             </button>
           </div>
 
+          {/* Challenge Info Row: Day + Starting Balance */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+            <div style={{ background: 'linear-gradient(135deg, #1e1e4a 0%, #161632 100%)', borderRadius: '14px', padding: '20px 24px', border: '1px solid #2a2a5e' }}>
+              <div style={{ fontSize: '12px', color: '#888', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>12 Month Challenge</div>
+              <div style={{ fontSize: '28px', fontWeight: 800, color: '#fff' }}>
+                Day {dayProgress?.day ?? 1}{dayProgress?.total ? <span style={{ fontSize: '16px', fontWeight: 500, color: '#666' }}> of {dayProgress.total}</span> : null}
+              </div>
+            </div>
+            <div style={{ background: 'linear-gradient(135deg, #1e1e4a 0%, #161632 100%)', borderRadius: '14px', padding: '20px 24px', border: '1px solid #2a2a5e' }}>
+              <div style={{ fontSize: '12px', color: '#888', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Starting Balance</div>
+              <div style={{ fontSize: '28px', fontWeight: 800, color: '#7b7dff' }}>
+                {formatCurrency(startingBalance > 0 ? startingBalance : (isSetupPhase ? (tradingAmount || 0) : 0))}
+              </div>
+            </div>
+          </div>
+
           {/* Two-column: Balance + Penny */}
-          <div className="simple-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+          <div className="simple-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}
             {/* Money Card */}
             <div style={{ background: 'linear-gradient(135deg, #1a1a3e 0%, #141428 100%)', borderRadius: '16px', padding: '28px 24px', position: 'relative', overflow: 'hidden' }}>
               <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>Your Balance</div>

@@ -906,8 +906,8 @@ export default function TradingDashboardPage() {
     
     // Early days with no data yet - show conservative "what if" estimate
     // This gives users something to aim for from Day 1
-    // Using 0.5% per cycle as a conservative baseline (can be adjusted as data comes in)
-    const baselineCycleReturn = 0.005; // 0.5% per cycle baseline
+    // Using 3% per cycle as a conservative baseline (target is 3-7% per cycle)
+    const baselineCycleReturn = 0.03; // 3% per cycle baseline
     const numCycles = 73;
     const projectedBalance = baseBalance * Math.pow(1 + baselineCycleReturn, numCycles);
     return Math.max(0, projectedBalance - baseBalance);

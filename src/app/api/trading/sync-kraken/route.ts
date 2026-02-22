@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/api-auth';
 import { getBoard, getTradesForBoard, updateTrade, deleteTrade, getBoardTradingStats, createTrade } from '@/lib/database';
-import { fetchKrakenBalances, fetchKrakenOpenOrders, fetchKrakenTrades } from '@/lib/kraken-sync';
+import { fetchKrakenBalances, fetchKrakenOpenOrders, fetchKrakenTickers, fetchKrakenTrades } from '@/lib/kraken-sync';
 
 export const dynamic = 'force-dynamic';
 
@@ -203,8 +203,11 @@ async function runSync(request: NextRequest, body: any) {
       created++;
     }
     
-    // Step 5: Fetch Kraken balances to filter out fully-sold positions
-    const krakenBalances = await fetchKrakenBalances();
+    // Step 5: Fetch Kraken balances + tickers to filter out fully-sold positions
+    const [krakenBalances, tickers] = await Promise.all([
+      fetchKrakenBalances(),
+      fetchKrakenTickers(),
+    ]);
     
     // Step 6: Create ONE card per symbol for unmatched BUYS (Active positions)
     // Only if Kraken balance > MIN_BALANCE_USD ($1 to avoid dust positions)

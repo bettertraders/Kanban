@@ -24,10 +24,11 @@ export async function getKrakenBalance(boardId?: number): Promise<number | null>
     const balance = await exchange.fetchBalance();
     const tickers = await exchange.fetchTickers();
 
-    let totalUSD = balance.total?.USD || 0;
+    const totals = (balance.total || {}) as unknown as Record<string, number>;
+    let totalUSD = totals['USD'] || 0;
 
     // Calculate USD value of each crypto position
-    for (const [asset, amount] of Object.entries(balance.total || {})) {
+    for (const [asset, amount] of Object.entries(totals)) {
       if (asset === "USD" || amount <= 0) continue;
 
       const symbol = `${asset}/USD`;
@@ -39,8 +40,8 @@ export async function getKrakenBalance(boardId?: number): Promise<number | null>
     }
 
     return Math.round(totalUSD * 100) / 100;
-  } catch (error) {
-    console.error("[Kraken] Error fetching balance:", error.message);
+  } catch (error: unknown) {
+    console.error("[Kraken] Error fetching balance:", (error as Error).message);
     return null;
   }
 }
@@ -64,7 +65,8 @@ export async function getKrakenPositions(): Promise<any[]> {
     const tickers = await exchange.fetchTickers();
     const positions = [];
 
-    for (const [asset, amount] of Object.entries(balance.total || {})) {
+    const totals2 = (balance.total || {}) as unknown as Record<string, number>;
+    for (const [asset, amount] of Object.entries(totals2)) {
       if (asset === "USD" || amount <= 0) continue;
 
       const symbol = `${asset}/USD`;
@@ -81,8 +83,8 @@ export async function getKrakenPositions(): Promise<any[]> {
     }
 
     return positions;
-  } catch (error) {
-    console.error("[Kraken] Error fetching positions:", error.message);
+  } catch (error: unknown) {
+    console.error("[Kraken] Error fetching positions:", (error as Error).message);
     return [];
   }
 }

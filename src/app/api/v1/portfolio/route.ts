@@ -25,15 +25,15 @@ export async function GET(request: NextRequest) {
     
     const unrealizedPnl = Number(summary.total_unrealized_pnl || 0);
 
-    // Cycle P&L: only trades closed AFTER cycle start (for display/slider)
-    // But do NOT add total_realized_pnl to starting_balance — it's already baked in
-    // starting_balance comes from Kraken balance (or compounding reset) which includes past gains
-    const cyclePnl = Number(summary.cycle_realized_pnl ?? 0);
     const totalPnl = Number(summary.total_realized_pnl ?? 0);
     
-    // live_balance = starting_balance + ONLY this cycle's realized P&L + unrealized
-    // Previous cycles' P&L is already in starting_balance
-    const liveBalance = Math.round((startingBalance + cyclePnl + unrealizedPnl) * 100) / 100;
+    // starting_balance is set from Kraken balance — it ALREADY includes historical P&L
+    // Trades on the board from before this cycle are "history" — their P&L is baked in
+    // Only unrealized P&L from open positions should adjust the live balance
+    // When bill closes a NEW trade (this cycle), it updates current_balance via account API
+    // For now: live_balance = starting_balance + unrealized only
+    // TODO: bill should PATCH /api/trading/account with Kraken balance after every trade
+    const liveBalance = Math.round((startingBalance + unrealizedPnl) * 100) / 100;
 
     // Get harvest/cycle state for UI
     let harvestState = { cycleNumber: 0, cycleRegime: 'NONE', cycleTarget: 8, cycleGain: 0, cycleActive: false };

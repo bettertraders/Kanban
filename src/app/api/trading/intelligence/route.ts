@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   ensureTradingTables,
+  getLatestScannerSnapshot,
   getQueueCoinScores,
   getRecentStrategyAdjustments,
   getStrategyStates,
@@ -161,6 +162,23 @@ export async function GET(request: NextRequest) {
 
     let account = initialAccount;
     let scores: any[] = initialScores;
+
+    // Try to get fresh scanner data first
+    try {
+      const scannerSnapshot = await getLatestScannerSnapshot(userId, 2); // Max 2 hours old
+      if (scannerSnapshot?.watchlist?.length > 0) {
+        scores = scannerSnapshot.watchlist.slice(0, 5).map((coin: any, index: number) => ({
+          symbol: coin.symbol?.replace('/USDT', '') || coin.symbol,
+          score: toNumber(coin.score),
+          rsi: toNumber(coin.rsi),
+          price: toNumber(coin.price),
+          change24h: toNumber(coin.change24h || coin.momentum),
+          rank: index + 1,
+        }));
+      }
+    } catch (error) {
+      console.warn('[trading/intelligence] Failed to load scanner snapshot:', error);
+    }
 
     if (!account) {
       try {

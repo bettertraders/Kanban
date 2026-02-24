@@ -326,3 +326,62 @@ export async function getRecentStrategyAdjustments(userId: number, limit = 3): P
   );
   return result.rows as StrategyAdjustment[];
 }
+
+// Scanner snapshot storage
+export type ScannerSnapshot = {
+  id: number;
+  user_id: number;
+  watchlist: any[];
+  total_scanned: number;
+  timestamp: number;
+  created_at: Date;
+};
+
+export async function ensureScannerTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS scanner_snapshots (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) UNIQUE,
+      watchlist JSONB DEFAULT '[]',
+      total_scanned INTEGER DEFAULT 0,
+      timestamp BIGINT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+    
+    CREATE INDEX IF NOT EXISTS scanner_snapshots_user_timestamp_idx 
+      ON scanner_snapshots(user_id, timestamp DESC);
+  `);
+}
+
+export async function saveScannerSnapshot(
+  userId: number,
+  watchlist: any[],
+  totalScanned: number,
+  timestamp: number
+): Promise<void> {
+  await ensureScannerTables();
+  await pool.query(
+    `INSERT INTO scanner_snapshots (user_id, watchlist, total_scanned, timestamp)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (user_id) DO UPDATE SET
+       watchlist = EXCLUDED.watchlist,
+       total_scanned = EXCLUDED.total_scanned,
+       timestamp = EXCLUDED.timestamp,
+       created_at = NOW()`,
+    [userId, JSON.stringify(watchlist), totalScanned, timestamp]
+  );
+}
+
+export async function getLatestScannerSnapshot(userId: number, maxAgeHours = 2): Promise<ScannerSnapshot | null> {
+  await ensureScannerTables();
+  const result = await pool.query(
+    `SELECT id, user_id, watchlist, total_scanned, timestamp, created_at
+     FROM scanner_snapshots
+     WHERE user_id = $1
+       AND created_at > NOW() - INTERVAL '${maxAgeHours} hours'
+     ORDER BY timestamp DESC
+     LIMIT 1`,
+    [userId]
+  );
+  return result.rows[0] || null;
+}

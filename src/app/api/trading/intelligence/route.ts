@@ -166,7 +166,7 @@ export async function GET(request: NextRequest) {
     // Try to get fresh scanner data first
     try {
       const scannerSnapshot = await getLatestScannerSnapshot(userId, 2); // Max 2 hours old
-      if (scannerSnapshot?.watchlist?.length > 0) {
+      if (scannerSnapshot?.watchlist && scannerSnapshot.watchlist.length > 0) {
         scores = scannerSnapshot.watchlist.slice(0, 5).map((coin: any, index: number) => ({
           symbol: coin.symbol?.replace('/USDT', '') || coin.symbol,
           score: toNumber(coin.score),

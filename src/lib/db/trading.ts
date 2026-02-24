@@ -347,9 +347,7 @@ export async function ensureScannerTables() {
       timestamp BIGINT,
       created_at TIMESTAMP DEFAULT NOW()
     );
-    
-    CREATE INDEX IF NOT EXISTS scanner_snapshots_user_timestamp_idx 
-      ON scanner_snapshots(user_id, timestamp DESC);
+    -- No additional index needed: UNIQUE constraint on user_id already indexes it
   `);
 }
 
@@ -378,10 +376,10 @@ export async function getLatestScannerSnapshot(userId: number, maxAgeHours = 2):
     `SELECT id, user_id, watchlist, total_scanned, timestamp, created_at
      FROM scanner_snapshots
      WHERE user_id = $1
-       AND created_at > NOW() - INTERVAL '${maxAgeHours} hours'
+       AND created_at > NOW() - make_interval(hours => $2)
      ORDER BY timestamp DESC
      LIMIT 1`,
-    [userId]
+    [userId, maxAgeHours]
   );
   return result.rows[0] || null;
 }

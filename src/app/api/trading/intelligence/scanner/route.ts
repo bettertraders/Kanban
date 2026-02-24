@@ -10,15 +10,22 @@ export async function POST(request: NextRequest) {
     
     // Simple auth check - compare against KANBAN_API_KEY
     const expectedKey = process.env.KANBAN_API_KEY;
-    if (expectedKey && apiKey !== expectedKey) {
+    if (!expectedKey || apiKey !== expectedKey) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    const { userId = 1, watchlist, totalScanned, timestamp } = body;
+    const { watchlist, totalScanned, timestamp } = body;
+
+    // Hardcoded userId - this endpoint only supports user 1
+    const userId = 1;
 
     if (!Array.isArray(watchlist)) {
       return NextResponse.json({ error: 'watchlist must be an array' }, { status: 400 });
+    }
+
+    if (watchlist.length > 500) {
+      return NextResponse.json({ error: 'watchlist too large (max 500)' }, { status: 400 });
     }
 
     await saveScannerSnapshot(

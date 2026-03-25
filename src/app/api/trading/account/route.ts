@@ -43,16 +43,16 @@ async function getKrakenBalance(): Promise<number | null> {
 
       try {
         const tickerUsd = await exchange.fetchTicker(`${asset}/USD`);
-        if (Number.isFinite(tickerUsd.last)) {
-          priceUsd = tickerUsd.last;
+        if (tickerUsd.last != null && Number.isFinite(tickerUsd.last)) {
+          priceUsd = tickerUsd.last as number;
         }
       } catch {}
 
       if (priceUsd === null) {
         try {
           const tickerUsdt = await exchange.fetchTicker(`${asset}/USDT`);
-          if (Number.isFinite(tickerUsdt.last)) {
-            priceUsd = tickerUsdt.last;
+          if (tickerUsdt.last != null && Number.isFinite(tickerUsdt.last)) {
+            priceUsd = tickerUsdt.last as number;
           }
         } catch {}
       }

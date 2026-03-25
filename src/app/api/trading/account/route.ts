@@ -2,89 +2,96 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/api-auth';
 import { getPaperAccount, getPortfolioStats, pool } from '@/lib/database';
 
-// Cache Kraken balance for 30s to avoid nonce collisions from concurrent requests
-let krakenBalanceCache: { value: number | null; timestamp: number } | null = null;
+// Calculate Kraken portfolio value from active trades + public ticker (no private API needed)
+// This avoids nonce conflicts when multiple services share the same Kraken API key
+let krakenBalanceCache: { value: number; timestamp: number } | null = null;
 let krakenBalancePending: Promise<number | null> | null = null;
 const KRAKEN_CACHE_TTL_MS = 30_000;
 
-// Fetch Kraken total portfolio value using CCXT
-async function getKrakenBalance(): Promise<number | null> {
-  // Return cached value if fresh
+async function getKrakenBalance(userId: number): Promise<number | null> {
   if (krakenBalanceCache && Date.now() - krakenBalanceCache.timestamp < KRAKEN_CACHE_TTL_MS) {
     return krakenBalanceCache.value;
   }
-  // Deduplicate concurrent calls
   if (krakenBalancePending) return krakenBalancePending;
-
-  krakenBalancePending = _fetchKrakenBalance().finally(() => { krakenBalancePending = null; });
+  krakenBalancePending = _calcKrakenBalance(userId).finally(() => { krakenBalancePending = null; });
   return krakenBalancePending;
 }
 
-async function _fetchKrakenBalance(): Promise<number | null> {
+async function _calcKrakenBalance(userId: number): Promise<number | null> {
   try {
-    const { default: ccxt } = await import('ccxt');
-    const apiKey = process.env.KRAKEN_API_KEY || '';
-    const apiSecret = process.env.KRAKEN_API_SECRET || '';
-    
-    if (!apiKey || !apiSecret) {
-      console.log('Kraken API credentials not configured');
-      return null;
+    // Get all active trades on the trading board
+    const result = await pool.query(
+      `SELECT coin_pair, position_size, entry_price, direction FROM trades 
+       WHERE board_id = 15 AND column_name = 'Active' AND created_by = $1`,
+      [userId]
+    );
+    const trades = result.rows;
+    if (trades.length === 0) {
+      krakenBalanceCache = { value: 0, timestamp: Date.now() };
+      return 0;
     }
 
-    const exchange = new ccxt.kraken({
-      apiKey,
-      secret: apiSecret,
-      enableRateLimit: true,
+    // Fetch live prices from Kraken public API (no auth needed)
+    const https = await import('https');
+    const pairs = trades.map((t: { coin_pair: string }) => {
+      const normalized = t.coin_pair.replace('/', '');
+      return normalized;
     });
 
-    const balance = await exchange.fetchBalance();
-    const b = balance as unknown as {
-      total?: Record<string, number>;
-      free?: Record<string, number>;
-    };
+    const krakenPairParam = pairs.join(',');
+    const priceData = await new Promise<Record<string, number>>((resolve) => {
+      const url = `https://api.kraken.com/0/public/Ticker?pair=${krakenPairParam}`;
+      https.get(url, (res: import('http').IncomingMessage) => {
+        let data = '';
+        res.on('data', (chunk: string) => data += chunk);
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(data);
+            const prices: Record<string, number> = {};
+            if (json.result) {
+              for (const [pair, info] of Object.entries(json.result)) {
+                const ticker = info as { c?: string[] };
+                if (ticker.c?.[0]) {
+                  prices[pair] = parseFloat(ticker.c[0]);
+                }
+              }
+            }
+            resolve(prices);
+          } catch { resolve({}); }
+        });
+      }).on('error', () => resolve({}));
+    });
 
-    const totals = b.total || b.free || {};
-    const usd = totals.USD || totals.ZUSD || 0;
-    const usdt = totals.USDT || 0;
-    let totalBalance = usd + usdt;
-
-    const stablecoins = new Set(['USD', 'ZUSD', 'USDT']);
-
-    for (const [asset, qty] of Object.entries(totals)) {
-      if (!Number.isFinite(qty) || qty <= 0) continue;
-      if (stablecoins.has(asset)) continue;
-
-      let priceUsd: number | null = null;
-
-      try {
-        const tickerUsd = await exchange.fetchTicker(`${asset}/USD`);
-        if (tickerUsd.last != null && Number.isFinite(tickerUsd.last)) {
-          priceUsd = tickerUsd.last as number;
+    // Sum up portfolio value
+    let totalValue = 0;
+    for (const trade of trades) {
+      const posSize = parseFloat(trade.position_size) || 0;
+      const entryPrice = parseFloat(trade.entry_price) || 0;
+      if (posSize <= 0 || entryPrice <= 0) continue;
+      
+      const qty = posSize / entryPrice;
+      // Find matching price from Kraken response
+      const normalized = trade.coin_pair.replace('/', '');
+      let livePrice = 0;
+      for (const [pair, price] of Object.entries(priceData)) {
+        if (pair.includes(normalized.replace('USD', '')) && pair.includes('USD')) {
+          livePrice = price;
+          break;
         }
-      } catch {}
-
-      if (priceUsd === null) {
-        try {
-          const tickerUsdt = await exchange.fetchTicker(`${asset}/USDT`);
-          if (tickerUsdt.last != null && Number.isFinite(tickerUsdt.last)) {
-            priceUsd = tickerUsdt.last as number;
-          }
-        } catch {}
       }
-
-      if (priceUsd === null) continue;
-
-      const assetValue = qty * priceUsd;
-      if (assetValue < 0.01) continue;
-      totalBalance += assetValue;
+      if (livePrice > 0) {
+        totalValue += qty * livePrice;
+      } else {
+        // Fallback to position_size (entry value)
+        totalValue += posSize;
+      }
     }
 
-    console.log(`Kraken total portfolio balance: ${totalBalance}`);
-    krakenBalanceCache = { value: totalBalance, timestamp: Date.now() };
-    return totalBalance;
+    console.log(`Kraken portfolio value (from trades + public ticker): $${totalValue.toFixed(2)}`);
+    krakenBalanceCache = { value: totalValue, timestamp: Date.now() };
+    return totalValue;
   } catch (error) {
-    console.error('Failed to fetch Kraken balance:', error);
-    // On error, return stale cache if available (better than null)
+    console.error('Failed to calculate Kraken balance:', error);
     if (krakenBalanceCache) return krakenBalanceCache.value;
     return null;
   }
@@ -112,8 +119,8 @@ export async function GET(request: NextRequest) {
     const account = result.rows[0] || null;
     const stats = await getPortfolioStats(user.id);
     
-    // Fetch live Kraken balance
-    const krakenBalance = await getKrakenBalance();
+    // Calculate live Kraken portfolio value from active trades + public ticker
+    const krakenBalance = await getKrakenBalance(user.id);
 
     return NextResponse.json({ account, stats, kraken_balance: krakenBalance });
   } catch (error) {

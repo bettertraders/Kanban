@@ -22,14 +22,49 @@ async function getKrakenBalance(): Promise<number | null> {
 
     const balance = await exchange.fetchBalance();
     console.log('Kraken balance response:', JSON.stringify(balance, null, 2));
-    
-    // Try multiple ways to get USD balance (Kraken uses ZUSD, CCXT normalizes to USD)
-    // Access via index to avoid TypeScript strict type issues
-    const b = balance as unknown as Record<string, Record<string, number>>;
-    const usd = b.total?.USD || b.free?.USD || b.total?.ZUSD || b.free?.ZUSD || 0;
-    const usdt = b.total?.USDT || b.free?.USDT || 0;
-    const totalBalance = usd + usdt;
-    console.log(`Kraken balance: USD=${usd}, USDT=${usdt}, Total=${totalBalance}`);
+
+    const b = balance as unknown as {
+      total?: Record<string, number>;
+      free?: Record<string, number>;
+    };
+
+    const totals = b.total || b.free || {};
+    const usd = totals.USD || totals.ZUSD || 0;
+    const usdt = totals.USDT || 0;
+    let totalBalance = usd + usdt;
+
+    const stablecoins = new Set(['USD', 'ZUSD', 'USDT']);
+
+    for (const [asset, qty] of Object.entries(totals)) {
+      if (!Number.isFinite(qty) || qty <= 0) continue;
+      if (stablecoins.has(asset)) continue;
+
+      let priceUsd: number | null = null;
+
+      try {
+        const tickerUsd = await exchange.fetchTicker(`${asset}/USD`);
+        if (Number.isFinite(tickerUsd.last)) {
+          priceUsd = tickerUsd.last;
+        }
+      } catch {}
+
+      if (priceUsd === null) {
+        try {
+          const tickerUsdt = await exchange.fetchTicker(`${asset}/USDT`);
+          if (Number.isFinite(tickerUsdt.last)) {
+            priceUsd = tickerUsdt.last;
+          }
+        } catch {}
+      }
+
+      if (priceUsd === null) continue;
+
+      const assetValue = qty * priceUsd;
+      if (assetValue < 0.01) continue;
+      totalBalance += assetValue;
+    }
+
+    console.log(`Kraken total portfolio balance: ${totalBalance}`);
     return totalBalance;
   } catch (error) {
     console.error('Failed to fetch Kraken balance:', error);

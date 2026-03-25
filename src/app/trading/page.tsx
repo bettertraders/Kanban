@@ -723,9 +723,9 @@ export default function TradingDashboardPage() {
     return () => window.removeEventListener('clawdesk-dashboard-home', handler);
   }, [toggleDashboardMode]);
 
-  // SINGLE SOURCE OF TRUTH: DB is the authority for balance during trading
+  // SINGLE SOURCE OF TRUTH: Kraken balance (via public ticker) is the authority during trading
   // Pre-start (setup): tradingAmount is just a UI selection, displayed directly
-  // Post-start (trading): everything reads from DB. tradingAmount is irrelevant.
+  // Post-start (trading): krakenBalance from live ticker is the real portfolio value
   const isSetupPhase = !timeframeStartDate;
   const dbStartingBalance = Number(portfolio?.summary?.starting_balance ?? 0);
   const dbCashBalance = Number(portfolio?.summary?.live_balance ?? 0);
@@ -766,11 +766,12 @@ export default function TradingDashboardPage() {
   const unrealized = livePnl ?? serverUnrealized;
   const dailyPnl = unrealized;
   
-  // THE SINGLE BALANCE: simple formula based on phase
-  // Setup: show user's selection. Trading: use API live_balance (correct for both paper and live trading)
+  // THE SINGLE BALANCE: Kraken is the source of truth
+  // Setup: show user's selection. Trading: use krakenBalance (live portfolio value from public ticker)
   const liveBalance = Number(portfolio?.summary?.live_balance ?? 0);
   const displayBalance = isSetupPhase 
     ? (tradingAmount ?? 0)
+    : (krakenBalance != null && krakenBalance > 0) ? krakenBalance 
     : (liveBalance > 0 ? liveBalance : dbCashBalance + deployed + unrealized);
   
   // Starting balance for P&L calculation

@@ -3174,16 +3174,27 @@ function DashboardStatusBar({ liveUnrealizedPnl }: { liveUnrealizedPnl?: number 
           const starting = compoundingBase ? parseFloat(compoundingBase) : parseFloat(data.account.starting_balance);
           if (!isNaN(starting)) setStartBal(starting);
           if (data.account.created_at) setAccountCreatedAt(data.account.created_at);
+          // Use kraken_balance as source of truth if available
+          const kb = data.kraken_balance;
+          if (kb != null && kb > 0) {
+            setBalance(kb);
+            setPnl(kb - starting);
+          }
           fetch(`/api/v1/portfolio`)
             .then(r => r.json())
             .then(portfolio => {
-              const cash = Number(portfolio?.summary?.live_balance ?? starting);
-              const deployed = Number(portfolio?.summary?.total_portfolio_value ?? 0);
-              const unrealized = Number(portfolio?.summary?.total_unrealized_pnl ?? 0);
-              const liveBalance = cash + deployed + unrealized;
-              setPnl(liveBalance - starting);
-              setBalance(liveBalance);
-              setPortfolioUnrealized(unrealized);
+              if (kb != null && kb > 0) {
+                // Kraken balance already set — just grab unrealized for display
+                setPortfolioUnrealized(Number(portfolio?.summary?.total_unrealized_pnl ?? 0));
+              } else {
+                const cash = Number(portfolio?.summary?.live_balance ?? 0);
+                const deployed = Number(portfolio?.summary?.total_portfolio_value ?? 0);
+                const unrealized = Number(portfolio?.summary?.total_unrealized_pnl ?? 0);
+                const liveBalance = cash > 0 ? cash + deployed + unrealized : deployed + unrealized;
+                setPnl(liveBalance - starting);
+                setBalance(liveBalance);
+                setPortfolioUnrealized(unrealized);
+              }
             })
             .catch(() => {});
         }

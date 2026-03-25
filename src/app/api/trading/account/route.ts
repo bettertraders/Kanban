@@ -2,8 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/api-auth';
 import { getPaperAccount, getPortfolioStats, pool } from '@/lib/database';
 
-// Fetch Kraken USD balance using CCXT (same as bill.js)
+// Cache Kraken balance for 30s to avoid nonce collisions from concurrent requests
+let krakenBalanceCache: { value: number | null; timestamp: number } | null = null;
+let krakenBalancePending: Promise<number | null> | null = null;
+const KRAKEN_CACHE_TTL_MS = 30_000;
+
+// Fetch Kraken total portfolio value using CCXT
 async function getKrakenBalance(): Promise<number | null> {
+  // Return cached value if fresh
+  if (krakenBalanceCache && Date.now() - krakenBalanceCache.timestamp < KRAKEN_CACHE_TTL_MS) {
+    return krakenBalanceCache.value;
+  }
+  // Deduplicate concurrent calls
+  if (krakenBalancePending) return krakenBalancePending;
+
+  krakenBalancePending = _fetchKrakenBalance().finally(() => { krakenBalancePending = null; });
+  return krakenBalancePending;
+}
+
+async function _fetchKrakenBalance(): Promise<number | null> {
   try {
     const { default: ccxt } = await import('ccxt');
     const apiKey = process.env.KRAKEN_API_KEY || '';
@@ -21,8 +38,6 @@ async function getKrakenBalance(): Promise<number | null> {
     });
 
     const balance = await exchange.fetchBalance();
-    console.log('Kraken balance response:', JSON.stringify(balance, null, 2));
-
     const b = balance as unknown as {
       total?: Record<string, number>;
       free?: Record<string, number>;
@@ -65,9 +80,12 @@ async function getKrakenBalance(): Promise<number | null> {
     }
 
     console.log(`Kraken total portfolio balance: ${totalBalance}`);
+    krakenBalanceCache = { value: totalBalance, timestamp: Date.now() };
     return totalBalance;
   } catch (error) {
     console.error('Failed to fetch Kraken balance:', error);
+    // On error, return stale cache if available (better than null)
+    if (krakenBalanceCache) return krakenBalanceCache.value;
     return null;
   }
 }
